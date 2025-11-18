@@ -1,3 +1,74 @@
-"<a href='https://voabstdev.crm11.dynamics.com/main.aspx?appid=cdb5343c-51c1-ec11-9836-002248438fff&newwindow=true&pagetype=entityrecord&etn=voa_ssu&id=" 
-    & varSSUId & 
-    "' target='_blank' style='color:#1a73e8; text-decoration:none; font-weight:600;'>Open SSU Record</a>"
+Here’s a clean, concise, **professional** email you can send to the PO explaining the creation of 3 SRS roles and how SVT will resolve personas when multiple roles are assigned.
+
+---
+
+# 📧 **Email to PO – SVT SRS Roles & Persona Resolution Approach**
+
+**Subject:** SVT – Proposed SRS Roles & Multi-Role Persona Resolution
+
+Hi <PO Name>,
+
+As part of the SVT role-based access design, we would like to confirm the security model we plan to implement across Azure AD (SRS), Dynamics security roles, and the SVT UI.
+
+### **1. Creation of 3 Dedicated SRS Roles**
+
+To support the four personas in SVT (Manager, Caseworker, QC and Non-SVT Users), we will create **three dedicated SRS roles**, each mapped to a corresponding Dynamics security role:
+
+| SRS Group                  | Dynamics Role       | SVT Persona |
+| -------------------------- | ------------------- | ----------- |
+| **SRS_VOA_SVT_Manager**    | SVT Manager         | Manager     |
+| **SRS_VOA_SVT_Caseworker** | SVT Caseworker      | Caseworker  |
+| **SRS_VOA_SVT_QC**         | SVT Quality Control | QC Reviewer |
+
+Any user who does not belong to any of these groups will automatically be treated as a **Non-SVT User** and will only see the read-only search screen.
+
+---
+
+### **2. Persona Resolution (Supports Multiple Roles per User)**
+
+SVT will support scenarios where a user has **one, two, or all three roles assigned**.
+Since multiple roles may be granted for operational reasons, the system will resolve the user’s “active persona” using a clear priority order:
+
+**Persona Priority:**
+
+1. **Manager**
+2. **QC**
+3. **Caseworker**
+4. **Non-SVT User**
+
+**Examples:**
+
+* If a user has both **Manager + QC**, they will operate as **Manager**.
+* If they have **QC + Caseworker**, they will operate as **QC**.
+* If they only have **Caseworker**, they will operate as **Caseworker**.
+* If they have none, the user will fall under **Non-SVT User**.
+
+This approach ensures:
+
+* Consistent access behaviour
+* No accidental elevation or restriction
+* Flexibility for future team structures
+* Cleaner audit trails, as the active persona is unambiguous
+
+---
+
+### **3. Impact on the SVT UI & Backend**
+
+* The SVT custom page will show tiles and screens based on the resolved persona.
+* All backend APIs/custom actions will enforce the same persona permissions.
+* Users with multiple roles will still have only *one* effective persona during each session.
+
+---
+
+Please let us know if you are happy for us to proceed with creating the three SRS roles and implementing the above persona-resolution mechanism.
+
+Thanks,
+**[Your Name]**
+SVT / Welsh Reval – Solution Design
+
+---
+
+If you want a shorter or more formal version, I can refine it.
+
+
+
