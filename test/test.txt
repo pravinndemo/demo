@@ -1,74 +1,173 @@
-Here’s a clean, concise, **professional** email you can send to the PO explaining the creation of 3 SRS roles and how SVT will resolve personas when multiple roles are assigned.
+---
+
+# 📘 **Sitemap Visibility Control – Using SVT Config Table / Reference Table / Feature Flag Table**
+
+### *(Modern App Designer – Replacement for “Visible to Roles”)*
+
+## **1. Background**
+
+In the new **Modern App Designer**, Microsoft has removed the classic **“Visible to Roles”** option.
+Subarea visibility can no longer be controlled directly by assigning security roles.
+
+Instead, Microsoft now requires visibility to be controlled using:
+
+* **Table Privileges (Recommended)**
+* **Miscellaneous Privileges** (rarely used)
+
+For the Welsh Revaluation tools (SVT, SBL, Batch Management, DLM screens), we must use a consistent, supportable pattern to conditionally hide or show **Custom Pages** and **subareas**.
 
 ---
 
-# 📧 **Email to PO – SVT SRS Roles & Persona Resolution Approach**
+# 🎯 **2. Design Decision**
 
-**Subject:** SVT – Proposed SRS Roles & Multi-Role Persona Resolution
+We will use **Dataverse table-based privilege visibility** to control sitemap access.
+This will allow us to hide specific subareas (e.g., *SVT View*, *SVT Dashboard*, *Batch Review*, *Config Pages*) during:
 
-Hi <PO Name>,
+* POC phase
+* Internal testing
+* Feature rollout
+* Temporary disabling (e.g., hotfix / maintenance)
 
-As part of the SVT role-based access design, we would like to confirm the security model we plan to implement across Azure AD (SRS), Dynamics security roles, and the SVT UI.
+We will implement visibility using **one of the following tables:**
 
-### **1. Creation of 3 Dedicated SRS Roles**
+### **Option A – SVT Config Table** *(recommended if already present)*
 
-To support the four personas in SVT (Manager, Caseworker, QC and Non-SVT Users), we will create **three dedicated SRS roles**, each mapped to a corresponding Dynamics security role:
+Use an existing SVT configuration table that only specific roles (e.g., Dev, Test, SVT Admin) have permission for.
 
-| SRS Group                  | Dynamics Role       | SVT Persona |
-| -------------------------- | ------------------- | ----------- |
-| **SRS_VOA_SVT_Manager**    | SVT Manager         | Manager     |
-| **SRS_VOA_SVT_Caseworker** | SVT Caseworker      | Caseworker  |
-| **SRS_VOA_SVT_QC**         | SVT Quality Control | QC Reviewer |
+### **Option B – Reference Table (SVT Ref Table / Admin Table)**
 
-Any user who does not belong to any of these groups will automatically be treated as a **Non-SVT User** and will only see the read-only search screen.
+Use an existing reference table that is only accessible to SVT/DLM internal teams.
 
----
+### **Option C – Dedicated Feature Flag Table** *(recommended for long-term toggles)*
 
-### **2. Persona Resolution (Supports Multiple Roles per User)**
+Create a simple table: **svt_FeatureFlag**
+Fields:
 
-SVT will support scenarios where a user has **one, two, or all three roles assigned**.
-Since multiple roles may be granted for operational reasons, the system will resolve the user’s “active persona” using a clear priority order:
+* FlagName (Text)
+* IsEnabled (Yes/No)
+* Description (Text)
 
-**Persona Priority:**
-
-1. **Manager**
-2. **QC**
-3. **Caseworker**
-4. **Non-SVT User**
-
-**Examples:**
-
-* If a user has both **Manager + QC**, they will operate as **Manager**.
-* If they have **QC + Caseworker**, they will operate as **QC**.
-* If they only have **Caseworker**, they will operate as **Caseworker**.
-* If they have none, the user will fall under **Non-SVT User**.
-
-This approach ensures:
-
-* Consistent access behaviour
-* No accidental elevation or restriction
-* Flexibility for future team structures
-* Cleaner audit trails, as the active persona is unambiguous
+Assign **Read** privilege only to specific roles.
 
 ---
 
-### **3. Impact on the SVT UI & Backend**
+# 🛠 **3. How Sitemap Visibility Works**
 
-* The SVT custom page will show tiles and screens based on the resolved persona.
-* All backend APIs/custom actions will enforce the same persona permissions.
-* Users with multiple roles will still have only *one* effective persona during each session.
+A subarea can be configured to be visible **only if the user has a specific privilege** on a table.
+
+In the Modern App Designer:
+
+1. Select the **Subarea**
+2. Go to **Advanced Settings → Privileges → Add Table Privilege**
+3. Select:
+
+   * **SVT Config Table**, or
+   * **SVT Reference Table**, or
+   * **FeatureFlag table**
+4. Choose **Read** privilege
+5. Save + Publish
+
+### **Effect**
+
+* Only users who *have Read permission* for the selected table will see the subarea.
+* All other users will **not** see it in the sitemap.
+
+This effectively replaces “Visible to Roles”.
 
 ---
 
-Please let us know if you are happy for us to proceed with creating the three SRS roles and implementing the above persona-resolution mechanism.
+# 🔒 **4. Security Model**
 
-Thanks,
-**[Your Name]**
-SVT / Welsh Reval – Solution Design
+### **Roles That Should Have Access**
+
+* SVT Admin
+* SVT Caseworker (if required)
+* Test roles during development
+* DevOps/Technical teams (optional)
+
+### **Roles That Should NOT Have Access**
+
+* General end users
+* BAU Dynamics users not part of SVT rollout
+* Any role outside the SVT testing group during development
+
+Visibility is automatically determined by whether their role includes **Read** access to the selected table.
 
 ---
 
-If you want a shorter or more formal version, I can refine it.
+# ⚙️ **5. Example Implementation**
 
+### Scenario
 
+We want to hide **SVT Dashboard** and **SVT View** pages until testing is complete.
 
+### Steps
+
+1. Use the table: **svt_FeatureFlag**
+2. Give Read access only to:
+
+   * `SVT Admin`
+   * `SVT Dev/Test`
+3. In the sitemap:
+
+   * Edit **SVT Dashboard** subarea
+   * Add Table Privilege → Select **svt_FeatureFlag**
+   * Choose privilege: **Read**
+4. Publish the app.
+
+### Result
+
+* Only Admin, Dev, and Test users see these pages.
+* All others will not see the subarea.
+* When ready to release → simply add Read permission to additional security roles.
+
+---
+
+# 🚦 **6. Alternative Temporary Hide: Disable Subarea**
+
+If we want to hide the page from *everyone* during a POC:
+
+1. Open the Subarea
+2. Set **Enable = OFF**
+3. Publish
+
+This disables the node completely until re-enabled.
+
+---
+
+# 📌 **7. Why We Chose Table-Based Visibility**
+
+| Reason                                            | Benefit                                                           |
+| ------------------------------------------------- | ----------------------------------------------------------------- |
+| Modern App Designer removed role-based visibility | Table privileges are the only supported replacement               |
+| Works well with Dev → Test → Prod                 | We can control visibility via security roles                      |
+| Feature-flag ready                                | Adding/removing access to the table instantly controls visibility |
+| Keeps SVT screens hidden during early POC         | No accidental exposure to live users                              |
+| ALM friendly                                      | Solution export/import preserves privilege settings               |
+
+This method is used across multiple HMRC/VOA projects for secure phased rollouts.
+
+---
+
+# 📚 **8. Naming Convention (Recommended)**
+
+If creating a new Feature Flag table:
+
+| Column            | Purpose                                                   |
+| ----------------- | --------------------------------------------------------- |
+| `svt_name`        | Unique flag identifier (e.g., `ShowSVTDashboard`)         |
+| `svt_IsEnabled`   | Whether the feature is active                             |
+| `svt_Description` | Notes (e.g., “Visible only to SVT Admin until Release 1”) |
+
+Even though the `IsEnabled` field is not read by the sitemap, it documents the state and can be used for future UI logic.
+
+---
+
+# 🏁 **9. Summary**
+
+✔ Sitemap role visibility is no longer supported in Modern Designer
+✔ Must use **table privileges**
+✔ Use **SVT Config / Ref Table / FeatureFlag Table**
+✔ Grant **Read** access only to selected roles
+✔ Subarea hides automatically for all others
+✔ Fully supports SVT/SBL/DLM phased rollout
