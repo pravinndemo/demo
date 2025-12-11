@@ -1,173 +1,268 @@
----
-
-# 📘 **Sitemap Visibility Control – Using SVT Config Table / Reference Table / Feature Flag Table**
-
-### *(Modern App Designer – Replacement for “Visible to Roles”)*
-
-## **1. Background**
-
-In the new **Modern App Designer**, Microsoft has removed the classic **“Visible to Roles”** option.
-Subarea visibility can no longer be controlled directly by assigning security roles.
-
-Instead, Microsoft now requires visibility to be controlled using:
-
-* **Table Privileges (Recommended)**
-* **Miscellaneous Privileges** (rarely used)
-
-For the Welsh Revaluation tools (SVT, SBL, Batch Management, DLM screens), we must use a consistent, supportable pattern to conditionally hide or show **Custom Pages** and **subareas**.
 
 ---
 
-# 🎯 **2. Design Decision**
+## **Summary of the Discussion**
 
-We will use **Dataverse table-based privilege visibility** to control sitemap access.
-This will allow us to hide specific subareas (e.g., *SVT View*, *SVT Dashboard*, *Batch Review*, *Config Pages*) during:
+1. **Environment Constraints & Single Feasible Option**
 
-* POC phase
-* Internal testing
-* Feature rollout
-* Temporary disabling (e.g., hotfix / maintenance)
+   * Creating a **new DEV environment** as a full replica (Dynamics, Azure Functions, Postgres, integrations, etc.) would take **2–3 months**, per DevOps consultation with Scott/Kyle/Mark.
+   * Therefore, the **only viable short-term option** is to use the **Hotfix environment** for the Welsh PoC.
 
-We will implement visibility using **one of the following tables:**
+2. **Status of Hotfix Environment**
 
-### **Option A – SVT Config Table** *(recommended if already present)*
+   * Hotfix was originally planned for **decommissioning**; Helen is aware of the PoC, but **formal confirmation is required** to repurpose it.
+   * Hotfix needs to be updated to **latest PROD code (v1.7)** before use.
+   * Significant lead-time is expected (mid–late January) due to **Christmas period** and **resource constraints**.
 
-Use an existing SVT configuration table that only specific roles (e.g., Dev, Test, SVT Admin) have permission for.
+3. **DAL / Dynamics Integration Clarifications**
 
-### **Option B – Reference Table (SVT Ref Table / Admin Table)**
+   * DAL team already created a **Dev POC environment**, and it is functional.
+   * The proposal is to **point the Hotfix Dynamics environment to the DAL DevPOC APIs** (cross-environment integration).
+   * Architecturally this is not ideal ("crossing environments"), but **may be allowed for a PoC if approved by business/Helen**.
 
-Use an existing reference table that is only accessible to SVT/DLM internal teams.
+4. **Concerns Raised by DAL Team (Alan/Steve)**
 
-### **Option C – Dedicated Feature Flag Table** *(recommended for long-term toggles)*
+   * Unclear whether this PoC is **temporary** (until end of January) or a **long-term environment**; messaging has been inconsistent.
+   * Without clarity, teams are unsure whether to invest effort in updates and provisioning.
+   * Hotfix + DAL POC combination could technically work, but requires **business approval** due to non-standard architecture.
 
-Create a simple table: **svt_FeatureFlag**
-Fields:
+5. **Deployment Timeline Risks**
 
-* FlagName (Text)
-* IsEnabled (Yes/No)
-* Description (Text)
+   * Hotfix hasn’t been updated since **1.4**; updating now may cause issues because:
 
-Assign **Read** privilege only to specific roles.
+     * PPE deployment is scheduled next week.
+     * Limited resources after that.
+   * Realistically, Hotfix cannot be fully updated by end of this month.
+   * Bringing DAL into Hotfix alone pushes readiness to **mid/late January**.
 
----
+6. **Next Steps & Actions**
 
-# 🛠 **3. How Sitemap Visibility Works**
+   * A call with **Helen at 3:30 PM** will seek clarity and approval on:
 
-A subarea can be configured to be visible **only if the user has a specific privilege** on a table.
+     * Whether Hotfix can be repurposed for the Welsh PoC.
+     * Whether crossing Hotfix (Dynamics) with DevPOC (DAL) is acceptable.
+     * Confirmation on wave update expectations.
+   * Praveen will document:
 
-In the Modern App Designer:
-
-1. Select the **Subarea**
-2. Go to **Advanced Settings → Privileges → Add Table Privilege**
-3. Select:
-
-   * **SVT Config Table**, or
-   * **SVT Reference Table**, or
-   * **FeatureFlag table**
-4. Choose **Read** privilege
-5. Save + Publish
-
-### **Effect**
-
-* Only users who *have Read permission* for the selected table will see the subarea.
-* All other users will **not** see it in the sitemap.
-
-This effectively replaces “Visible to Roles”.
+     * What is needed on Dynamics + DAL integrations.
+     * The exact requirement for Hotfix → DAL DevPOC connectivity.
+   * Once approval is received, teams (Dynamics + DAL + DevOps) will prepare a **plan to bring Hotfix up to scratch** for the PoC.
 
 ---
 
-# 🔒 **4. Security Model**
+## **Overall Conclusion**
 
-### **Roles That Should Have Access**
-
-* SVT Admin
-* SVT Caseworker (if required)
-* Test roles during development
-* DevOps/Technical teams (optional)
-
-### **Roles That Should NOT Have Access**
-
-* General end users
-* BAU Dynamics users not part of SVT rollout
-* Any role outside the SVT testing group during development
-
-Visibility is automatically determined by whether their role includes **Read** access to the selected table.
+* **Only feasible option**: use **Hotfix** for PoC (due to long provisioning time for a new environment).
+* **Critical blocker**: need **Helen’s approval** to repurpose Hotfix and allow cross-environment integration with DAL DevPOC.
+* **Timeline risk**: even with approval, full readiness may not be possible before **mid/late January**.
+* The 3:30 PM call is essential to confirm business direction before teams proceed.
 
 ---
 
-# ⚙️ **5. Example Implementation**
 
-### Scenario
 
-We want to hide **SVT Dashboard** and **SVT View** pages until testing is complete.
-
-### Steps
-
-1. Use the table: **svt_FeatureFlag**
-2. Give Read access only to:
-
-   * `SVT Admin`
-   * `SVT Dev/Test`
-3. In the sitemap:
-
-   * Edit **SVT Dashboard** subarea
-   * Add Table Privilege → Select **svt_FeatureFlag**
-   * Choose privilege: **Read**
-4. Publish the app.
-
-### Result
-
-* Only Admin, Dev, and Test users see these pages.
-* All others will not see the subarea.
-* When ready to release → simply add Read permission to additional security roles.
 
 ---
 
-# 🚦 **6. Alternative Temporary Hide: Disable Subarea**
+# **How Dynamics Accesses DAL (Simple Explanation)**
 
-If we want to hide the page from *everyone* during a POC:
+Dynamics does **not** call the DAL API directly.
+It follows a secure, multi-step authentication flow using **Azure AD → APIM → DAL**.
 
-1. Open the Subarea
-2. Set **Enable = OFF**
-3. Publish
+### **1. Dynamics reads the authentication details from Secure Configuration**
 
-This disables the node completely until re-enabled.
+The plugin reads the following values from **Secure Configuration** (so nothing is hard-coded):
 
----
+* **ClientId** – the App Registration used by Dynamics
+* **ClientSecret** – stored securely
+* **TenantId** – Azure AD tenant
+* **Scope** – the API permission for APIM (e.g., `api://…/.default`)
+* **APIM Subscription Key** – APIM’s product/subscription authentication
+* **Address** – APIM endpoint URL
 
-# 📌 **7. Why We Chose Table-Based Visibility**
+These values are loaded at runtime:
 
-| Reason                                            | Benefit                                                           |
-| ------------------------------------------------- | ----------------------------------------------------------------- |
-| Modern App Designer removed role-based visibility | Table privileges are the only supported replacement               |
-| Works well with Dev → Test → Prod                 | We can control visibility via security roles                      |
-| Feature-flag ready                                | Adding/removing access to the table instantly controls visibility |
-| Keeps SVT screens hidden during early POC         | No accidental exposure to live users                              |
-| ALM friendly                                      | Solution export/import preserves privilege settings               |
+```csharp
+APIRequestConfiguration APIRequestConfiguration = new APIRequestConfiguration
+{
+    Address = (string)getSecretsResponse.Results["Address"],
+    ClientId = (string)getSecretsResponse.Results["ClientId"],
+    ClientSecret = (string)getSecretsResponse.Results["ClientSecret"],
+    TenantId = (string)getSecretsResponse.Results["TenantId"],
+    Scope = (string)getSecretsResponse.Results["Scope"],
+    APIMSubscriptionKey = (string)getSecretsResponse.Results["APIMSubscriptionKey"]
+};
+```
 
-This method is used across multiple HMRC/VOA projects for secure phased rollouts.
-
----
-
-# 📚 **8. Naming Convention (Recommended)**
-
-If creating a new Feature Flag table:
-
-| Column            | Purpose                                                   |
-| ----------------- | --------------------------------------------------------- |
-| `svt_name`        | Unique flag identifier (e.g., `ShowSVTDashboard`)         |
-| `svt_IsEnabled`   | Whether the feature is active                             |
-| `svt_Description` | Notes (e.g., “Visible only to SVT Admin until Release 1”) |
-
-Even though the `IsEnabled` field is not read by the sitemap, it documents the state and can be used for future UI logic.
+So **Dynamics never hardcodes secrets** — all authentication parameters come from secure configuration.
 
 ---
 
-# 🏁 **9. Summary**
+# **2. Dynamics generates a Bearer token using OAuth 2.0 (Client Credentials Flow)**
 
-✔ Sitemap role visibility is no longer supported in Modern Designer
-✔ Must use **table privileges**
-✔ Use **SVT Config / Ref Table / FeatureFlag Table**
-✔ Grant **Read** access only to selected roles
-✔ Subarea hides automatically for all others
-✔ Fully supports SVT/SBL/DLM phased rollout
+Dynamics calls Azure AD:
+
+```
+POST https://login.microsoftonline.com/{TenantId}/oauth2/v2.0/token
+grant_type=client_credentials  
+client_id=...
+client_secret=...
+scope=...
+```
+
+Azure AD returns:
+
+* **Access Token (JWT)** – signed token that APIM will validate
+* **Expiry** – usually 1 hour
+
+This is what your plugin code does in `GenerateAuthentication()`.
+
+---
+
+# **3. Dynamics calls APIM using:**
+
+* **Bearer Token** (from Azure AD)
+* **APIM Subscription Key**
+* **Endpoint Address** (APIM URL)
+
+```
+Authorization: Bearer {AAD Access Token}
+Ocp-Apim-Subscription-Key: {Subscription Key}
+```
+
+This is step **3** in the sequence diagram.
+
+---
+
+# **4. APIM validates the token**
+
+APIM checks:
+
+* **appid** – matches Dynamics App Registration
+* **audience (aud)** – matches the API appId
+* **roles / scopes** – correct permissions
+
+If valid → APIM forwards the request.
+
+If not → APIM rejects with **401/403**.
+
+---
+
+# **5. APIM uses Managed Identity to call DAL**
+
+APIM does **not** forward Dynamics’ token.
+
+Instead:
+
+* APIM authenticates to DAL using **its Managed Identity**.
+* DAL trusts APIM’s MI, not Dynamics directly.
+
+(Your step 5 in diagram.)
+
+---
+
+# **6. DAL returns the response → APIM → Dynamics**
+
+APIM receives DAL response
+→ returns it back to Dynamics as step **7**.
+
+---
+
+# **High-Level Summary (One Line)**
+
+**Dynamics authenticates to APIM using Azure AD + Subscription Key, and APIM then calls DAL using its Managed Identity. All credentials (client Id, secret, tenant, scope, subscription key) are stored securely in Dynamics Secure Configuration.**
+
+---
+
+
+
+---
+
+# ✅ **Is APIM restricting based on Dynamics environment?**
+
+**No. APIM does NOT restrict requests based on the Dynamics environment.**
+
+APIM restricts ONLY based on:
+
+1. **The ClientId (appid) in the JWT**
+2. **The Audience (aud) the token is issued for**
+3. **The roles/scopes inside the token**
+4. **The APIM subscription key used**
+
+Nothing in APIM checks:
+
+❌ The URL of your Dynamics environment
+❌ Whether the call came from DEV, POC, Hotfix, or PROD
+❌ Any Dynamics-specific metadata
+
+APIM only cares about the **token + subscription key**, not which Dynamics instance generated it.
+
+---
+
+# ✅ **So if we use the same plugin configuration in another Dynamics environment (POC)… will it work?**
+
+**Yes — it will work exactly the same**, as long as:
+
+### 🔹 The plugin is configured with the same:
+
+* **ClientId**
+* **ClientSecret**
+* **TenantId**
+* **Scope**
+* **APIM Subscription Key**
+* **APIM URL**
+
+Then Dynamics → Azure AD → APIM authentication remains **unchanged**.
+
+Nothing in APIM or Azure AD knows or cares which Dynamics environment the plugin is running in.
+
+---
+
+# ⚠️ When could it fail?
+
+Only in these cases:
+
+### ❌ If the POC Dynamics uses a **different clientId/secret**
+
+→ Token will not match APIM expected `appid`
+
+### ❌ If the POC Dynamics uses a **different scope**
+
+→ Token `aud` won’t match APIM’s configured audience
+
+### ❌ If APIM subscription key is not included
+
+→ APIM will reject the request regardless of environment
+
+But **if you use the SAME secure values**, everything works without modification.
+
+---
+
+# 🔐 **Why this works**
+
+The authentication flow depends entirely on:
+
+### ✔ App Registration (ClientId / Secret)
+
+### ✔ Token claims
+
+### ✔ APIM subscription key
+
+**None of these are environment-dependent.**
+
+Two completely different Dynamics environments
+→ using the same plugin configuration
+→ will generate the *same type* of JWT
+→ which APIM will accept.
+
+---
+
+# ✅ **One-line, direct answer for your meeting**
+
+**“APIM does not validate the Dynamics environment. It only validates the Azure AD token and the subscription key. So if our plugin carries the same ClientId, Secret, Scope, and APIM key, the POC environment will work exactly the same as DEV.”**
+
+---
+
+
+
+
