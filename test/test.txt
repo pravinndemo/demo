@@ -1,268 +1,149 @@
+Below is a **cleaned-up, consistent rewrite** of the 7 tasks, keeping them **as-is**, but polishing language, tightening acceptance criteria, and making them **Jira / Confluence ready**.
+I’ve **not added new scope**—only clarified and standardised wording.
 
 ---
 
-## **Summary of the Discussion**
+## 1) Create SRS Security Role for SVT Manager
 
-1. **Environment Constraints & Single Feasible Option**
+**Title:** Create SVT Manager SRS Security Role (Dataverse)
 
-   * Creating a **new DEV environment** as a full replica (Dynamics, Azure Functions, Postgres, integrations, etc.) would take **2–3 months**, per DevOps consultation with Scott/Kyle/Mark.
-   * Therefore, the **only viable short-term option** is to use the **Hotfix environment** for the Welsh PoC.
+**Description:**
+Create a new Dataverse security role for the **SVT Manager** persona following the SRS model and least-privilege principle.
+The role must provide access to:
 
-2. **Status of Hotfix Environment**
+* SVT custom pages (navigation entry)
+* Relevant SVT tables required for Manager activities
 
-   * Hotfix was originally planned for **decommissioning**; Helen is aware of the PoC, but **formal confirmation is required** to repurpose it.
-   * Hotfix needs to be updated to **latest PROD code (v1.7)** before use.
-   * Significant lead-time is expected (mid–late January) due to **Christmas period** and **resource constraints**.
+**Acceptance Criteria:**
 
-3. **DAL / Dynamics Integration Clarifications**
-
-   * DAL team already created a **Dev POC environment**, and it is functional.
-   * The proposal is to **point the Hotfix Dynamics environment to the DAL DevPOC APIs** (cross-environment integration).
-   * Architecturally this is not ideal ("crossing environments"), but **may be allowed for a PoC if approved by business/Helen**.
-
-4. **Concerns Raised by DAL Team (Alan/Steve)**
-
-   * Unclear whether this PoC is **temporary** (until end of January) or a **long-term environment**; messaging has been inconsistent.
-   * Without clarity, teams are unsure whether to invest effort in updates and provisioning.
-   * Hotfix + DAL POC combination could technically work, but requires **business approval** due to non-standard architecture.
-
-5. **Deployment Timeline Risks**
-
-   * Hotfix hasn’t been updated since **1.4**; updating now may cause issues because:
-
-     * PPE deployment is scheduled next week.
-     * Limited resources after that.
-   * Realistically, Hotfix cannot be fully updated by end of this month.
-   * Bringing DAL into Hotfix alone pushes readiness to **mid/late January**.
-
-6. **Next Steps & Actions**
-
-   * A call with **Helen at 3:30 PM** will seek clarity and approval on:
-
-     * Whether Hotfix can be repurposed for the Welsh PoC.
-     * Whether crossing Hotfix (Dynamics) with DevPOC (DAL) is acceptable.
-     * Confirmation on wave update expectations.
-   * Praveen will document:
-
-     * What is needed on Dynamics + DAL integrations.
-     * The exact requirement for Hotfix → DAL DevPOC connectivity.
-   * Once approval is received, teams (Dynamics + DAL + DevOps) will prepare a **plan to bring Hotfix up to scratch** for the PoC.
+* SVT Manager security role exists in the target environment(s).
+* A user assigned **only** this role can successfully access the SVT Manager landing page.
+* Role does not grant unintended access outside SVT scope.
 
 ---
 
-## **Overall Conclusion**
+## 2) Create Azure AD Security Group for Manager (SRS)
 
-* **Only feasible option**: use **Hotfix** for PoC (due to long provisioning time for a new environment).
-* **Critical blocker**: need **Helen’s approval** to repurpose Hotfix and allow cross-environment integration with DAL DevPOC.
-* **Timeline risk**: even with approval, full readiness may not be possible before **mid/late January**.
-* The 3:30 PM call is essential to confirm business direction before teams proceed.
+**Title:** Create Azure AD SRS Group for SVT Manager persona
 
----
+**Description:**
+Create an Azure AD security group for **VOA SVT Manager**, aligned with the SRS approach.
+This group will act as the **single source of truth** for Manager role membership.
 
+**Acceptance Criteria:**
 
-
-
----
-
-# **How Dynamics Accesses DAL (Simple Explanation)**
-
-Dynamics does **not** call the DAL API directly.
-It follows a secure, multi-step authentication flow using **Azure AD → APIM → DAL**.
-
-### **1. Dynamics reads the authentication details from Secure Configuration**
-
-The plugin reads the following values from **Secure Configuration** (so nothing is hard-coded):
-
-* **ClientId** – the App Registration used by Dynamics
-* **ClientSecret** – stored securely
-* **TenantId** – Azure AD tenant
-* **Scope** – the API permission for APIM (e.g., `api://…/.default`)
-* **APIM Subscription Key** – APIM’s product/subscription authentication
-* **Address** – APIM endpoint URL
-
-These values are loaded at runtime:
-
-```csharp
-APIRequestConfiguration APIRequestConfiguration = new APIRequestConfiguration
-{
-    Address = (string)getSecretsResponse.Results["Address"],
-    ClientId = (string)getSecretsResponse.Results["ClientId"],
-    ClientSecret = (string)getSecretsResponse.Results["ClientSecret"],
-    TenantId = (string)getSecretsResponse.Results["TenantId"],
-    Scope = (string)getSecretsResponse.Results["Scope"],
-    APIMSubscriptionKey = (string)getSecretsResponse.Results["APIMSubscriptionKey"]
-};
-```
-
-So **Dynamics never hardcodes secrets** — all authentication parameters come from secure configuration.
+* Azure AD security group is created using the agreed naming convention.
+* Group ownership is assigned in line with governance requirements.
+* Group is suitable for mapping to a Dataverse AAD group team.
 
 ---
 
-# **2. Dynamics generates a Bearer token using OAuth 2.0 (Client Credentials Flow)**
+## 3) Create Dataverse Team and map to AAD Group
 
-Dynamics calls Azure AD:
+**Title:** Create Dataverse AAD Group Team for SVT Manager and link Security Role
 
-```
-POST https://login.microsoftonline.com/{TenantId}/oauth2/v2.0/token
-grant_type=client_credentials  
-client_id=...
-client_secret=...
-scope=...
-```
+**Description:**
+Create a Dataverse **AAD Group Team** mapped to the SVT Manager Azure AD group.
+Assign the SVT Manager security role to the team (not to individual users).
 
-Azure AD returns:
+**Acceptance Criteria:**
 
-* **Access Token (JWT)** – signed token that APIM will validate
-* **Expiry** – usually 1 hour
-
-This is what your plugin code does in `GenerateAuthentication()`.
+* Dataverse team exists as an **AAD group team**.
+* SVT Manager security role is assigned to the team.
+* Users added to the Azure AD group automatically gain Dataverse access via team membership.
 
 ---
 
-# **3. Dynamics calls APIM using:**
+## 4) Resolve current user team membership in Custom Page
 
-* **Bearer Token** (from Azure AD)
-* **APIM Subscription Key**
-* **Endpoint Address** (APIM URL)
+**Title:** Custom Page: Resolve logged-in user’s Dataverse teams and persona flags
 
-```
-Authorization: Bearer {AAD Access Token}
-Ocp-Apim-Subscription-Key: {Subscription Key}
-```
+**Description:**
+In the Canvas Custom Page, implement logic to determine the logged-in user’s persona by resolving Dataverse team membership and setting persona flags, including:
 
-This is step **3** in the sequence diagram.
+* `isManager`
+* `isCaseworker`
+* `isQC`
+* `isNonSVT`
 
----
+**Implementation Notes:**
 
-# **4. APIM validates the token**
+* Use Dataverse connector to query **TeamMembership** (user → teams).
+* Cache results in a global variable on app start or page load.
+* Design logic to be extensible for future multi-role scenarios.
 
-APIM checks:
+**Acceptance Criteria:**
 
-* **appid** – matches Dynamics App Registration
-* **audience (aud)** – matches the API appId
-* **roles / scopes** – correct permissions
-
-If valid → APIM forwards the request.
-
-If not → APIM rejects with **401/403**.
+* App reliably identifies whether the user belongs to the SVT Manager team.
+* Role resolution completes within acceptable performance limits on first load.
+* Persona flags can be reused across screens for conditional rendering and navigation.
 
 ---
 
-# **5. APIM uses Managed Identity to call DAL**
+## 5) Render Manager landing tiles based on role flags
 
-APIM does **not** forward Dynamics’ token.
+**Title:** Custom Page: Display Manager landing tiles based on Manager role
 
-Instead:
+**Description:**
+Update the landing screen so that when `isManager = true`, the following tiles are displayed:
 
-* APIM authenticates to DAL using **its Managed Identity**.
-* DAL trusts APIM’s MI, not Dynamics directly.
+* Sales Record Search
+* Manager Assignment
+* QC Assignment
+* QC View
+* Caseworker View
 
-(Your step 5 in diagram.)
+Each tile must navigate to the appropriate screen or page.
 
----
+**Acceptance Criteria:**
 
-# **6. DAL returns the response → APIM → Dynamics**
-
-APIM receives DAL response
-→ returns it back to Dynamics as step **7**.
-
----
-
-# **High-Level Summary (One Line)**
-
-**Dynamics authenticates to APIM using Azure AD + Subscription Key, and APIM then calls DAL using its Managed Identity. All credentials (client Id, secret, tenant, scope, subscription key) are stored securely in Dynamics Secure Configuration.**
+* Manager users see all Manager landing tiles and can access each function.
+* Non-Manager users do not see Manager-specific tiles.
+* Navigation from each tile routes correctly.
 
 ---
 
+## 6) Solution & ALM packaging
 
+**Title:** Package changes into solution and align ALM activities
 
----
+**Description:**
+Add all relevant changes to the solution and coordinate with the DevOps team for team creation and deployment activities.
 
-# ✅ **Is APIM restricting based on Dynamics environment?**
+The solution must include:
 
-**No. APIM does NOT restrict requests based on the Dynamics environment.**
+* SVT Manager security role
+* Custom page updates and navigation logic
+* Any required environment variables or configuration (if applicable)
 
-APIM restricts ONLY based on:
+**Acceptance Criteria:**
 
-1. **The ClientId (appid) in the JWT**
-2. **The Audience (aud) the token is issued for**
-3. **The roles/scopes inside the token**
-4. **The APIM subscription key used**
-
-Nothing in APIM checks:
-
-❌ The URL of your Dynamics environment
-❌ Whether the call came from DEV, POC, Hotfix, or PROD
-❌ Any Dynamics-specific metadata
-
-APIM only cares about the **token + subscription key**, not which Dynamics instance generated it.
+* Solution contains all role and UI changes.
+* Solution imports successfully into target environment(s).
+* Deployment approach is aligned with DevOps and ALM practices.
 
 ---
 
-# ✅ **So if we use the same plugin configuration in another Dynamics environment (POC)… will it work?**
+## 7) Document the changes
 
-**Yes — it will work exactly the same**, as long as:
+**Title:** Document SVT Manager role and landing page changes
 
-### 🔹 The plugin is configured with the same:
+**Description:**
+Update the relevant Confluence page to document:
 
-* **ClientId**
-* **ClientSecret**
-* **TenantId**
-* **Scope**
-* **APIM Subscription Key**
-* **APIM URL**
+* SVT Manager role and access model
+* Azure AD group and Dataverse team mapping
+* Manager landing page behaviour and role-based visibility logic
 
-Then Dynamics → Azure AD → APIM authentication remains **unchanged**.
+**Acceptance Criteria:**
 
-Nothing in APIM or Azure AD knows or cares which Dynamics environment the plugin is running in.
-
----
-
-# ⚠️ When could it fail?
-
-Only in these cases:
-
-### ❌ If the POC Dynamics uses a **different clientId/secret**
-
-→ Token will not match APIM expected `appid`
-
-### ❌ If the POC Dynamics uses a **different scope**
-
-→ Token `aud` won’t match APIM’s configured audience
-
-### ❌ If APIM subscription key is not included
-
-→ APIM will reject the request regardless of environment
-
-But **if you use the SAME secure values**, everything works without modification.
+* Confluence documentation is updated and accurate.
+* Changes are clear to both technical and non-technical stakeholders.
 
 ---
 
-# 🔐 **Why this works**
+If you want next:
 
-The authentication flow depends entirely on:
-
-### ✔ App Registration (ClientId / Secret)
-
-### ✔ Token claims
-
-### ✔ APIM subscription key
-
-**None of these are environment-dependent.**
-
-Two completely different Dynamics environments
-→ using the same plugin configuration
-→ will generate the *same type* of JWT
-→ which APIM will accept.
-
----
-
-# ✅ **One-line, direct answer for your meeting**
-
-**“APIM does not validate the Dynamics environment. It only validates the Azure AD token and the subscription key. So if our plugin carries the same ClientId, Secret, Scope, and APIM key, the POC environment will work exactly the same as DEV.”**
-
----
-
-
-
-
+* I can **map these tasks back to the original user story** with traceability, or
+* Convert this into a **single Jira Epic + task hierarchy**, or
+* Reduce this further into a **one-slide delivery summary** for stakeholders.
