@@ -1,2 +1,0 @@
-export { SampleSearch } from './SampleSearch';
-
