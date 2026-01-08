@@ -1,0 +1,2 @@
+C:\learning\pcf\SVTList\solution\obj\Debug\solution.cdsproj.AssemblyReference.cache
+C:\learning\pcf\SVTList\solution\obj\Debug\solution.cdsproj.CoreCompileInputs.cache

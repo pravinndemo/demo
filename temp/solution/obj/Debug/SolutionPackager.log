@@ -1,0 +1,20 @@
+2025-12-06 19:21:42.507 - Info	
+Packing C:\learning\pcf\SVTList\solution\obj\Debug\Metadata to bin\Debug\solution.zip
+
+2025-12-06 19:21:42.524 - Info	Processing Component: Entities
+2025-12-06 19:21:42.524 - Info	Processing Component: Roles
+2025-12-06 19:21:42.530 - Info	Processing Component: Workflows
+2025-12-06 19:21:42.530 - Info	Processing Component: FieldSecurityProfiles
+2025-12-06 19:21:42.532 - Info	Processing Component: Templates
+2025-12-06 19:21:42.532 - Info	Processing Component: EntityMaps
+2025-12-06 19:21:42.532 - Info	Processing Component: EntityRelationships
+2025-12-06 19:21:42.532 - Info	Processing Component: OrganizationSettings
+2025-12-06 19:21:42.532 - Info	Processing Component: optionsets
+2025-12-06 19:21:42.532 - Info	Processing Component: CustomControls
+2025-12-06 19:21:42.540 - Info	 - Voa.Controls.DetailsListVOA
+2025-12-06 19:21:42.548 - Info	Processing Component: SolutionPluginAssemblies
+2025-12-06 19:21:42.550 - Info	Processing Component: EntityDataProviders
+2025-12-06 19:21:42.559 - Info	Processing Sharded Component Files
+2025-12-06 19:21:42.659 - Info	
+Unmanaged Pack complete.
+
