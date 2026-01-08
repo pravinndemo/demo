@@ -1,2 +1,0 @@
-C:\learning\pcf\SVTList\obj\Debug\DetailsListVOA.pcfproj.AssemblyReference.cache
-C:\learning\pcf\SVTList\obj\Debug\DetailsListVOA.pcfproj.CoreCompileInputs.cache
