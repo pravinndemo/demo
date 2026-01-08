@@ -1,0 +1,2 @@
+export { SampleSearch } from './SampleSearch';
+
