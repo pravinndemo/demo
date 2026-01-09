@@ -5,7 +5,7 @@ import { SAMPLE_TASK_RESULTS } from '../data/TaskSearchSample';
 import { SAMPLE_RECORDS } from '../data/SampleData';
 import { IInputs } from '../generated/ManifestTypes';
 import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from './CustomApi';
-import { normalizeSearchResponse } from './DataService';
+import { normalizeSearchResponse, SalesApiResponse, unwrapCustomApiPayload } from './DataService';
 
 export interface ClientSortState {
   name: string;
@@ -106,9 +106,10 @@ export async function loadGridData(
       ...params,
       ...(headerFilterEntries.length > 0 ? { columnFilters: JSON.stringify(args.headerFilters) } : {}),
     };
-    const payload = await executeUnboundCustomApi<TaskSearchResponse>(context, customApiName, withFilters, {
+    const rawPayload = await executeUnboundCustomApi<TaskSearchResponse | SalesApiResponse>(context, customApiName, withFilters, {
       operationType: customApiType,
     });
+    const payload = unwrapCustomApiPayload(rawPayload);
     return normalizeSearchResponse(payload);
   };
 

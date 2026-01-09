@@ -45,7 +45,7 @@ interface SalesApiItem {
   source?: string;
 }
 
-interface SalesApiResponse {
+export interface SalesApiResponse {
   pageInfo?: SalesPageInfo;
   sales?: SalesApiItem[];
   filters?: Record<string, string | string[]>;
@@ -261,7 +261,7 @@ export const normalizeSearchResponse = (payload: TaskSearchResponse | SalesApiRe
   return payload as TaskSearchResponse;
 };
 
-const unwrapCustomApiPayload = (payload: unknown): SalesPayload => {
+export const unwrapCustomApiPayload = (payload: unknown): SalesPayload => {
   if (payload && typeof payload === 'object') {
     const record = payload as Record<string, unknown>;
     const raw = record.Result ?? record.result;
