@@ -149,6 +149,7 @@ export async function loadGridData(
     } catch {
       /* ignore logging failures */
     }
-    return { items: SAMPLE_RECORDS as unknown as TaskSearchItem[], totalCount: SAMPLE_RECORDS.length, serverDriven: false };
+    // Sample fallback disabled for now; return empty set on error.
+    return { items: [], totalCount: 0, serverDriven: false };
   }
 }

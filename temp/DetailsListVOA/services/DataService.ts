@@ -125,32 +125,127 @@ const mapSampleRecordToTaskSearchItem = (record: SampleRecord): TaskSearchItem =
   qcCompletedDate: sampleValueToOptionalString(record.qccompleteddate),
 });
 
-const normalizeSalesItem = (item: SalesApiItem): TaskSearchItem => ({
-  saleId: item.saleId,
-  taskId: item.taskId ?? '',
-  uprn: item.uprn ?? '',
-  taskStatus: item.taskStatus ?? '',
-  caseAssignedTo: Array.isArray(item.assignedTo) ? item.assignedTo.join(', ') : item.assignedTo ?? '',
-  address: item.address ?? '',
-  postcode: item.postcode ?? '',
-  transactionDate: item.transactionDate ?? '',
-  source: item.source ?? '',
-  billingAuthority: item.billingAuthority,
-  salesPrice: item.salesPrice,
-  ratio: item.ratio,
-  dwellingType: item.dwellingType,
-  flaggedForReview: item.flaggedForReview,
-  reviewFlags: item.reviewFlags,
-  outlierRatio: item.outlierRatio,
-  overallFlag: item.overallFlag,
-  summaryFlags: item.summaryFlags,
-  assignedTo: item.assignedTo,
-  assignedDate: item.assignedDate ?? undefined,
-  taskCompletedDate: item.taskCompletedDate ?? undefined,
-  qcAssignedTo: item.qcAssignedTo,
-  qcAssignedDate: item.qcAssignedDate ?? undefined,
-  qcCompletedDate: item.qcCompletedDate ?? undefined,
-});
+const normalizeKey = (key: string): string => key.replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+const buildNormalizedMap = (item: Record<string, unknown>): Record<string, unknown> => {
+  const map: Record<string, unknown> = {};
+  Object.keys(item).forEach((key) => {
+    const normalized = normalizeKey(key);
+    if (normalized) map[normalized] = item[key];
+  });
+  return map;
+};
+
+const getNormalizedValue = (
+  map: Record<string, unknown>,
+  key: string,
+  aliases: string[] = [],
+): unknown => {
+  const keys = [key, ...aliases];
+  for (const k of keys) {
+    const normalized = normalizeKey(k);
+    if (Object.prototype.hasOwnProperty.call(map, normalized)) {
+      return map[normalized];
+    }
+  }
+  return undefined;
+};
+
+const toText = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return undefined;
+};
+
+const toNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'number') return Number.isNaN(value) ? undefined : value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  return undefined;
+};
+
+const toBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['yes', 'true', 'y', '1'].includes(normalized)) return true;
+    if (['no', 'false', 'n', '0'].includes(normalized)) return false;
+  }
+  return undefined;
+};
+
+const toStringArray = (value: unknown): string[] | undefined => {
+  if (Array.isArray(value)) {
+    const out = value.map((entry) => toText(entry)).filter((entry): entry is string => !!entry && entry.length > 0);
+    return out.length > 0 ? out : undefined;
+  }
+  const text = toText(value);
+  return text ? [text] : undefined;
+};
+
+const toStringOrArray = (value: unknown): string | string[] | undefined => {
+  if (Array.isArray(value)) {
+    const out = value.map((entry) => toText(entry)).filter((entry): entry is string => !!entry && entry.length > 0);
+    return out.length > 0 ? out : undefined;
+  }
+  return toText(value);
+};
+
+const normalizeSalesItem = (item: SalesApiItem): TaskSearchItem => {
+  const map = buildNormalizedMap(item as Record<string, unknown>);
+  const assignedToValue = getNormalizedValue(map, 'assignedTo');
+  const assignedTo = toStringOrArray(assignedToValue);
+  const caseAssignedTo = Array.isArray(assignedTo)
+    ? assignedTo.join(', ')
+    : (typeof assignedTo === 'string' ? assignedTo : '');
+
+  return {
+    saleId: toText(getNormalizedValue(map, 'saleId')) ?? undefined,
+    taskId: toText(getNormalizedValue(map, 'taskId')) ?? '',
+    uprn: toText(getNormalizedValue(map, 'uprn')) ?? '',
+    taskStatus: toText(getNormalizedValue(map, 'taskStatus')) ?? '',
+    caseAssignedTo,
+    address: toText(getNormalizedValue(map, 'address')) ?? '',
+    postcode: toText(getNormalizedValue(map, 'postcode', ['postCode'])) ?? '',
+    transactionDate: toText(getNormalizedValue(map, 'transactionDate')) ?? '',
+    source: toText(getNormalizedValue(map, 'source')) ?? '',
+    billingAuthority: toText(getNormalizedValue(map, 'billingAuthority')),
+    salesPrice: toNumber(getNormalizedValue(map, 'salesPrice', ['salePrice'])),
+    ratio: toNumber(getNormalizedValue(map, 'ratio')),
+    dwellingType: toText(getNormalizedValue(map, 'dwellingType')),
+    flaggedForReview: toBoolean(getNormalizedValue(map, 'flaggedForReview')),
+    reviewFlags: toStringArray(getNormalizedValue(map, 'reviewFlags', ['reviewFlag'])),
+    outlierRatio: toNumber(getNormalizedValue(map, 'outlierRatio')),
+    overallFlag: toText(getNormalizedValue(map, 'overallFlag')),
+    summaryFlags: toStringArray(getNormalizedValue(map, 'summaryFlags', ['summaryFlag'])),
+    assignedTo,
+    assignedDate: toText(getNormalizedValue(map, 'assignedDate')) ?? undefined,
+    taskCompletedDate: toText(getNormalizedValue(map, 'taskCompletedDate', ['completedDate'])) ?? undefined,
+    qcAssignedTo: toStringOrArray(getNormalizedValue(map, 'qcAssignedTo')),
+    qcAssignedDate: toText(getNormalizedValue(map, 'qcAssignedDate')) ?? undefined,
+    qcCompletedDate: toText(getNormalizedValue(map, 'qcCompletedDate')) ?? undefined,
+  };
+};
+
+const FILTER_KEY_ALIASES: Record<string, string> = {
+  reviewflag: 'reviewflags',
+  summaryflag: 'summaryflags',
+  deellingtype: 'dwellingtype',
+};
+
+const normalizeFilterMap = (filters: Record<string, string | string[]>): Record<string, string | string[]> => {
+  const normalized: Record<string, string | string[]> = {};
+  Object.entries(filters).forEach(([key, value]) => {
+    const base = normalizeKey(key);
+    const alias = FILTER_KEY_ALIASES[base] ?? base;
+    if (alias) normalized[alias] = value;
+  });
+  return normalized;
+};
 
 export const normalizeSearchResponse = (payload: TaskSearchResponse | SalesApiResponse): TaskSearchResponse => {
   if ('sales' in payload || 'pageInfo' in payload) {
@@ -160,7 +255,7 @@ export const normalizeSearchResponse = (payload: TaskSearchResponse | SalesApiRe
       totalCount: payload.pageInfo?.totalRecords ?? sales.length,
       page: payload.pageInfo?.pageNumber ?? 1,
       pageSize: payload.pageInfo?.pageSize ?? sales.length,
-      filters: payload.filters,
+      filters: payload.filters ? normalizeFilterMap(payload.filters) : undefined,
     };
   }
   return payload as TaskSearchResponse;
@@ -223,10 +318,10 @@ export async function executeSearch(
     const payload = unwrapCustomApiPayload(rawPayload);
     return normalizeSearchResponse(payload);
   } catch {
-    const fallbackItems = SAMPLE_RECORDS.map(mapSampleRecordToTaskSearchItem);
+    // Sample fallback disabled for now; return empty set on error.
     return {
-      items: fallbackItems,
-      totalCount: fallbackItems.length,
+      items: [],
+      totalCount: 0,
       page,
       pageSize,
     };
