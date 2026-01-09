@@ -51,6 +51,8 @@ interface SalesApiResponse {
   filters?: Record<string, string | string[]>;
 }
 
+type SalesPayload = TaskSearchResponse | SalesApiResponse;
+
 const sampleValueToString = (value: SampleRecordValue): string => {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return value.toString();
@@ -164,6 +166,21 @@ export const normalizeSearchResponse = (payload: TaskSearchResponse | SalesApiRe
   return payload as TaskSearchResponse;
 };
 
+const unwrapCustomApiPayload = (payload: unknown): SalesPayload => {
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    const raw = record.Result ?? record.result;
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw) as SalesPayload;
+      } catch {
+        return payload as SalesPayload;
+      }
+    }
+  }
+  return payload as SalesPayload;
+};
+
 export async function executeSearch(
   context: ComponentFramework.Context<IInputs>,
   req: SearchRequest,
@@ -183,7 +200,12 @@ export async function executeSearch(
   }
 
   try {
-    const payload = await executeUnboundCustomApi<TaskSearchResponse | SalesApiResponse>(context, customApiName, apiParams);
+    const rawPayload = await executeUnboundCustomApi<TaskSearchResponse | SalesApiResponse>(
+      context,
+      customApiName,
+      apiParams,
+    );
+    const payload = unwrapCustomApiPayload(rawPayload);
     return normalizeSearchResponse(payload);
   } catch {
     const fallbackItems = SAMPLE_RECORDS.map(mapSampleRecordToTaskSearchItem);

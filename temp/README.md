@@ -219,3 +219,52 @@ Notes:
 - If calls to your API fail, verify CORS and that the manifest `<external-service-usage>` domain matches the actual host.
 - If using `customApiName`, ensure the Custom API exists, user has privileges, and it returns the expected payload shape.
 - If you see `powershell.ps1 : A parameter cannot be found that matches parameter name 'ExecutionPolicy'`, a local script named `powershell.ps1` is shadowing the executable. Use `powershell.exe`/`pwsh` explicitly or invoke the script from PowerShell with `& .\\scripts\\pcf-pack.ps1`, or run `.\\scripts\\pcf-pack.cmd` from cmd.
+
+Solution name for the PCF
+
+If you are packaging from the solution/ folder (created by pac solution init), the solution’s UniqueName/LocalizedName is solution in solution/src/Other/Solution.xml (that is the name Power Apps will show for that solution unless you change it).
+
+<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.1.0.643" SolutionPackageVersion="9.1" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SolutionManifest>
+    <!-- Unique Name of Cds Solution-->
+    <UniqueName>solution</UniqueName>
+    <LocalizedNames>
+      <!-- Localized Solution Name in language code -->
+      <LocalizedName description="solution" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions />
+    <Version>1.0</Version>
+    <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
+
+The PCF project itself also carries solution metadata under DetailsListVOA/src/Other/Solution.xml, where the UniqueName/LocalizedName is DetailsListVOA (publisher VOAWelshReform, prefix svt).
+
+    <?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.1.0.643" SolutionPackageVersion="9.1" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SolutionManifest>
+    <!-- Unique Name of Cds Solution-->
+    <UniqueName>DetailsListVOA</UniqueName>
+    <LocalizedNames>
+      <!-- Localized Solution Name in language code -->
+      <LocalizedName description="DetailsListVOA" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions />
+    <Version>1.0</Version>
+    <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
+    <Managed>2</Managed>
+    <Publisher>
+      <!-- Unique Publisher Name of Cds Solution -->
+      <UniqueName>VOAWelshReform</UniqueName>
+      <LocalizedNames>
+        <!-- Localized Cds Publisher Name in language code-->
+        <LocalizedName description="VOAWelshReform" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions>
+        <!-- Description of Cds Publisher in language code -->
+        <Description description="VOAWelshReform" languagecode="1033" />
+      </Descriptions>
+      <EMailAddress xsi:nil="true"></EMailAddress>
+      <SupportingWebsiteUrl xsi:nil="true"></SupportingWebsiteUrl>
+      <!-- Customization Prefix for the Cds Publisher-->
+      <CustomizationPrefix>svt</CustomizationPrefix>
+      <!-- Derived Option Value Prefix for the Customization Prefix of Cds Publisher -->
