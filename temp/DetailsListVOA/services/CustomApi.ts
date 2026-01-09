@@ -24,9 +24,25 @@ const getWebApiExecutor = (context: ComponentFramework.Context<IInputs>): WebApi
   return {};
 };
 
+export const normalizeCustomApiName = (value?: string): string => {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.replace(/\s+/g, '_').replace(/_+/g, '_');
+};
+
+export type CustomApiOperationType = 'function' | 'action';
+
+export const resolveCustomApiOperationType = (value?: string): number => {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === 'action') return 0;
+  return 1;
+};
+
 export const buildUnboundCustomApiRequest = (
   operationName: string,
   params: Record<string, string>,
+  operationType: number,
 ): Record<string, unknown> & {
   getMetadata: () => {
     boundParameter: null;
@@ -49,7 +65,7 @@ export const buildUnboundCustomApiRequest = (
         acc[key] = { typeName: 'Edm.String', structuralProperty: 1 };
         return acc;
       }, {} as Record<string, { typeName: string; structuralProperty: number }>),
-      operationType: 1,
+      operationType,
       operationName,
     }),
   };
@@ -63,12 +79,14 @@ export const executeUnboundCustomApi = async <T>(
   context: ComponentFramework.Context<IInputs>,
   operationName: string,
   params: Record<string, string>,
+  options?: { operationType?: number },
 ): Promise<T> => {
   const executor = getWebApiExecutor(context);
   if (!executor.execute) {
     throw new Error('Web API execute is not available in this environment');
   }
-  const request = buildUnboundCustomApiRequest(operationName, params);
+  const operationType = options?.operationType ?? 1;
+  const request = buildUnboundCustomApiRequest(operationName, params, operationType);
   const result = await executor.execute(request);
   return (await result.json()) as T;
 };

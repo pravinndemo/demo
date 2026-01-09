@@ -4,7 +4,7 @@ import { buildApiParamsFor } from '../config/TableConfigs';
 import { CONTROL_CONFIG } from '../config/ControlConfig';
 import { SAMPLE_RECORDS, SampleRecord, SampleRecordValue } from '../data/SampleData';
 import { TaskSearchItem, TaskSearchResponse, SAMPLE_TASK_RESULTS } from '../data/TaskSearchSample';
-import { executeUnboundCustomApi } from './CustomApi';
+import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from './CustomApi';
 
 export interface SearchRequest {
   tableKey: string;
@@ -183,8 +183,15 @@ const unwrapCustomApiPayload = (payload: unknown): SalesPayload => {
 
 const resolveCustomApiName = (context: ComponentFramework.Context<IInputs>): string => {
   const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiName?.raw;
-  const fromContext = typeof raw === 'string' ? raw.trim() : '';
-  return fromContext || CONTROL_CONFIG.customApiName?.trim() || '';
+  const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
+  const fallback = normalizeCustomApiName(CONTROL_CONFIG.customApiName);
+  return fromContext || fallback || '';
+};
+
+const resolveCustomApiType = (context: ComponentFramework.Context<IInputs>): number => {
+  const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiType?.raw;
+  const fromContext = typeof raw === 'string' ? raw : undefined;
+  return resolveCustomApiOperationType(fromContext ?? CONTROL_CONFIG.customApiType);
 };
 
 export async function executeSearch(
@@ -196,6 +203,7 @@ export async function executeSearch(
   const apiParams = buildApiParamsFor(tableKey, filters, page, pageSize);
 
   const customApiName = resolveCustomApiName(context);
+  const customApiType = resolveCustomApiType(context);
   if (!customApiName) {
     return {
       items: SAMPLE_TASK_RESULTS,
@@ -210,6 +218,7 @@ export async function executeSearch(
       context,
       customApiName,
       apiParams,
+      { operationType: customApiType },
     );
     const payload = unwrapCustomApiPayload(rawPayload);
     return normalizeSearchResponse(payload);
@@ -236,11 +245,17 @@ export async function fetchFilterOptions(
 ): Promise<string[]> {
   const { tableKey, field, query } = req;
   const customApiName = resolveCustomApiName(context);
+  const customApiType = resolveCustomApiType(context);
   if (!customApiName) return [];
   // Unbound Custom API variant for filter suggestions
   const actionName = `${customApiName}_FilterOptions`;
   try {
-    const payload = await executeUnboundCustomApi<{ values?: string[] }>(context, actionName, { tableKey, field, query });
+    const payload = await executeUnboundCustomApi<{ values?: string[] }>(
+      context,
+      actionName,
+      { tableKey, field, query },
+      { operationType: customApiType },
+    );
     return payload.values ?? [];
   } catch {
     return [];

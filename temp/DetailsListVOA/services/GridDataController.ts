@@ -4,7 +4,7 @@ import { TaskSearchItem, TaskSearchResponse } from '../data/TaskSearchSample';
 import { SAMPLE_TASK_RESULTS } from '../data/TaskSearchSample';
 import { SAMPLE_RECORDS } from '../data/SampleData';
 import { IInputs } from '../generated/ManifestTypes';
-import { executeUnboundCustomApi } from './CustomApi';
+import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from './CustomApi';
 import { normalizeSearchResponse } from './DataService';
 
 export interface ClientSortState {
@@ -55,8 +55,15 @@ const getPrefilterParams = (context: ComponentFramework.Context<IInputs>): Recor
 
 const resolveCustomApiName = (context: ComponentFramework.Context<IInputs>): string => {
   const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiName?.raw;
-  const fromContext = typeof raw === 'string' ? raw.trim() : '';
-  return fromContext || CONTROL_CONFIG.customApiName?.trim() || '';
+  const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
+  const fallback = normalizeCustomApiName(CONTROL_CONFIG.customApiName);
+  return fromContext || fallback || '';
+};
+
+const resolveCustomApiType = (context: ComponentFramework.Context<IInputs>): number => {
+  const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiType?.raw;
+  const fromContext = typeof raw === 'string' ? raw : undefined;
+  return resolveCustomApiOperationType(fromContext ?? CONTROL_CONFIG.customApiType);
 };
 
 export async function loadGridData(
@@ -78,6 +85,7 @@ export async function loadGridData(
   );
 
   const customApiName = resolveCustomApiName(context);
+  const customApiType = resolveCustomApiType(context);
 
   const sortBy = args.clientSort?.name;
   const sortDirection = args.clientSort?.sortDirection;
@@ -98,7 +106,9 @@ export async function loadGridData(
       ...params,
       ...(headerFilterEntries.length > 0 ? { columnFilters: JSON.stringify(args.headerFilters) } : {}),
     };
-    const payload = await executeUnboundCustomApi<TaskSearchResponse>(context, customApiName, withFilters);
+    const payload = await executeUnboundCustomApi<TaskSearchResponse>(context, customApiName, withFilters, {
+      operationType: customApiType,
+    });
     return normalizeSearchResponse(payload);
   };
 

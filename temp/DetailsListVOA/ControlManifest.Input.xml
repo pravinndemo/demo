@@ -28,6 +28,15 @@
       required="false"
       default-value="voa_GetAllSalesRecord"
     />
+    <property
+      name="customApiType"
+      display-name-key="Custom API Type"
+      description-key="Custom API operation type: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="function"
+    />
     <!-- Number of records shown per page -->
     <property name="pageSize" display-name-key="PageSize" description-key="PageSize description" of-type="Whole.None" usage="input" required="false" default-value="10" />
     <!-- Optional mapping of column logical names to display names as JSON -->
