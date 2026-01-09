@@ -19,6 +19,15 @@
     <!-- Removed dataset-bound task properties for unbound API-first control -->
 
     <property name="canvasScreenName" display-name-key="Canvas Screen Name" description-key="Name of the Canvas App screen to navigate to on row click (e.g., svt-sale-details)." of-type="SingleLine.Text" usage="input" required="false" default-value="" />
+    <property
+      name="customApiName"
+      display-name-key="Custom API Name"
+      description-key="Name of the Dataverse Custom API used for search (e.g., voa_GetAllSalesRecord)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_GetAllSalesRecord"
+    />
     <!-- Number of records shown per page -->
     <property name="pageSize" display-name-key="PageSize" description-key="PageSize description" of-type="Whole.None" usage="input" required="false" default-value="10" />
     <!-- Optional mapping of column logical names to display names as JSON -->

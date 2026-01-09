@@ -78,7 +78,7 @@ Project reference successfully added to Dataverse solution project.
 
 # ✔️ 4. Pack the solution (create ZIP)
 
-Run this from the **SVTList root folder**:
+Run this from the **SVTList root folder**:             
 
 ```powershell
 pac solution pack --zipFile SVTListControls.zip --folder solution

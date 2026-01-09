@@ -1,5 +1,5 @@
 export const CONTROL_CONFIG = {
   apiBaseUrl: '',
-  customApiName: 'svtGetSaleRecords',
+  customApiName: 'voa_GetAllSalesRecord',
   tableKey: 'sales',
 };

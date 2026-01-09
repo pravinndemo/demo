@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { DefaultButton, FontIcon, IColumn, IconButton, Image, IRawStyle, Link, mergeStyles } from '@fluentui/react';
 import * as React from 'react';
 import { IGridColumn } from '../Component.types';

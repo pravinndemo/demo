@@ -49,7 +49,7 @@ export const buildUnboundCustomApiRequest = (
         acc[key] = { typeName: 'Edm.String', structuralProperty: 1 };
         return acc;
       }, {} as Record<string, { typeName: string; structuralProperty: number }>),
-      operationType: 0,
+      operationType: 1,
       operationName,
     }),
   };

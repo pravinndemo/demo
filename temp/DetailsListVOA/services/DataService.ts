@@ -181,6 +181,12 @@ const unwrapCustomApiPayload = (payload: unknown): SalesPayload => {
   return payload as SalesPayload;
 };
 
+const resolveCustomApiName = (context: ComponentFramework.Context<IInputs>): string => {
+  const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiName?.raw;
+  const fromContext = typeof raw === 'string' ? raw.trim() : '';
+  return fromContext || CONTROL_CONFIG.customApiName?.trim() || '';
+};
+
 export async function executeSearch(
   context: ComponentFramework.Context<IInputs>,
   req: SearchRequest,
@@ -189,7 +195,7 @@ export async function executeSearch(
 
   const apiParams = buildApiParamsFor(tableKey, filters, page, pageSize);
 
-  const customApiName = CONTROL_CONFIG.customApiName?.trim() ?? '';
+  const customApiName = resolveCustomApiName(context);
   if (!customApiName) {
     return {
       items: SAMPLE_TASK_RESULTS,
@@ -229,7 +235,7 @@ export async function fetchFilterOptions(
   req: FilterOptionsRequest,
 ): Promise<string[]> {
   const { tableKey, field, query } = req;
-  const customApiName = CONTROL_CONFIG.customApiName?.trim() ?? '';
+  const customApiName = resolveCustomApiName(context);
   if (!customApiName) return [];
   // Unbound Custom API variant for filter suggestions
   const actionName = `${customApiName}_FilterOptions`;

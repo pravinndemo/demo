@@ -53,6 +53,12 @@ const getPrefilterParams = (context: ComponentFramework.Context<IInputs>): Recor
   return result;
 };
 
+const resolveCustomApiName = (context: ComponentFramework.Context<IInputs>): string => {
+  const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiName?.raw;
+  const fromContext = typeof raw === 'string' ? raw.trim() : '';
+  return fromContext || CONTROL_CONFIG.customApiName?.trim() || '';
+};
+
 export async function loadGridData(
   context: ComponentFramework.Context<IInputs>,
   args: {
@@ -71,7 +77,7 @@ export async function loadGridData(
     Array.isArray(v) ? v.length > 0 : (v ?? '').toString().trim() !== '',
   );
 
-  const customApiName = CONTROL_CONFIG.customApiName?.trim() ?? '';
+  const customApiName = resolveCustomApiName(context);
 
   const sortBy = args.clientSort?.name;
   const sortDirection = args.clientSort?.sortDirection;
@@ -117,8 +123,22 @@ export async function loadGridData(
       return { items: all, totalCount: total, serverDriven: false, filters: responseFilters };
     }
     return { items: firstPayload.items ?? [], totalCount: total, serverDriven, filters: responseFilters };
-  } catch {
-    // On error, fall back to showing local sample data (from SampleData)
+  } catch (err) {
+    // On error, log and fall back to showing local sample data (from SampleData)
+    const errText = (() => {
+      if (err instanceof Error) return `${err.name}: ${err.message}`;
+      if (typeof err === 'string') return err;
+      try {
+        return JSON.stringify(err);
+      } catch {
+        return 'Unknown error';
+      }
+    })();
+    try {
+      console.error('[GridDataController] loadGridData failed; showing sample data', errText);
+    } catch {
+      /* ignore logging failures */
+    }
     return { items: SAMPLE_RECORDS as unknown as TaskSearchItem[], totalCount: SAMPLE_RECORDS.length, serverDriven: false };
   }
 }

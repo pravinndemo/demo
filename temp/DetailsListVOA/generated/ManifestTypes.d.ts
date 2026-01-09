@@ -5,6 +5,7 @@
 // Define IInputs and IOutputs Type. They should match with ControlManifest.
 export interface IInputs {
     canvasScreenName: ComponentFramework.PropertyTypes.StringProperty;
+    customApiName: ComponentFramework.PropertyTypes.StringProperty;
     pageSize: ComponentFramework.PropertyTypes.WholeNumberProperty;
     columnDisplayNames: ComponentFramework.PropertyTypes.StringProperty;
     columnConfig: ComponentFramework.PropertyTypes.StringProperty;
