@@ -168,3 +168,58 @@ Canvas apps can call the Custom API directly and parse the `Result` string retur
 ### Notes
 - `Result` is a string because the plugin forwards the raw APIM response back to Dataverse. If you update the plugin to return structured output parameters later, you can skip `ParseJSON`.【F:VOA.SVT.Plugins/Plugins/CustomAPI/GetAllSalesRecord.cs†L116-L118】
 - The response schema matches the `SalesApiResponse` format (with `sales` and `pageInfo`) described above, so you can read `parsedSales.pageInfo.totalRecords` for pagination if needed.【F:DetailsListVOA/services/DataService.ts†L146-L164】
+
+---
+
+## Using PCF output (`saleDetails`) in a Canvas app
+When a user clicks a task link, the PCF writes the response from `voa_GetViewSaleRecordById` into the output property `saleDetails` (JSON string). Parse it with `ParseJSON` and read values by type.
+
+### Parse once
+```
+Set(
+  parsedSale,
+  ParseJSON(DetailsListVOA.saleDetails)
+);
+```
+
+### Read string values
+```
+Text(parsedSale.taskDetails.saleId)
+Text(parsedSale.bandingInfo.address)
+Text(parsedSale.salesParticularInfo.salesParticular)
+```
+
+### Read numbers and booleans
+```
+Value(parsedSale.masterSale.salePrice)
+Value(parsedSale.plotSize)
+If(Boolean(parsedSale.propertyAttributes.composite), "Yes", "No")
+```
+
+### Read arrays (table output)
+```
+ClearCollect(
+  wlttItems,
+  ForAll(parsedSale.welshLandTax, {
+    WlttId: Text(ThisRecord.wlttId),
+    TransactionPrice: Value(ThisRecord.transactionPrice),
+    Vendors: Text(ThisRecord.vendors)
+  })
+);
+```
+
+### Read nested objects
+```
+Text(parsedSale.propertyAttributes.dwellingType)
+Text(parsedSale.repeatSaleInfo.previousRatioRange)
+```
+
+### Empty response handling
+The PCF can emit an empty JSON object with all sections present. Guard with `IsBlank` before reading:
+```
+If(
+  IsBlank(parsedSale.taskDetails.saleId),
+  "No sale details",
+  Text(parsedSale.taskDetails.saleId)
+)
+```
