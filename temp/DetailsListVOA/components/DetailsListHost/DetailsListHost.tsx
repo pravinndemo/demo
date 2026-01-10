@@ -7,7 +7,6 @@ import { GridFilterState, createDefaultGridFilters, sanitizeFilters, NumericFilt
 import { getProfileConfigs } from '../../config/ColumnProfiles';
 import { CONTROL_CONFIG } from '../../config/ControlConfig';
 import { isLookupFieldFor } from '../../config/TableConfigs';
-import { fetchFilterOptions } from '../../services/DataService';
 import { buildColumns } from '../../utils/ColumnsBuilder';
 import { ensureSampleColumns, buildSampleEntityRecords } from '../../utils/SampleHelpers';
 import { loadGridData } from '../../services/GridDataController';
@@ -222,6 +221,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     searchBy: 'taskStatus',
     taskStatus: ['New'],
   });
+  const [searchNonce, setSearchNonce] = React.useState(0);
   const [apiFilterOptions, setApiFilterOptions] = React.useState<FilterOptionsMap>({});
   const [apimItems, setApimItems] = React.useState<unknown[]>([]);
   const [totalCount, setTotalCount] = React.useState(0);
@@ -453,18 +453,23 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
   }, [externalItems]);
 
   // Initial load and reloads when critical props change (skips when externalItems are supplied)
-  const lastRef = React.useRef<{ table?: string; trigger?: string }>({});
+  const lastRef = React.useRef<{ table?: string; trigger?: string; page?: number; size?: number; sort?: string; nonce?: number }>({});
   React.useEffect(() => {
     if (externalItems !== undefined) {
       // External data path; do not load from APIM
       return;
     }
     const trigger = String((context.parameters as unknown as Record<string, { raw?: string | number }>).searchTrigger?.raw ?? '');
+    const sortKey = clientSort ? `${clientSort.name}:${clientSort.sortDirection}` : '';
     const changed = lastRef.current.table !== tableKey
       || lastRef.current.trigger !== trigger
+      || lastRef.current.page !== currentPage
+      || lastRef.current.size !== pageSize
+      || lastRef.current.sort !== sortKey
+      || lastRef.current.nonce !== searchNonce
       || !hasLoadedApim;
     if (!changed) return;
-    lastRef.current = { table: tableKey, trigger };
+    lastRef.current = { table: tableKey, trigger, page: currentPage, size: pageSize, sort: sortKey, nonce: searchNonce };
     setApimLoading(true);
     void (async () => {
       const res = await loadGridData(context, {
@@ -472,7 +477,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
         filters: sanitizeFilters(searchFilters),
         currentPage,
         pageSize,
-        headerFilters: toApiHeaderFilters(headerFilters),
         clientSort,
       });
       setApimItems(res.items);
@@ -488,7 +492,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
         setCurrentPage(0);
       }
     })();
-  }, [context, tableKey, searchFilters, currentPage, pageSize, headerFilters, clientSort, hasLoadedApim]);
+  }, [context, tableKey, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim]);
 
   // Handlers
   const [selectedCount, setSelectedCount] = React.useState(0);
@@ -554,6 +558,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     onSearch: (fs) => {
       setSearchFilters(sanitizeFilters(fs));
       setCurrentPage(0);
+      setSearchNonce((n) => n + 1);
     },
     onNextPage: () => {
       if (canNext) setCurrentPage((p) => p + 1);

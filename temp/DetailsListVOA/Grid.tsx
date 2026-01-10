@@ -369,6 +369,7 @@ export const Grid = React.memo((props: GridProps) => {
   const [menuFilterText, setMenuFilterText] = React.useState('');
   const liveFilterTimer = React.useRef<number | undefined>(undefined);
   const [filters, setFilters] = React.useState<GridFilterState>(searchFilters);
+  const autoSearchEnabled = false;
 
   React.useEffect(() => {
     if (columnFilters) {
@@ -459,6 +460,9 @@ export const Grid = React.memo((props: GridProps) => {
   // Debounced search when typing in non-UPRN text fields
   const searchTimer = React.useRef<number | undefined>(undefined);
   const scheduleSearch = React.useCallback(() => {
+    if (!autoSearchEnabled) {
+      return;
+    }
     if (searchTimer.current) {
       window.clearTimeout(searchTimer.current);
     }
@@ -478,7 +482,7 @@ export const Grid = React.memo((props: GridProps) => {
       setFilters(sanitized);
       onSearch(sanitized);
     }, 350);
-  }, [filters, getLengthErrors, onSearch]);
+  }, [autoSearchEnabled, filters, getLengthErrors, onSearch]);
 
   React.useEffect(() => () => {
     if (searchTimer.current) {

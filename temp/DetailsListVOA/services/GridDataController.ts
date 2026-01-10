@@ -83,17 +83,12 @@ export async function loadGridData(
     filters: unknown; // GridFilterState but keep loose to avoid circular deps
     currentPage: number;
     pageSize: number;
-    headerFilters: Record<string, string | string[]>;
     clientSort?: ClientSortState;
   },
 ): Promise<LoadResult> {
   const pageSize = args.pageSize ?? (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 10;
   const apiParamsBase = buildApiParamsFor(args.tableKey, args.filters as never, args.currentPage, pageSize);
   const prefilterParams = getPrefilterParams(context);
-  const headerFilterEntries = Object.entries(args.headerFilters).filter(([_, v]) =>
-    Array.isArray(v) ? v.length > 0 : (v ?? '').toString().trim() !== '',
-  );
-
   const customApiName = resolveCustomApiName(context);
   const customApiType = resolveCustomApiType(context);
 
@@ -112,11 +107,7 @@ export async function loadGridData(
   };
 
   const execCustomApi = async (params: Record<string, string>): Promise<TaskSearchResponse> => {
-    const withFilters = {
-      ...params,
-      ...(headerFilterEntries.length > 0 ? { columnFilters: JSON.stringify(args.headerFilters) } : {}),
-    };
-    const rawPayload = await executeUnboundCustomApi<TaskSearchResponse | SalesApiResponse>(context, customApiName, withFilters, {
+    const rawPayload = await executeUnboundCustomApi<TaskSearchResponse | SalesApiResponse>(context, customApiName, params, {
       operationType: customApiType,
     });
     const payload = unwrapCustomApiPayload(rawPayload);
@@ -132,18 +123,9 @@ export async function loadGridData(
     const firstPayload = await execCustomApi(firstParams);
     const total = Number(firstPayload.totalCount ?? firstPayload.items?.length ?? 0);
     const threshold = resolveServerDrivenThreshold(context);
-    const serverDriven = total > threshold;
+    const firstPageCount = firstPayload.items?.length ?? 0;
+    const serverDriven = total > threshold || total > firstPageCount;
     const responseFilters = firstPayload.filters;
-    if (!serverDriven && total > 0 && (firstPayload.items?.length ?? 0) < total) {
-      const pages = Math.ceil(total / pageSize);
-      const all: TaskSearchItem[] = [...(firstPayload.items ?? [])];
-      for (let p = 0; p < pages; p++) {
-        if (p === args.currentPage) continue;
-        const payload = await execCustomApi(buildParams(p));
-        all.push(...(payload.items ?? []));
-      }
-      return { items: all, totalCount: total, serverDriven: false, filters: responseFilters };
-    }
     return { items: firstPayload.items ?? [], totalCount: total, serverDriven, filters: responseFilters };
   } catch (err) {
     // On error, log and fall back to showing local sample data (from SampleData)
