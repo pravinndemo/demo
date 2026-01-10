@@ -2,6 +2,7 @@ export interface IInputs {
     canvasScreenName: ComponentFramework.PropertyTypes.StringProperty;
     customApiName: ComponentFramework.PropertyTypes.StringProperty;
     customApiType: ComponentFramework.PropertyTypes.StringProperty;
+    viewSaleRecordApiName: ComponentFramework.PropertyTypes.StringProperty;
     pageSize: ComponentFramework.PropertyTypes.WholeNumberProperty;
     columnDisplayNames: ComponentFramework.PropertyTypes.StringProperty;
     columnConfig: ComponentFramework.PropertyTypes.StringProperty;

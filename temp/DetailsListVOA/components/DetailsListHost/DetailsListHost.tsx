@@ -244,21 +244,21 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
   // Hydrate from localStorage on table change (URL persistence disabled by policy)
   React.useEffect(() => {
     try {
-      // Filters
+      // Filters (disabled for now to avoid auto-prefill from localStorage)
       const rawLocalFilters = localStorage.getItem(storageKey) ?? localStorage.getItem(storageKeyNC);
-      if (rawLocalFilters) {
-        // Stored as arrays for every field; coerce to proper types per lookup/text
-        const parsed = JSON.parse(rawLocalFilters) as Record<string, string[]>;
-        const normalized: Record<string, ColumnFilterValue> = {};
-        Object.entries(parsed).forEach(([k, v]) => {
-          const keyLower = k.toLowerCase();
-          const isLookup = isLookupFieldFor(String(tableKey), keyLower);
-          normalized[keyLower] = isLookup ? (Array.isArray(v) ? v : [String(v ?? '')]) : (Array.isArray(v) ? (v[0] ?? '') : String(v ?? ''));
-        });
-        lastAppliedFiltersRef.current = normalized;
-        setHeaderFilters(normalized);
-        try { onColumnFiltersApply?.(toApiHeaderFilters(normalized)); } catch { /* ignore */ }
-      }
+      // if (rawLocalFilters) {
+      //   // Stored as arrays for every field; coerce to proper types per lookup/text
+      //   const parsed = JSON.parse(rawLocalFilters) as Record<string, string[]>;
+      //   const normalized: Record<string, ColumnFilterValue> = {};
+      //   Object.entries(parsed).forEach(([k, v]) => {
+      //     const keyLower = k.toLowerCase();
+      //     const isLookup = isLookupFieldFor(String(tableKey), keyLower);
+      //     normalized[keyLower] = isLookup ? (Array.isArray(v) ? v : [String(v ?? '')]) : (Array.isArray(v) ? (v[0] ?? '') : String(v ?? ''));
+      //   });
+      //   lastAppliedFiltersRef.current = normalized;
+      //   setHeaderFilters(normalized);
+      //   try { onColumnFiltersApply?.(toApiHeaderFilters(normalized)); } catch { /* ignore */ }
+      // }
       // Sort
       const rawLocalSort = localStorage.getItem(storageKeySort) ?? localStorage.getItem(storageKeySortNC);
       if (rawLocalSort) {
@@ -431,12 +431,16 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
   }, [clientSort, filteredIds, records, serverDriven]);
 
   const start = currentPage * pageSize;
-  const pageSliceT0 = performance.now();
-  const pageIds = sortedIds.slice(start, start + pageSize);
-  const pageSliceT1 = performance.now();
-  if (sortedIds.length > 0) {
-    logPerf('[Grid Perf] Host page slice (ms):', Math.round(pageSliceT1 - pageSliceT0), 'start:', start, 'size:', pageSize, 'result:', pageIds.length);
-  }
+  const pageIds = React.useMemo(() => {
+    if (serverDriven) return filteredIds;
+    const pageSliceT0 = performance.now();
+    const slice = sortedIds.slice(start, start + pageSize);
+    const pageSliceT1 = performance.now();
+    if (sortedIds.length > 0) {
+      logPerf('[Grid Perf] Host page slice (ms):', Math.round(pageSliceT1 - pageSliceT0), 'start:', start, 'size:', pageSize, 'result:', slice.length);
+    }
+    return slice;
+  }, [filteredIds, serverDriven, sortedIds, start, pageSize]);
   const canPrev = currentPage > 0;
   const canNext = serverDriven ? (currentPage + 1) * pageSize < totalCount : start + pageSize < filteredIds.length;
   const totalPages = serverDriven ? Math.ceil(totalCount / pageSize) : Math.ceil(filteredIds.length / pageSize);
@@ -484,13 +488,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
       setServerDriven(res.serverDriven);
       setApimLoading(false);
       setHasLoadedApim(true);
-      const apiFilters = normalizeApiFilters(res.filters);
       setApiFilterOptions(normalizeFilterOptions(res.filters));
-      if (apiFilters && !areFiltersEqual(apiFilters, lastAppliedFiltersRef.current)) {
-        lastAppliedFiltersRef.current = apiFilters;
-        setHeaderFilters(apiFilters);
-        setCurrentPage(0);
-      }
     })();
   }, [context, tableKey, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim]);
 

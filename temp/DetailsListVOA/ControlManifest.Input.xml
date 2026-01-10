@@ -37,6 +37,15 @@
       required="false"
       default-value="function"
     />
+    <property
+      name="viewSaleRecordApiName"
+      display-name-key="View Sale Record API Name"
+      description-key="Name of the Dataverse Custom API used to fetch sale details by ID (e.g., voa_GetViewSaleRecordById)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_GetViewSaleRecordById"
+    />
     <!-- Number of records shown per page -->
     <property name="pageSize" display-name-key="PageSize" description-key="PageSize description" of-type="Whole.None" usage="input" required="false" default-value="10" />
     <property
