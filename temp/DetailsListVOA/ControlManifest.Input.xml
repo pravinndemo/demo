@@ -39,6 +39,15 @@
     />
     <!-- Number of records shown per page -->
     <property name="pageSize" display-name-key="PageSize" description-key="PageSize description" of-type="Whole.None" usage="input" required="false" default-value="10" />
+    <property
+      name="serverDrivenThreshold"
+      display-name-key="Server Driven Threshold"
+      description-key="If total records exceeds this threshold, the control switches to server-driven paging."
+      of-type="Whole.None"
+      usage="input"
+      required="false"
+      default-value="2000"
+    />
     <!-- Optional mapping of column logical names to display names as JSON -->
     <property
       name="columnDisplayNames"

@@ -26,6 +26,7 @@ export interface DetailsListHostProps {
 }
 
 type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFilter;
+type FilterOptionsMap = Record<string, string[]>;
 
 const toFilterValueString = (val: ColumnFilterValue | undefined): string => {
   if (val === undefined || val === null) return '';
@@ -76,6 +77,38 @@ const normalizeApiFilters = (filters?: Record<string, unknown>): Record<string, 
     }
     if (isPlainObject(value)) {
       normalized[lowerKey] = value as ColumnFilterValue;
+    }
+  });
+  return normalized;
+};
+
+const normalizeFilterOptions = (filters?: Record<string, string | string[]>): FilterOptionsMap => {
+  if (!filters) return {};
+  const normalized: FilterOptionsMap = {};
+  Object.entries(filters).forEach(([key, value]) => {
+    const lowerKey = key.toLowerCase();
+    if (value === undefined || value === null) return;
+    if (Array.isArray(value)) {
+      const arr = value.map((v) => String(v ?? '')).filter((v) => v.trim() !== '');
+      if (arr.length > 0) normalized[lowerKey] = arr;
+      return;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+        try {
+          const parsed = JSON.parse(trimmed) as unknown;
+          if (Array.isArray(parsed)) {
+            const arr = parsed.map((v) => String(v ?? '')).filter((v) => v.trim() !== '');
+            if (arr.length > 0) normalized[lowerKey] = arr;
+            return;
+          }
+        } catch {
+          // fall back to plain string
+        }
+      }
+      normalized[lowerKey] = [trimmed];
     }
   });
   return normalized;
@@ -189,6 +222,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     searchBy: 'taskStatus',
     taskStatus: ['New'],
   });
+  const [apiFilterOptions, setApiFilterOptions] = React.useState<FilterOptionsMap>({});
   const [apimItems, setApimItems] = React.useState<unknown[]>([]);
   const [totalCount, setTotalCount] = React.useState(0);
   const [serverDriven, setServerDriven] = React.useState(false);
@@ -447,6 +481,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
       setApimLoading(false);
       setHasLoadedApim(true);
       const apiFilters = normalizeApiFilters(res.filters);
+      setApiFilterOptions(normalizeFilterOptions(res.filters));
       if (apiFilters && !areFiltersEqual(apiFilters, lastAppliedFiltersRef.current)) {
         lastAppliedFiltersRef.current = apiFilters;
         setHeaderFilters(apiFilters);
@@ -537,13 +572,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     showResults: true,
     selectedCount,
     allowColumnReorder,
-    onLoadFilterOptions: async (field, query) => {
-      if (!query || query.trim().length === 0) return [];
-      try {
-        return await fetchFilterOptions(context, { tableKey, field, query });
-      } catch {
-        return [];
-      }
+    onLoadFilterOptions: (field, query) => {
+      const key = String(field ?? '').toLowerCase();
+      const options = apiFilterOptions[key] ?? [];
+      if (!query || query.trim().length === 0) return Promise.resolve(options);
+      const q = query.trim().toLowerCase();
+      return Promise.resolve(options.filter((opt) => opt.toLowerCase().includes(q)));
     },
     onColumnFiltersChange: (f) => {
       const normalized: Record<string, ColumnFilterValue> = {};

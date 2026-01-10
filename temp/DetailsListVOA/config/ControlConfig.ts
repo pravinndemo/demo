@@ -3,4 +3,5 @@ export const CONTROL_CONFIG = {
   customApiName: 'voa_GetAllSalesRecord',
   customApiType: 'function',
   tableKey: 'sales',
+  serverDrivenThreshold: 2000,
 };

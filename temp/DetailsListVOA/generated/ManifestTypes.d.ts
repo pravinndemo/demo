@@ -8,6 +8,7 @@ export interface IInputs {
     customApiName: ComponentFramework.PropertyTypes.StringProperty;
     customApiType: ComponentFramework.PropertyTypes.StringProperty;
     pageSize: ComponentFramework.PropertyTypes.WholeNumberProperty;
+    serverDrivenThreshold: ComponentFramework.PropertyTypes.WholeNumberProperty;
     columnDisplayNames: ComponentFramework.PropertyTypes.StringProperty;
     columnConfig: ComponentFramework.PropertyTypes.StringProperty;
     searchBy: ComponentFramework.PropertyTypes.StringProperty;

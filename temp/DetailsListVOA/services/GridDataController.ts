@@ -66,6 +66,16 @@ const resolveCustomApiType = (context: ComponentFramework.Context<IInputs>): num
   return resolveCustomApiOperationType(fromContext ?? CONTROL_CONFIG.customApiType);
 };
 
+const resolveServerDrivenThreshold = (context: ComponentFramework.Context<IInputs>): number => {
+  const raw = (context.parameters as unknown as Record<string, { raw?: number | string }>).serverDrivenThreshold?.raw;
+  if (typeof raw === 'number' && !Number.isNaN(raw)) return raw;
+  if (typeof raw === 'string') {
+    const parsed = Number(raw);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return CONTROL_CONFIG.serverDrivenThreshold;
+};
+
 export async function loadGridData(
   context: ComponentFramework.Context<IInputs>,
   args: {
@@ -121,7 +131,8 @@ export async function loadGridData(
     }
     const firstPayload = await execCustomApi(firstParams);
     const total = Number(firstPayload.totalCount ?? firstPayload.items?.length ?? 0);
-    const serverDriven = total > 2000;
+    const threshold = resolveServerDrivenThreshold(context);
+    const serverDriven = total > threshold;
     const responseFilters = firstPayload.filters;
     if (!serverDriven && total > 0 && (firstPayload.items?.length ?? 0) < total) {
       const pages = Math.ceil(total / pageSize);

@@ -158,6 +158,8 @@ const toText = (value: unknown): string | undefined => {
   return undefined;
 };
 
+const toTextOrEmpty = (value: unknown): string => toText(value) ?? '';
+
 const toNumber = (value: unknown): number | undefined => {
   if (typeof value === 'number') return Number.isNaN(value) ? undefined : value;
   if (typeof value === 'string') {
@@ -187,6 +189,8 @@ const toStringArray = (value: unknown): string[] | undefined => {
   return text ? [text] : undefined;
 };
 
+const toStringArrayOrEmpty = (value: unknown): string[] => toStringArray(value) ?? [];
+
 const toStringOrArray = (value: unknown): string | string[] | undefined => {
   if (Array.isArray(value)) {
     const out = value.map((entry) => toText(entry)).filter((entry): entry is string => !!entry && entry.length > 0);
@@ -195,37 +199,40 @@ const toStringOrArray = (value: unknown): string | string[] | undefined => {
   return toText(value);
 };
 
+const toStringOrArrayOrEmpty = (value: unknown): string | string[] =>
+  (toStringOrArray(value) ?? '');
+
 const normalizeSalesItem = (item: SalesApiItem): TaskSearchItem => {
   const map = buildNormalizedMap(item as Record<string, unknown>);
-  const assignedToValue = getNormalizedValue(map, 'assignedTo');
-  const assignedTo = toStringOrArray(assignedToValue);
+  const assignedToValue = getNormalizedValue(map, 'assignedTo', ['assignedto']);
+  const assignedTo = toStringOrArrayOrEmpty(assignedToValue);
   const caseAssignedTo = Array.isArray(assignedTo)
     ? assignedTo.join(', ')
-    : (typeof assignedTo === 'string' ? assignedTo : '');
+    : assignedTo;
 
   return {
     saleId: toText(getNormalizedValue(map, 'saleId')) ?? undefined,
-    taskId: toText(getNormalizedValue(map, 'taskId')) ?? '',
-    uprn: toText(getNormalizedValue(map, 'uprn')) ?? '',
-    taskStatus: toText(getNormalizedValue(map, 'taskStatus')) ?? '',
+    taskId: toTextOrEmpty(getNormalizedValue(map, 'taskId')),
+    uprn: toTextOrEmpty(getNormalizedValue(map, 'uprn')),
+    taskStatus: toTextOrEmpty(getNormalizedValue(map, 'taskStatus')),
     caseAssignedTo,
-    address: toText(getNormalizedValue(map, 'address')) ?? '',
-    postcode: toText(getNormalizedValue(map, 'postcode', ['postCode'])) ?? '',
-    transactionDate: toText(getNormalizedValue(map, 'transactionDate')) ?? '',
-    source: toText(getNormalizedValue(map, 'source')) ?? '',
-    billingAuthority: toText(getNormalizedValue(map, 'billingAuthority')),
+    address: toTextOrEmpty(getNormalizedValue(map, 'address')),
+    postcode: toTextOrEmpty(getNormalizedValue(map, 'postcode', ['postCode'])),
+    transactionDate: toTextOrEmpty(getNormalizedValue(map, 'transactionDate')),
+    source: toTextOrEmpty(getNormalizedValue(map, 'source')),
+    billingAuthority: toText(getNormalizedValue(map, 'billingAuthority', ['billingauthorityity'])) ?? undefined,
     salesPrice: toNumber(getNormalizedValue(map, 'salesPrice', ['salePrice'])),
     ratio: toNumber(getNormalizedValue(map, 'ratio')),
-    dwellingType: toText(getNormalizedValue(map, 'dwellingType')),
+    dwellingType: toText(getNormalizedValue(map, 'dwellingType', ['deellingtype', 'dwellinlingtype', 'dwelwellingtype'])) ?? undefined,
     flaggedForReview: toBoolean(getNormalizedValue(map, 'flaggedForReview')),
-    reviewFlags: toStringArray(getNormalizedValue(map, 'reviewFlags', ['reviewFlag'])),
+    reviewFlags: toStringArrayOrEmpty(getNormalizedValue(map, 'reviewFlags', ['reviewFlag'])),
     outlierRatio: toNumber(getNormalizedValue(map, 'outlierRatio')),
-    overallFlag: toText(getNormalizedValue(map, 'overallFlag')),
-    summaryFlags: toStringArray(getNormalizedValue(map, 'summaryFlags', ['summaryFlag'])),
+    overallFlag: toText(getNormalizedValue(map, 'overallFlag')) ?? undefined,
+    summaryFlags: toStringArrayOrEmpty(getNormalizedValue(map, 'summaryFlags', ['summaryFlag'])),
     assignedTo,
     assignedDate: toText(getNormalizedValue(map, 'assignedDate')) ?? undefined,
-    taskCompletedDate: toText(getNormalizedValue(map, 'taskCompletedDate', ['completedDate'])) ?? undefined,
-    qcAssignedTo: toStringOrArray(getNormalizedValue(map, 'qcAssignedTo')),
+    taskCompletedDate: toText(getNormalizedValue(map, 'taskCompletedDate', ['completedDate', 'taskcomplpleteddate'])) ?? undefined,
+    qcAssignedTo: toStringOrArrayOrEmpty(getNormalizedValue(map, 'qcAssignedTo', ['acassignedto', 'qeassssignedto'])),
     qcAssignedDate: toText(getNormalizedValue(map, 'qcAssignedDate')) ?? undefined,
     qcCompletedDate: toText(getNormalizedValue(map, 'qcCompletedDate')) ?? undefined,
   };
@@ -235,6 +242,9 @@ const FILTER_KEY_ALIASES: Record<string, string> = {
   reviewflag: 'reviewflags',
   summaryflag: 'summaryflags',
   deellingtype: 'dwellingtype',
+  billingauthorityity: 'billingauthority',
+  dwellinlingtype: 'dwellingtype',
+  dwelwellingtype: 'dwellingtype',
 };
 
 const normalizeFilterMap = (filters: Record<string, string | string[]>): Record<string, string | string[]> => {
