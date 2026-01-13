@@ -1,149 +1,111 @@
-Below is a **cleaned-up, consistent rewrite** of the 7 tasks, keeping them **as-is**, but polishing language, tightening acceptance criteria, and making them **Jira / Confluence ready**.
-I’ve **not added new scope**—only clarified and standardised wording.
+Here is a **one-page executive MoM** — concise, decision-focused, and suitable for **senior stakeholders / architects / steering group**.
 
 ---
 
-## 1) Create SRS Security Role for SVT Manager
+# **Executive Minutes of Meeting (MoM)**
 
-**Title:** Create SVT Manager SRS Security Role (Dataverse)
-
-**Description:**
-Create a new Dataverse security role for the **SVT Manager** persona following the SRS model and least-privilege principle.
-The role must provide access to:
-
-* SVT custom pages (navigation entry)
-* Relevant SVT tables required for Manager activities
-
-**Acceptance Criteria:**
-
-* SVT Manager security role exists in the target environment(s).
-* A user assigned **only** this role can successfully access the SVT Manager landing page.
-* Role does not grant unintended access outside SVT scope.
+**Topic:** SVT / VT Architecture & DevOps Strategy – Welsh Reform
+**Date:** *[add date]*
+**Attendees:** Mark, Munib, Praveen, DevOps, SVT Team
 
 ---
 
-## 2) Create Azure AD Security Group for Manager (SRS)
+## **Purpose**
 
-**Title:** Create Azure AD SRS Group for SVT Manager persona
-
-**Description:**
-Create an Azure AD security group for **VOA SVT Manager**, aligned with the SRS approach.
-This group will act as the **single source of truth** for Manager role membership.
-
-**Acceptance Criteria:**
-
-* Azure AD security group is created using the agreed naming convention.
-* Group ownership is assigned in line with governance requirements.
-* Group is suitable for mapping to a Dataverse AAD group team.
+To confirm the architectural and DevOps approach for delivering **Sales Verification Tool (SVT) / VT** as part of Welsh Reform, while minimising risk to the existing **CT application**.
 
 ---
 
-## 3) Create Dataverse Team and map to AAD Group
+## **Key Decisions**
 
-**Title:** Create Dataverse AAD Group Team for SVT Manager and link Security Role
+### **1. Solution Isolation**
 
-**Description:**
-Create a Dataverse **AAD Group Team** mapped to the SVT Manager Azure AD group.
-Assign the SVT Manager security role to the team (not to individual users).
+* SVT / VT will be delivered in a **separate Dataverse solution**.
+* The solution will include:
 
-**Acceptance Criteria:**
-
-* Dataverse team exists as an **AAD group team**.
-* SVT Manager security role is assigned to the team.
-* Users added to the Azure AD group automatically gain Dataverse access via team membership.
+  * Custom Pages
+  * PCF controls
+  * SVT / VT-specific plugins and tables
+* The solution will be **deployed independently** from the CT master solution.
 
 ---
 
-## 4) Resolve current user team membership in Custom Page
+### **2. Repository & Project Strategy**
 
-**Title:** Custom Page: Resolve logged-in user’s Dataverse teams and persona flags
+* SVT / VT will remain in the **existing VOA Azure DevOps project**.
+* **No new ADO project** will be created.
+* **No separate repository** will be created.
+* New SVT-specific projects (plugins, PCF, custom pages) will be added to the **existing VOA repo**.
 
-**Description:**
-In the Canvas Custom Page, implement logic to determine the logged-in user’s persona by resolving Dataverse team membership and setting persona flags, including:
-
-* `isManager`
-* `isCaseworker`
-* `isQC`
-* `isNonSVT`
-
-**Implementation Notes:**
-
-* Use Dataverse connector to query **TeamMembership** (user → teams).
-* Cache results in a global variable on app start or page load.
-* Design logic to be extensible for future multi-role scenarios.
-
-**Acceptance Criteria:**
-
-* App reliably identifies whether the user belongs to the SVT Manager team.
-* Role resolution completes within acceptable performance limits on first load.
-* Persona flags can be reused across screens for conditional rendering and navigation.
+**Benefit:**
+Reuse of shared/common assemblies, performance optimisations, and existing service connections.
 
 ---
 
-## 5) Render Manager landing tiles based on role flags
+### **3. CI/CD Pipelines**
 
-**Title:** Custom Page: Display Manager landing tiles based on Manager role
+* A **dedicated CI/CD pipeline** will be created for SVT / VT.
+* The pipeline will:
 
-**Description:**
-Update the landing screen so that when `isManager = true`, the following tiles are displayed:
-
-* Sales Record Search
-* Manager Assignment
-* QC Assignment
-* QC View
-* Caseworker View
-
-Each tile must navigate to the appropriate screen or page.
-
-**Acceptance Criteria:**
-
-* Manager users see all Manager landing tiles and can access each function.
-* Non-Manager users do not see Manager-specific tiles.
-* Navigation from each tile routes correctly.
+  * Build and deploy only the SVT / VT solution
+  * Operate independently of CT releases
+* Existing CT pipelines will **ignore SVT paths** to prevent unintended deployments.
 
 ---
 
-## 6) Solution & ALM packaging
+### **4. Shared Code & Reuse**
 
-**Title:** Package changes into solution and align ALM activities
-
-**Description:**
-Add all relevant changes to the solution and coordinate with the DevOps team for team creation and deployment activities.
-
-The solution must include:
-
-* SVT Manager security role
-* Custom page updates and navigation logic
-* Any required environment variables or configuration (if applicable)
-
-**Acceptance Criteria:**
-
-* Solution contains all role and UI changes.
-* Solution imports successfully into target environment(s).
-* Deployment approach is aligned with DevOps and ALM practices.
+* Common logic will be consolidated into a **shared library**.
+* Both CT and SVT plugins will reference shared components to avoid duplication and improve maintainability.
 
 ---
 
-## 7) Document the changes
+### **5. Navigation & Go-Live Control**
 
-**Title:** Document SVT Manager role and landing page changes
+* SVT / VT will be accessed via the **existing CT model-driven app**.
+* Only the **sitemap** will be shared.
+* SVT / VT navigation will be:
 
-**Description:**
-Update the relevant Confluence page to document:
-
-* SVT Manager role and access model
-* Azure AD group and Dataverse team mapping
-* Manager landing page behaviour and role-based visibility logic
-
-**Acceptance Criteria:**
-
-* Confluence documentation is updated and accurate.
-* Changes are clear to both technical and non-technical stakeholders.
+  * **Feature-flagged**
+  * Controlled via **security roles / permissions**
+  * Optionally **date-based** for go-live
+* Navigation will remain hidden or inactive until production go-live.
 
 ---
 
-If you want next:
+## **Risk & Dependency Management**
 
-* I can **map these tasks back to the original user story** with traceability, or
-* Convert this into a **single Jira Epic + task hierarchy**, or
-* Reduce this further into a **one-slide delivery summary** for stakeholders.
+* No current hard technical dependencies between CT and SVT solutions.
+* Any future dependencies (e.g. sitemap changes) will be managed through:
+
+  * Feature flags
+  * Controlled solution deployment
+  * Early architectural review
+
+---
+
+## **Outcome**
+
+The agreed approach provides:
+
+* Clear isolation of SVT / VT delivery
+* Independent deployment and release control
+* Reuse of shared code and infrastructure
+* Minimal risk to the existing CT application
+
+---
+
+## **Next Steps**
+
+* Finalise SVT solution structure
+* Set up dedicated SVT CI/CD pipeline
+* Implement shared library strategy
+* Apply feature-flagged sitemap configuration
+
+---
+
+If you want, I can:
+
+* Turn this into a **slide (single PowerPoint page)**
+* Add a **simple architecture diagram**
+* Prepare a **formal decision record (ADR)**
