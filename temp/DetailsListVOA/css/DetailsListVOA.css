@@ -40,3 +40,185 @@
   text-overflow: ellipsis;
   box-sizing: border-box;
 }
+
+.voa-skip-links {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+}
+
+.voa-skip-links a {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  background: #0b0c0c;
+  color: #ffffff;
+  padding: 6px 10px;
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.voa-skip-links a:focus {
+  left: 8px;
+  top: 8px;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  outline: 2px solid #ffbf47;
+  outline-offset: 2px;
+}
+
+.PowerCATFluentDetailsList .ms-DetailsHeader-cell:focus,
+.PowerCATFluentDetailsList .ms-DetailsHeader-cell:focus-within,
+.PowerCATFluentDetailsList .ms-DetailsRow:focus,
+.PowerCATFluentDetailsList .ms-DetailsRow:focus-within {
+  outline: 2px solid #ffbf47;
+  outline-offset: -2px;
+}
+
+.voa-assign-overlay {
+  position: fixed;
+  inset: 0;
+  background: #ffffff;
+  z-index: 2000;
+  overflow: auto;
+}
+
+.voa-prefilter-bar {
+  margin-bottom: 16px;
+  padding: 0 8px;
+}
+
+.voa-prefilter-bar .ms-Stack-inner {
+  display: grid !important;
+  grid-template-columns:
+    minmax(220px, 1fr)
+    minmax(260px, 1fr)
+    minmax(220px, 1fr)
+    max-content
+    max-content;
+  grid-template-rows: auto auto auto;
+  column-gap: 12px;
+  row-gap: 12px;
+  align-items: end;
+}
+
+.voa-prefilter-bar--no-date .ms-Stack-inner {
+  grid-template-columns:
+    minmax(220px, 1fr)
+    minmax(260px, 1fr)
+    minmax(220px, 1fr)
+    max-content;
+}
+
+.voa-prefilter-col-searchby {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+.voa-prefilter-col-owner {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.voa-prefilter-col-workthat {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+}
+
+.voa-prefilter-col-daterange {
+  grid-column: 4;
+  grid-row: 1 / span 3;
+  justify-self: start;
+}
+
+.voa-prefilter-date-title {
+  margin: 0;
+  padding-bottom: 6px;
+  white-space: nowrap;
+}
+
+.voa-prefilter-date-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.voa-prefilter-date-fields .ms-DatePicker {
+  min-width: 220px;
+}
+
+.voa-prefilter-date-fields .ms-DatePicker .ms-TextField-fieldGroup input {
+  padding-left: 10px;
+}
+
+.voa-prefilter-bar .ms-Dropdown-items .ms-Dropdown-item {
+  white-space: normal;
+  height: auto;
+  line-height: 1.2;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.voa-prefilter-bar .ms-Dropdown-items .ms-Dropdown-item span {
+  white-space: normal;
+}
+
+.voa-prefilter-bar .ms-Label {
+  margin-bottom: 4px;
+}
+
+.voa-prefilter-col-actions {
+  grid-column: 5;
+  grid-row: 2;
+}
+
+.voa-prefilter-bar--no-date .voa-prefilter-col-actions {
+  grid-column: 4;
+  grid-row: 2;
+}
+
+.voa-prefilter-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.voa-prefilter-label {
+  min-height: 22px;
+  line-height: 22px;
+}
+
+.voa-prefilter-label--daterange {
+  text-align: left;
+}
+
+.voa-prefilter-label-spacer {
+  display: block;
+  min-height: 22px;
+}
+
+.voa-prefilter-actions {
+  display: flex;
+  align-items: flex-end;
+}
+
+@media (max-width: 1100px) {
+  .voa-prefilter-bar .ms-Stack-inner {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .voa-prefilter-col-searchby,
+  .voa-prefilter-col-owner,
+  .voa-prefilter-col-workthat,
+  .voa-prefilter-col-daterange,
+  .voa-prefilter-col-actions {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}

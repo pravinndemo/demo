@@ -15,6 +15,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private selectedSaleId?: string;
   private selectedTaskIdsJson?: string;
   private selectedSaleIdsJson?: string;
+  private selectedCount?: number;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
@@ -54,7 +55,14 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
             this.selectedSaleId = args?.saleId;
             this.selectedTaskIdsJson = JSON.stringify((args?.selectedTaskIds ?? []).filter((v) => !!v));
             this.selectedSaleIdsJson = JSON.stringify((args?.selectedSaleIds ?? []).filter((v) => !!v));
+            const taskCount = args?.selectedTaskIds?.length ?? 0;
+            const saleCount = args?.selectedSaleIds?.length ?? 0;
+            this.selectedCount = taskCount || saleCount;
             this._saleDetails = '';
+            this._notifyOutputChanged();
+          },
+          onSelectionCountChange: (count) => {
+            this.selectedCount = count;
             this._notifyOutputChanged();
           },
         }),
@@ -69,6 +77,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       selectedSaleId: this.selectedSaleId,
       selectedTaskIdsJson: this.selectedTaskIdsJson,
       selectedSaleIdsJson: this.selectedSaleIdsJson,
+      selectedCount: this.selectedCount,
       saleDetails: this._saleDetails,
     } as IOutputs;
   }

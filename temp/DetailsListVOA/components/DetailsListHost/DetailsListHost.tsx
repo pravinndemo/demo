@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Selection, SelectionMode, IDetailsList, IObjectWithKey } from '@fluentui/react';
+import { Selection, SelectionMode, IDetailsList, IObjectWithKey, MessageBarType } from '@fluentui/react';
 import { DetailsList as Grid, GridProps } from '../DetailsList';
 import { PCFContext } from '../context/PCFContext';
 import { ColumnConfig } from '../../Component.types';
@@ -7,9 +7,11 @@ import { GridFilterState, createDefaultGridFilters, sanitizeFilters, NumericFilt
 import { getProfileConfigs } from '../../config/ColumnProfiles';
 import { CONTROL_CONFIG } from '../../config/ControlConfig';
 import { isLookupFieldFor } from '../../config/TableConfigs';
+import { type ManagerPrefilterState } from '../../config/PrefilterConfigs';
 import { buildColumns } from '../../utils/ColumnsBuilder';
 import { ensureSampleColumns, buildSampleEntityRecords } from '../../utils/SampleHelpers';
 import { loadGridData } from '../../services/GridDataController';
+import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from '../../services/CustomApi';
 import { IInputs } from '../../generated/ManifestTypes';
 import { logPerf } from '../../utils/Perf';
 
@@ -18,6 +20,8 @@ export interface DetailsListHostProps {
   onRowInvoke?: (args: { taskId?: string; saleId?: string }) => void;
   // Emit IDs on selection (single or multi); arrays support multi-select
   onSelectionChange?: (args: { taskId?: string; saleId?: string; selectedTaskIds?: string[]; selectedSaleIds?: string[] }) => void;
+  // Emit count of selected rows (even if IDs are missing)
+  onSelectionCountChange?: (count: number) => void;
   // When provided, the host renders these items instead of loading via APIM.
   externalItems?: unknown[];
   // Bubble header filter Apply back to parent (used by external item scenarios to call API with extra params)
@@ -26,6 +30,29 @@ export interface DetailsListHostProps {
 
 type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFilter;
 type FilterOptionsMap = Record<string, string[]>;
+
+const SSU_APP_ID = 'cdb5343c-51c1-ec11-983e-002248438fff';
+
+const buildSsuUrl = (clientUrl: string, suid: string): string => {
+  const baseUrl = clientUrl.replace(/\/$/, '');
+  return `${baseUrl}/main.aspx?appid=${SSU_APP_ID}&newwindow=true&pagetype=entityrecord&etn=voa_ssu&id=${encodeURIComponent(suid)}`;
+};
+
+const resolveClientUrl = (ctx: ComponentFramework.Context<IInputs>): string => {
+  const contextWithPage = ctx as unknown as { page?: { getClientUrl?: () => string } };
+  const page = contextWithPage.page;
+  if (typeof page?.getClientUrl === 'function') {
+    try {
+      return page.getClientUrl();
+    } catch {
+      // Fall back for test harness where getClientUrl may not be available.
+    }
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  return '';
+};
 
 const toFilterValueString = (val: ColumnFilterValue | undefined): string => {
   if (val === undefined || val === null) return '';
@@ -139,7 +166,14 @@ const areFiltersEqual = (a: Record<string, ColumnFilterValue>, b: Record<string,
   return true;
 };
 
-export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRowInvoke, onSelectionChange, externalItems, onColumnFiltersApply }) => {
+export const DetailsListHost: React.FC<DetailsListHostProps> = ({
+  context,
+  onRowInvoke,
+  onSelectionChange,
+  onSelectionCountChange,
+  externalItems,
+  onColumnFiltersApply,
+}) => {
   // Parse basic params
   const pageSize = (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 10;
   const tableKey = (CONTROL_CONFIG.tableKey || 'sales').trim().toLowerCase();
@@ -221,6 +255,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     searchBy: 'taskStatus',
     taskStatus: ['New'],
   });
+  const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState | undefined>(undefined);
+  const [prefilterApplied, setPrefilterApplied] = React.useState(false);
   const [searchNonce, setSearchNonce] = React.useState(0);
   const [apiFilterOptions, setApiFilterOptions] = React.useState<FilterOptionsMap>({});
   const [apimItems, setApimItems] = React.useState<unknown[]>([]);
@@ -228,10 +264,16 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
   const [serverDriven, setServerDriven] = React.useState(false);
   const [apimLoading, setApimLoading] = React.useState(false);
   const [hasLoadedApim, setHasLoadedApim] = React.useState(false);
+  const [assignMessage, setAssignMessage] = React.useState<{ text: string; type: MessageBarType } | undefined>(undefined);
+  const [assignPendingRefresh, setAssignPendingRefresh] = React.useState(false);
+  const assignRefreshResolve = React.useRef<null | ((ok: boolean) => void)>(null);
   // Defer persistence until after initial hydration to avoid add/remove flicker in localStorage
   const [hydrated, setHydrated] = React.useState(false);
   const allowColumnReorder = (context.parameters as unknown as Record<string, { raw?: string | boolean }>).allowColumnReorder?.raw === true ||
     String((context.parameters as unknown as Record<string, { raw?: string | boolean }>).allowColumnReorder?.raw ?? '').toLowerCase() === 'true';
+  const canvasScreenName = (context.parameters as unknown as Record<string, { raw?: string }>).canvasScreenName?.raw ?? '';
+  const screenName = canvasScreenName.toLowerCase();
+  const isManagerAssign = screenName.includes('assignment') && screenName.includes('manager');
 
   // Persist header filters per table for consistent UX across reloads
   const storageKey = React.useMemo(() => `voa-grid-filters:${tableKey}`, [tableKey]);
@@ -241,6 +283,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
   const storageKeyNC = React.useMemo(() => storageKey.replace(':', ''), [storageKey]);
   const storageKeySortNC = React.useMemo(() => storageKeySort.replace(':', ''), [storageKeySort]);
   const storageKeyPageNC = React.useMemo(() => storageKeyPage.replace(':', ''), [storageKeyPage]);
+
+  React.useEffect(() => {
+    if (isManagerAssign) {
+      setSearchFilters(createDefaultGridFilters());
+    }
+  }, [isManagerAssign]);
   // Hydrate from localStorage on table change (URL persistence disabled by policy)
   React.useEffect(() => {
     try {
@@ -329,6 +377,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     return cols;
   }, [apimItems, columnConfigs, columnDisplayNames, hasLoadedApim, externalItems]);
 
+  const clientUrl = resolveClientUrl(context);
+
   // Records mapping
   const { records, ids } = React.useMemo(() => {
     const t0 = performance.now();
@@ -359,6 +409,13 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
         Object.keys(obj).forEach((k) => (r[k.toLowerCase()] = obj[k]));
         // some handy aliases
         r.saleid = r.saleid ?? (r as Record<string, unknown> & { saleId?: unknown }).saleId;
+        const suidValue = r.suid;
+        const suid = typeof suidValue === 'string'
+          ? suidValue
+          : typeof suidValue === 'number'
+            ? String(suidValue)
+            : '';
+        r.addressurl = suid && clientUrl ? buildSsuUrl(clientUrl, suid) : '';
         all.push(id);
         recs[id] = r;
       });
@@ -371,7 +428,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     const t1 = performance.now();
     logPerf('[Grid Perf] Map records (ms):', Math.round(t1 - t0), 'count:', all.length);
     return { records: recs, ids: all };
-  }, [apimItems, columnDisplayNames, datasetColumns, hasLoadedApim]);
+  }, [apimItems, clientUrl, columnDisplayNames, datasetColumns, hasLoadedApim]);
 
   const filteredIds = React.useMemo(() => {
     const t0 = performance.now();
@@ -463,6 +520,15 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
       // External data path; do not load from APIM
       return;
     }
+    if (isManagerAssign && !prefilterApplied) {
+      setApimLoading(false);
+      setHasLoadedApim(false);
+      setApimItems([]);
+      setTotalCount(0);
+      setServerDriven(false);
+      setApiFilterOptions({});
+      return;
+    }
     const trigger = String((context.parameters as unknown as Record<string, { raw?: string | number }>).searchTrigger?.raw ?? '');
     const sortKey = clientSort ? `${clientSort.name}:${clientSort.sortDirection}` : '';
     const changed = lastRef.current.table !== tableKey
@@ -482,15 +548,21 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
         currentPage,
         pageSize,
         clientSort,
+        prefilters,
       });
       setApimItems(res.items);
       setTotalCount(res.totalCount);
       setServerDriven(res.serverDriven);
       setApimLoading(false);
       setHasLoadedApim(true);
+      if (assignPendingRefresh && assignRefreshResolve.current) {
+        assignRefreshResolve.current(true);
+        assignRefreshResolve.current = null;
+        setAssignPendingRefresh(false);
+      }
       setApiFilterOptions(normalizeFilterOptions(res.filters));
     })();
-  }, [context, tableKey, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim]);
+  }, [context, tableKey, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isManagerAssign]);
 
   // Handlers
   const [selectedCount, setSelectedCount] = React.useState(0);
@@ -499,6 +571,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     onSelectionChanged: () => {
       setSelectedCount((sel) => {
         const next = selection.getSelectedCount();
+        onSelectionCountChange?.(next);
         return next !== sel ? next : sel;
       });
       // Emit selected Task/Sale IDs to parent without fetching details
@@ -534,6 +607,76 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
 
   const onSort = (name: string, desc: boolean): void => {
     setClientSort({ name, sortDirection: desc ? 1 : 0 });
+  };
+
+  const resolveAssignmentApiName = (): string => {
+    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).taskAssignmentApiName?.raw;
+    const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
+    const fallback = normalizeCustomApiName(CONTROL_CONFIG.taskAssignmentApiName);
+    return fromContext || fallback || '';
+  };
+
+  const resolveCustomApiTypeForAssign = (): number => {
+    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiType?.raw;
+    const fromContext = typeof raw === 'string' ? raw : undefined;
+    return resolveCustomApiOperationType(fromContext ?? CONTROL_CONFIG.customApiType);
+  };
+
+  const assignTasksToUser = async (user: { id: string; firstName: string; lastName: string }): Promise<boolean> => {
+    try {
+      const selected = selection.getSelection() as Record<string, unknown>[];
+      if (selected.length === 0) {
+        setAssignMessage({ text: 'Please select one or more tasks to assign.', type: MessageBarType.warning });
+        return false;
+      }
+      const apiName = resolveAssignmentApiName();
+      if (!apiName) {
+        setAssignMessage({ text: 'Task assignment API name is not configured.', type: MessageBarType.error });
+        return false;
+      }
+      const customApiType = resolveCustomApiTypeForAssign();
+      const assignedBy = (context.userSettings as { userId?: string } | undefined)?.userId ?? '';
+      const assignedDate = new Date().toISOString();
+      for (const rec of selected) {
+        const saleId = (rec.saleid ?? rec.saleId ?? '') as string;
+        const taskId = (rec.taskid ?? rec.taskId ?? '') as string;
+        const taskStatus = (rec.taskstatus ?? rec.taskStatus ?? '') as string;
+        await executeUnboundCustomApi<Record<string, unknown>>(
+          context,
+          apiName,
+          {
+            assignedToUserId: user.id,
+            taskStatus,
+            saleId,
+            taskId,
+            assignedByUserId: assignedBy,
+            date: assignedDate,
+          },
+          { operationType: customApiType },
+        );
+      }
+      setAssignMessage({ text: 'The selected tasks have been assigned successfully.', type: MessageBarType.success });
+      selection.setAllSelected(false);
+      setSelectedCount(0);
+      onSelectionCountChange?.(0);
+      onSelectionChange?.({ selectedTaskIds: [], selectedSaleIds: [] });
+      setAssignPendingRefresh(true);
+      setSearchNonce((n) => n + 1);
+      return await new Promise<boolean>((resolve) => {
+        assignRefreshResolve.current = resolve;
+      });
+    } catch (err) {
+      setAssignMessage({
+        text: 'One or more of the selected tasks has already been assigned. Please refresh the page and try again.',
+        type: MessageBarType.error,
+      });
+      if (assignRefreshResolve.current) {
+        assignRefreshResolve.current(false);
+        assignRefreshResolve.current = null;
+        setAssignPendingRefresh(false);
+      }
+      return false;
+    }
   };
 
   const props: GridProps = {
@@ -572,9 +715,11 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     canNext,
     canPrev,
     searchFilters,
-    showResults: true,
+    showResults: !isManagerAssign || prefilterApplied,
     selectedCount,
     allowColumnReorder,
+    statusMessage: assignMessage,
+    onAssignTasks: assignTasksToUser,
     onLoadFilterOptions: (field, query) => {
       const key = String(field ?? '').toLowerCase();
       const options = apiFilterOptions[key] ?? [];
@@ -619,6 +764,52 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({ context, onRow
     },
     columnFilters: headerFilters,
     taskCount: serverDriven ? totalCount : filteredIds.length,
+    canvasScreenName,
+    prefilterApplied,
+    onPrefilterApply: (next) => {
+      setPrefilters(next);
+      setPrefilterApplied(true);
+      setCurrentPage(0);
+      setSearchFilters(createDefaultGridFilters());
+      setClientSort({ name: 'saleid', sortDirection: 0 });
+      setHeaderFilters({});
+      lastAppliedFiltersRef.current = {};
+      selection.setAllSelected(false);
+      setSelectedCount(0);
+      onSelectionCountChange?.(0);
+      onSelectionChange?.({ selectedTaskIds: [], selectedSaleIds: [] });
+      try {
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem(storageKeyNC);
+      } catch {
+        // ignore storage failures
+      }
+      setSearchNonce((n) => n + 1);
+    },
+    onPrefilterClear: () => {
+      setPrefilters(undefined);
+      setPrefilterApplied(false);
+      setCurrentPage(0);
+      setSearchFilters(createDefaultGridFilters());
+      setClientSort({ name: 'saleid', sortDirection: 0 });
+      setHeaderFilters({});
+      lastAppliedFiltersRef.current = {};
+      selection.setAllSelected(false);
+      setSelectedCount(0);
+      onSelectionCountChange?.(0);
+      onSelectionChange?.({ selectedTaskIds: [], selectedSaleIds: [] });
+      setApimItems([]);
+      setTotalCount(0);
+      setServerDriven(false);
+      setHasLoadedApim(false);
+      setApiFilterOptions({});
+      try {
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem(storageKeyNC);
+      } catch {
+        // ignore storage failures
+      }
+    },
   };
 
   return <Grid {...(props as unknown as GridProps)} />;

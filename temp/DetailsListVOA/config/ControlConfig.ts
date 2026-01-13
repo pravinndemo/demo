@@ -5,4 +5,5 @@ export const CONTROL_CONFIG = {
   viewSaleRecordApiName: 'voa_GetViewSaleRecordById',
   tableKey: 'sales',
   serverDrivenThreshold: 2000,
+  taskAssignmentApiName: 'voa_SvtTaskAssignment',
 };

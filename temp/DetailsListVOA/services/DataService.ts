@@ -21,6 +21,7 @@ interface SalesPageInfo {
 
 interface SalesApiItem {
   saleId?: string;
+  suid?: string;
   taskId?: string;
   uprn?: string;
   address?: string;
@@ -206,6 +207,7 @@ const normalizeSalesItem = (item: SalesApiItem): TaskSearchItem => {
 
   return {
     saleId: toText(getNormalizedValue(map, 'saleId')) ?? undefined,
+    suid: toText(getNormalizedValue(map, 'suid')) ?? undefined,
     taskId: toTextOrEmpty(getNormalizedValue(map, 'taskId')),
     uprn: toTextOrEmpty(getNormalizedValue(map, 'uprn')),
     taskStatus: toTextOrEmpty(getNormalizedValue(map, 'taskStatus')),
@@ -387,6 +389,7 @@ export function mapTaskItemToRecord(
   record.taskId = item.taskId;
   record.saleid = item.saleId ?? '';
   record.saleId = item.saleId ?? '';
+  record.suid = item.suid ?? '';
   record.taskstatus = item.taskStatus;
   record.taskStatus = item.taskStatus;
   record.address = item.address;

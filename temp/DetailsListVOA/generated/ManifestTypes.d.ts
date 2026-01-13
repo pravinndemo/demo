@@ -7,6 +7,7 @@ export interface IInputs {
     canvasScreenName: ComponentFramework.PropertyTypes.StringProperty;
     customApiName: ComponentFramework.PropertyTypes.StringProperty;
     customApiType: ComponentFramework.PropertyTypes.StringProperty;
+    taskAssignmentApiName: ComponentFramework.PropertyTypes.StringProperty;
     viewSaleRecordApiName: ComponentFramework.PropertyTypes.StringProperty;
     pageSize: ComponentFramework.PropertyTypes.WholeNumberProperty;
     serverDrivenThreshold: ComponentFramework.PropertyTypes.WholeNumberProperty;
@@ -28,4 +29,5 @@ export interface IOutputs {
     saleDetails?: string;
     selectedTaskIdsJson?: string;
     selectedSaleIdsJson?: string;
+    selectedCount?: number;
 }

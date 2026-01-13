@@ -38,6 +38,15 @@
       default-value="function"
     />
     <property
+      name="taskAssignmentApiName"
+      display-name-key="Task Assignment API Name"
+      description-key="Name of the Dataverse Custom API used to assign tasks (e.g., voa_SvtTaskAssignment)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_SvtTaskAssignment"
+    />
+    <property
       name="viewSaleRecordApiName"
       display-name-key="View Sale Record API Name"
       description-key="Name of the Dataverse Custom API used to fetch sale details by ID (e.g., voa_GetViewSaleRecordById)."
@@ -165,6 +174,7 @@
     <property name="saleDetails" display-name-key="Sale Details" description-key="Serialized sale details JSON" of-type="SingleLine.Text" usage="output" required="false" />
     <property name="selectedTaskIdsJson" display-name-key="Selected Task IDs (JSON)" description-key="JSON array of selected Task IDs" of-type="SingleLine.Text" usage="output" required="false" />
     <property name="selectedSaleIdsJson" display-name-key="Selected Sale IDs (JSON)" description-key="JSON array of selected Sale IDs" of-type="SingleLine.Text" usage="output" required="false" />
+    <property name="selectedCount" display-name-key="Selected Count" description-key="Count of selected rows" of-type="Whole.None" usage="output" required="false" />
 
 
     <resources>

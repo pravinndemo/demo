@@ -4,6 +4,7 @@ import {
   ContextualMenu,
   ContextualMenuItemType,
   createTheme,
+  DetailsList,
   DirectionalHint,
   IColumn,
   IColumnReorderOptions,
@@ -28,12 +29,15 @@ import {
   Dropdown,
   ComboBox,
   IComboBoxOption,
+  SearchBox,
   Spinner,
   SpinnerSize,
   Link,
   DatePicker,
   DayOfWeek,
   IDatePickerStrings,
+  FocusTrapZone,
+  IconButton,
 } from '@fluentui/react';
 import * as React from 'react';
 import { NoFields } from './NoFields';
@@ -88,6 +92,9 @@ export interface GridProps {
   allowColumnReorder?: boolean;
   // Fully controlled header filters from host
   columnFilters: Record<string, string | string[]>;
+  canvasScreenName?: string;
+  onAssignTasks?: (user: { id: string; firstName: string; lastName: string; email: string; team: string; role: string }) => Promise<boolean>;
+  statusMessage?: { text: string; type: MessageBarType };
 }
 
 const defaultTheme = createTheme({
@@ -161,9 +168,13 @@ export const Grid = React.memo((props: GridProps) => {
     onLoadFilterOptions,
     onColumnFiltersChange,
     columnFilters,
+    canvasScreenName,
+    onAssignTasks,
+    statusMessage,
   } = props;
 
   const theme = useTheme(themeJSON);
+  const topRef = React.useRef<HTMLDivElement>(null);
   const paginationButtonStyles = React.useMemo(
     () => ({
       root: {
@@ -171,9 +182,10 @@ export const Grid = React.memo((props: GridProps) => {
         minWidth: 32,
         padding: '0 10px',
         borderRadius: 6,
+        borderColor: theme.palette.neutralQuaternary,
       },
     }),
-    [],
+    [theme.palette.neutralQuaternary],
   );
   const activePaginationButtonStyles = React.useMemo(
     () => ({
@@ -182,12 +194,18 @@ export const Grid = React.memo((props: GridProps) => {
         minWidth: 32,
         padding: '0 10px',
         borderRadius: 6,
-        backgroundColor: theme.palette.neutralLighter,
-        borderColor: theme.palette.neutralQuaternary,
+        backgroundColor: theme.palette.themePrimary,
+        borderColor: theme.palette.themePrimary,
+        color: theme.palette.white,
         fontWeight: 600,
       },
+      rootHovered: {
+        backgroundColor: theme.palette.themeDark,
+        borderColor: theme.palette.themeDark,
+        color: theme.palette.white,
+      },
     }),
-    [theme.palette.neutralLighter, theme.palette.neutralQuaternary],
+    [theme.palette.themePrimary, theme.palette.themeDark, theme.palette.white],
   );
 
   const [columns, setColumns] = React.useState<IGridColumn[]>([]);
@@ -204,6 +222,12 @@ export const Grid = React.memo((props: GridProps) => {
   const menuOptionsTimer = React.useRef<number | undefined>(undefined);
   const liveFilterTimer = React.useRef<number | undefined>(undefined);
   const [filters, setFilters] = React.useState<GridFilterState>(searchFilters);
+  const [assignPanelOpen, setAssignPanelOpen] = React.useState(false);
+  const [assignSearch, setAssignSearch] = React.useState('');
+  const [assignTeam, setAssignTeam] = React.useState<string | number | undefined>();
+  const [assignRole, setAssignRole] = React.useState<string | number | undefined>();
+  const [assignLoading, setAssignLoading] = React.useState(false);
+  const [assignSelectedUserId, setAssignSelectedUserId] = React.useState<string | undefined>();
 
   // No sync needed; columnFilters is controlled by host
 
@@ -641,7 +665,18 @@ export const Grid = React.memo((props: GridProps) => {
       const sort = sorting?.find((s) => s.name === field);
       const sortIcon = sort ? (Number(sort.sortDirection) === 1 ? 'SortDown' : 'SortUp') : undefined;
       const iconName = sortIcon ?? (activeFilter ? 'Filter' : undefined);
-      return { ...c, iconName } as IGridColumn;
+      const columnName = c.name ?? String(field ?? '');
+      const sortState = sort ? (Number(sort.sortDirection) === 1 ? 'sorted descending' : 'sorted ascending') : 'not sorted';
+      const filterState = activeFilter ? 'filtered' : 'not filtered';
+      return {
+        ...c,
+        iconName,
+        isFiltered: activeFilter,
+        isSorted: !!sort,
+        isSortedDescending: sort ? Number(sort.sortDirection) === 1 : undefined,
+        ariaLabel: `${columnName} column, ${sortState}, ${filterState}`,
+        ariaLabelItemName: columnName,
+      } as IGridColumn;
     });
   }, [columns, columnFilters, sorting]);
 
@@ -871,12 +906,13 @@ export const Grid = React.memo((props: GridProps) => {
     // If any values are selected in the list, prefer them (exact match semantics).
     if (Array.isArray(menuFilterValue)) {
       const vals = menuFilterValue.map((v) => String(v).trim()).filter((v) => v !== '');
-      if (vals.length > 0) {
-        updated[fieldName] = vals;
-        onColumnFiltersChange?.(updated);
-        setMenuState(undefined);
-        return;
-      }
+        if (vals.length > 0) {
+          updated[fieldName] = vals;
+          onColumnFiltersChange?.(updated);
+          setMenuState(undefined);
+          menuState.target?.focus?.();
+          return;
+        }
     }
     // Otherwise, apply free‑text contains
     const trimmed = String(menuFilterText ?? '').trim();
@@ -885,9 +921,10 @@ export const Grid = React.memo((props: GridProps) => {
     } else {
       updated[fieldName] = trimmed;
     }
-    onColumnFiltersChange?.(updated);
-    setMenuState(undefined);
-  }, [menuFilterValue, menuFilterText, menuState, onColumnFiltersChange, columnFilters]);
+      onColumnFiltersChange?.(updated);
+      setMenuState(undefined);
+      menuState.target?.focus?.();
+    }, [menuFilterValue, menuFilterText, menuState, onColumnFiltersChange, columnFilters]);
 
   const clearFilter = React.useCallback(() => {
     if (!menuState) {
@@ -899,6 +936,7 @@ export const Grid = React.memo((props: GridProps) => {
       setMenuFilterValue(lookup ? [] : '');
       setMenuFilterText('');
       setMenuState(undefined);
+      menuState.target?.focus?.();
       return;
     }
     const updated = { ...columnFilters };
@@ -908,7 +946,103 @@ export const Grid = React.memo((props: GridProps) => {
     setMenuFilterValue(lookup ? [] : '');
     setMenuFilterText('');
     setMenuState(undefined);
+    menuState.target?.focus?.();
   }, [menuState, isLookupField, onColumnFiltersChange, columnFilters]);
+
+  const onGoToTop = React.useCallback(() => {
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    topRef.current?.focus?.();
+  }, []);
+
+  const onViewSelected = React.useCallback(() => {
+    const selected = selection.getSelection();
+    if (selected.length !== 1) return;
+    const first = selected?.[0] as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord | undefined;
+    if (first) {
+      onNavigate(first);
+    }
+  }, [onNavigate, selection]);
+
+  const screenName = (canvasScreenName ?? '').toLowerCase();
+  const isAssignment = screenName.includes('assignment');
+  const isManagerAssign = isAssignment && screenName.includes('manager');
+  const isQcAssign = isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
+  const showAssign = isManagerAssign || isQcAssign;
+  const assignActionText = isQcAssign ? 'Assign QC Tasks' : 'Assign Tasks';
+  const assignHeaderText = isQcAssign ? 'QC Assignment' : 'Manager Assignment';
+  const assignUserListTitle = isQcAssign ? 'QC Users' : 'SVT Users';
+
+  const assignUsers = React.useMemo(() => {
+    if (isQcAssign) {
+      return [
+        { id: 'q1', firstName: 'Quinn', lastName: 'Adams', email: 'quinn.adams@example.com', team: 'QC Team A', role: 'QC Reviewer' },
+        { id: 'q2', firstName: 'Rita', lastName: 'Brown', email: 'rita.brown@example.com', team: 'QC Team A', role: 'QC Reviewer' },
+        { id: 'q3', firstName: 'Sam', lastName: 'Carter', email: 'sam.carter@example.com', team: 'QC Team B', role: 'QC Lead' },
+        { id: 'q4', firstName: 'Tina', lastName: 'Davis', email: 'tina.davis@example.com', team: 'QC Team B', role: 'QC Reviewer' },
+        { id: 'q5', firstName: 'Uma', lastName: 'Evans', email: 'uma.evans@example.com', team: 'QC Team C', role: 'QC Reviewer' },
+      ];
+    }
+    return [
+      { id: 'u1', firstName: 'Alice', lastName: 'Johnson', email: 'alice.johnson@example.com', team: 'Team A', role: 'Caseworker' },
+      { id: 'u2', firstName: 'Bob', lastName: 'Smith', email: 'bob.smith@example.com', team: 'Team A', role: 'Caseworker' },
+      { id: 'u3', firstName: 'Carol', lastName: 'Davis', email: 'carol.davis@example.com', team: 'Team B', role: 'Caseworker' },
+      { id: 'u4', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', team: 'Team B', role: 'Caseworker' },
+      { id: 'u5', firstName: 'Emma', lastName: 'Wilson', email: 'emma.wilson@example.com', team: 'Team C', role: 'Caseworker' },
+    ];
+  }, [isQcAssign]);
+
+  const assignFilteredUsers = React.useMemo(() => {
+    const term = assignSearch.trim().toLowerCase();
+    return assignUsers.filter((u) => {
+      if (assignTeam && u.team !== assignTeam) return false;
+      if (assignRole && u.role !== assignRole) return false;
+      if (!term) return true;
+      return (
+        u.firstName.toLowerCase().includes(term) ||
+        u.lastName.toLowerCase().includes(term) ||
+        u.email.toLowerCase().includes(term)
+      );
+    });
+  }, [assignUsers, assignSearch, assignRole, assignTeam]);
+
+  const handleAssignClick = React.useCallback(async (user: { id: string; firstName: string; lastName: string; email: string; team: string; role: string }) => {
+    if (!onAssignTasks || assignLoading) return;
+    setAssignSelectedUserId(user.id);
+    setAssignLoading(true);
+    try {
+      const ok = await onAssignTasks(user);
+      if (ok) {
+        setAssignPanelOpen(false);
+      }
+    } finally {
+      setAssignLoading(false);
+      setAssignSelectedUserId(undefined);
+    }
+  }, [assignLoading, onAssignTasks]);
+
+  const assignColumns = React.useMemo<IColumn[]>(
+    () => [
+      { key: 'firstName', name: 'First Name', fieldName: 'firstName', minWidth: 120, isResizable: true },
+      { key: 'lastName', name: 'Last Name', fieldName: 'lastName', minWidth: 120, isResizable: true },
+      { key: 'email', name: 'Email', fieldName: 'email', minWidth: 220, isResizable: true },
+      {
+        key: 'assign',
+        name: 'Action',
+        minWidth: 120,
+        onRender: (item: { id: string; firstName: string; lastName: string }) => (
+          <PrimaryButton
+            text="Assign Task"
+            ariaLabel={`Assign task to ${item.firstName} ${item.lastName}`}
+            disabled={assignLoading || (!!assignSelectedUserId && assignSelectedUserId !== item.id)}
+            onClick={() => {
+              void handleAssignClick(item as { id: string; firstName: string; lastName: string; email: string; team: string; role: string });
+            }}
+          />
+        ),
+      },
+    ],
+    [assignLoading, assignSelectedUserId, handleAssignClick],
+  );
 
   const menuItems = React.useMemo<IContextualMenuItem[]>(() => {
     if (!menuState) {
@@ -957,10 +1091,11 @@ export const Grid = React.memo((props: GridProps) => {
             </Text>
             {lookup ? (
               <>
-                <TextField
-                  placeholder={`Filter ${menuState.column.name}`}
-                  value={menuFilterText}
-                  onChange={(_, v) => {
+              <TextField
+                    label={`Filter ${menuState.column.name}`}
+                    placeholder={`Filter ${menuState.column.name}`}
+                    value={menuFilterText}
+                    onChange={(_, v) => {
                     const next = v ?? '';
                     setMenuFilterText(next);
                     if (onLoadFilterOptions && !isTextOnlyField(fieldName)) {
@@ -982,12 +1117,13 @@ export const Grid = React.memo((props: GridProps) => {
                     <Text variant="small" style={{ marginLeft: 8 }}>Searching…</Text>
                   </Stack>
                 )}
-                <Dropdown
-                  placeholder={`Select ${menuState.column.name}`}
-                  options={filteredValueOptions}
-                  multiSelect
-                  selectedKeys={Array.isArray(menuFilterValue) ? menuFilterValue : []}
-                  onChange={(_, opt) => {
+                  <Dropdown
+                    label={`Filter ${menuState.column.name}`}
+                    placeholder={`Select ${menuState.column.name}`}
+                    options={filteredValueOptions}
+                    multiSelect
+                    selectedKeys={Array.isArray(menuFilterValue) ? menuFilterValue : []}
+                    onChange={(_, opt) => {
                     const key = String(opt?.key ?? '');
                     setMenuFilterValue((prev) => {
                       const current = Array.isArray(prev) ? prev.slice() : [];
@@ -1031,11 +1167,12 @@ export const Grid = React.memo((props: GridProps) => {
                   </Stack>
                 )}
                 {!isTextOnlyField(fieldName) && (
-                <Dropdown
-                  placeholder={`Select ${menuState.column.name}`}
-                  options={filteredValueOptions}
-                  multiSelect
-                  selectedKeys={Array.isArray(menuFilterValue) ? menuFilterValue : (menuFilterValue ? [menuFilterValue] : [])}
+                  <Dropdown
+                    label={`Filter ${menuState.column.name}`}
+                    placeholder={`Select ${menuState.column.name}`}
+                    options={filteredValueOptions}
+                    multiSelect
+                    selectedKeys={Array.isArray(menuFilterValue) ? menuFilterValue : (menuFilterValue ? [menuFilterValue] : [])}
                   onChange={(_, opt) => {
                     const key = String(opt?.key ?? '');
                     setMenuFilterValue((prev) => {
@@ -1054,8 +1191,16 @@ export const Grid = React.memo((props: GridProps) => {
               </>
             )}
             <Stack horizontal tokens={{ childrenGap: 8 }} style={{ marginTop: 8 }}>
-              <PrimaryButton text="Apply" onClick={applyFilter} />
-              <DefaultButton text="Clear" onClick={clearFilter} />
+              <PrimaryButton
+                text="Apply"
+                onClick={applyFilter}
+                ariaLabel={`Apply filter for ${menuState.column.name ?? 'column'}`}
+              />
+              <DefaultButton
+                text="Clear"
+                onClick={clearFilter}
+                ariaLabel={`Clear filter for ${menuState.column.name ?? 'column'}`}
+              />
             </Stack>
           </div>
         ),
@@ -1069,7 +1214,16 @@ export const Grid = React.memo((props: GridProps) => {
 
   return (
     <ThemeProvider theme={theme}>
-      <div style={{ height }}>
+      <div
+        style={{ height, display: 'flex', flexDirection: 'column' }}
+        ref={topRef}
+        tabIndex={-1}
+        aria-label="Results table"
+      >
+        <div className="voa-skip-links">
+          <a href="#voa-grid-results">Skip to results</a>
+          <a href="#voa-grid-pagination">Skip to pagination</a>
+        </div>
         {columnDatasetNotDefined && (
           <MessageBar messageBarType={MessageBarType.error} style={{ marginBottom: 16 }}>
             One or more column configurations reference fields that do not exist in the dataset.
@@ -1078,6 +1232,11 @@ export const Grid = React.memo((props: GridProps) => {
         {errorMessage && (
           <MessageBar messageBarType={MessageBarType.error} style={{ marginBottom: 16 }}>
             {errorMessage}
+          </MessageBar>
+        )}
+        {statusMessage && (
+          <MessageBar messageBarType={statusMessage.type} style={{ marginBottom: 16 }}>
+            {statusMessage.text}
           </MessageBar>
         )}
         {showSearchPanel && (
@@ -1301,26 +1460,46 @@ export const Grid = React.memo((props: GridProps) => {
               disabled={Object.keys(columnFilters).length === 0}
               styles={{ root: { height: 28 } }}
             />
+            <Stack.Item styles={{ root: { marginLeft: 'auto', display: 'flex', gap: 8 } }}>
+              <PrimaryButton
+                text="View Sales Record"
+                iconProps={{ iconName: 'View' }}
+                disabled={selectedCount !== 1}
+                onClick={onViewSelected}
+                ariaLabel="View selected sales record"
+              />
+              {showAssign && (
+                <DefaultButton
+                  text={assignActionText}
+                  iconProps={{ iconName: 'AddFriend' }}
+                  onClick={() => setAssignPanelOpen(true)}
+                  ariaLabel={assignActionText}
+                />
+              )}
+            </Stack.Item>
           </Stack>
         )}
         {showResults && (
-        <ShimmeredDetailsList
-          className={ClassNames.PowerCATFluentDetailsList}
-          componentRef={componentRef}
-          items={filteredItems}
-          columns={columnsWithIcons}
-          setKey="grid"
-          enableShimmer={itemsLoading || shimmer}
-          selectionMode={selectionType}
-          selection={selection}
-          checkboxVisibility={selectionType === SelectionMode.none ? CheckboxVisibility.hidden : CheckboxVisibility.always}
-          onColumnHeaderClick={onColumnHeaderClick}
-          onColumnHeaderContextMenu={onColumnHeaderContextMenu}
-          onItemInvoked={onItemInvoked}
-          columnReorderOptions={props.allowColumnReorder ? columnReorderOptions : undefined}
-          compact={compact}
-          isHeaderVisible={isHeaderVisible}
-        />)}
+          <div id="voa-grid-results" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            <ShimmeredDetailsList
+              className={ClassNames.PowerCATFluentDetailsList}
+              componentRef={componentRef}
+              items={filteredItems}
+              columns={columnsWithIcons}
+              setKey="grid"
+              enableShimmer={itemsLoading || shimmer}
+              selectionMode={selectionType}
+              selection={selection}
+              checkboxVisibility={selectionType === SelectionMode.none ? CheckboxVisibility.hidden : CheckboxVisibility.always}
+              onColumnHeaderClick={onColumnHeaderClick}
+              onColumnHeaderContextMenu={onColumnHeaderContextMenu}
+              onItemInvoked={onItemInvoked}
+              columnReorderOptions={props.allowColumnReorder ? columnReorderOptions : undefined}
+              compact={compact}
+              isHeaderVisible={isHeaderVisible}
+            />
+          </div>
+        )}
         {showResults && menuState && (
           <ContextualMenu
             target={menuState.target}
@@ -1332,57 +1511,145 @@ export const Grid = React.memo((props: GridProps) => {
         )}
         {showResults && (itemsLoading || isComponentLoading) && <Overlay />}
         {showResults && (
-        <Stack
-          horizontal
-          tokens={{ childrenGap: 8 }}
-          style={{ marginTop: 8 }}
-          verticalAlign="center"
-        >
-          <DefaultButton
-            text="Previous"
-            onClick={onPrevPage}
-            disabled={!canPrev}
-            styles={{ root: { height: 32, padding: '0 8px' } }}
-          />
-          {(() => {
-            const pageItems: (number | 'ellipsis')[] = [];
-            if (totalPages <= 7) {
-              pageItems.push(...Array.from({ length: totalPages }, (_, i) => i));
-            } else if (currentPage <= 2) {
-              pageItems.push(0, 1, 2, 3, 'ellipsis', totalPages - 1);
-            } else if (currentPage >= totalPages - 3) {
-              pageItems.push(0, 'ellipsis', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1);
-            } else {
-              pageItems.push(0, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages - 1);
-            }
-
-            return pageItems.map((item, index) => {
-              if (item === 'ellipsis') {
-                return (
-                  <Text key={`page-ellipsis-${index}`} style={{ fontSize: 14, padding: '0 4px' }}>
-                    ...
-                  </Text>
-                );
+          <Stack
+            id="voa-grid-pagination"
+            horizontal
+            tokens={{ childrenGap: 6 }}
+            style={{ marginTop: 8, paddingLeft: 8, paddingRight: 8 }}
+            verticalAlign="center"
+            role="navigation"
+            aria-label="Pagination"
+          >
+            <DefaultButton
+              aria-label="Previous page"
+              text="Previous"
+              iconProps={{ iconName: 'ChevronLeft' }}
+              onClick={onPrevPage}
+              disabled={!canPrev}
+              styles={paginationButtonStyles}
+            />
+            {(() => {
+              const pageItems: (number | 'ellipsis')[] = [];
+              if (totalPages <= 9) {
+                pageItems.push(...Array.from({ length: totalPages }, (_, i) => i));
+              } else if (currentPage <= 3) {
+                pageItems.push(0, 1, 2, 3, 4, 'ellipsis', totalPages - 1);
+              } else if (currentPage >= totalPages - 4) {
+                pageItems.push(0, 'ellipsis', totalPages - 5, totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1);
+              } else {
+                pageItems.push(0, 'ellipsis', currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2, 'ellipsis', totalPages - 1);
               }
 
-              return (
-                <DefaultButton
-                  key={`page-${item}`}
-                  styles={item === currentPage ? activePaginationButtonStyles : paginationButtonStyles}
-                  onClick={() => onSetPage(item)}
-                >
-                  {item + 1}
-                </DefaultButton>
-              );
-            });
-          })()}
-          <DefaultButton
-            text="Next"
-            onClick={onNextPage}
-            disabled={!canNext}
-            styles={{ root: { height: 32, padding: '0 8px' } }}
-          />
-        </Stack>
+              return pageItems.map((item, index) => {
+                if (item === 'ellipsis') {
+                  return (
+                    <Text key={`page-ellipsis-${index}`} style={{ fontSize: 14, padding: '0 6px' }} aria-hidden="true">
+                      ...
+                    </Text>
+                  );
+                }
+
+                const isCurrent = item === currentPage;
+                return (
+                  <DefaultButton
+                    key={`page-${item}`}
+                    aria-label={`Page ${item + 1}`}
+                    aria-current={isCurrent ? 'page' : undefined}
+                    styles={isCurrent ? activePaginationButtonStyles : paginationButtonStyles}
+                    onClick={() => onSetPage(item)}
+                  >
+                    {item + 1}
+                  </DefaultButton>
+                );
+              });
+            })()}
+            <DefaultButton
+              aria-label="Next page"
+              text="Next"
+              iconProps={{ iconName: 'ChevronRight' }}
+              onClick={onNextPage}
+              disabled={!canNext}
+              styles={paginationButtonStyles}
+            />
+            <Stack.Item styles={{ root: { marginLeft: 'auto' } }}>
+              <DefaultButton
+                text="Top"
+                iconProps={{ iconName: 'ChevronUp' }}
+                aria-label="Go to top"
+                onClick={onGoToTop}
+                styles={paginationButtonStyles}
+              />
+            </Stack.Item>
+          </Stack>
+        )}
+        {assignPanelOpen && (
+          <div className="voa-assign-overlay" role="dialog" aria-modal="true" aria-labelledby="assign-screen-title">
+            <FocusTrapZone>
+              <Stack tokens={{ childrenGap: 16 }} styles={{ root: { minHeight: '100%', padding: 20 } }}>
+                <Stack horizontal verticalAlign="center" styles={{ root: { borderBottom: '1px solid #e1e1e1', paddingBottom: 12 } }}>
+                  <DefaultButton
+                    text="Back"
+                    iconProps={{ iconName: 'Back' }}
+                    onClick={() => setAssignPanelOpen(false)}
+                    ariaLabel="Back to manager assignment"
+                  />
+                  <Text id="assign-screen-title" variant="xLarge" styles={{ root: { marginLeft: 12, fontWeight: 600 } }}>
+                    {assignHeaderText}
+                  </Text>
+                  <Stack.Item styles={{ root: { marginLeft: 'auto' } }}>
+                    <IconButton
+                      iconProps={{ iconName: 'Cancel' }}
+                      ariaLabel="Close assign tasks screen"
+                      onClick={() => setAssignPanelOpen(false)}
+                    />
+                  </Stack.Item>
+                </Stack>
+            <SearchBox
+              placeholder="Search user"
+              ariaLabel="Search user"
+              value={assignSearch}
+              onChange={(_, v) => setAssignSearch(v ?? '')}
+              disabled={assignLoading}
+            />
+                <Stack horizontal tokens={{ childrenGap: 12 }} wrap>
+              <Dropdown
+                label="Team"
+                selectedKey={assignTeam}
+                placeholder="Filter by team"
+                    options={assignUsers
+                      .map((u) => u.team)
+                      .filter((v, i, a) => a.indexOf(v) === i)
+                      .map((team) => ({ key: team, text: team }))}
+                onChange={(_, opt) => setAssignTeam(opt?.key)}
+                disabled={assignLoading}
+                styles={{ root: { minWidth: 200 } }}
+              />
+              <Dropdown
+                label="Role"
+                selectedKey={assignRole}
+                placeholder="Filter by role"
+                    options={assignUsers
+                      .map((u) => u.role)
+                      .filter((v, i, a) => a.indexOf(v) === i)
+                      .map((role) => ({ key: role, text: role }))}
+                onChange={(_, opt) => setAssignRole(opt?.key)}
+                disabled={assignLoading}
+                styles={{ root: { minWidth: 200 } }}
+              />
+            </Stack>
+            {assignLoading && <Spinner size={SpinnerSize.small} ariaLabel="Assigning tasks" />}
+                <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+                  {assignUserListTitle}
+                </Text>
+                <DetailsList
+                  items={assignFilteredUsers}
+                  columns={assignColumns}
+                  selectionMode={SelectionMode.none}
+                  isHeaderVisible
+                />
+              </Stack>
+            </FocusTrapZone>
+          </div>
         )}
       </div>
     </ThemeProvider>

@@ -94,6 +94,12 @@ function getCellTemplate(
 ) {
     let cellContents = <></>;
     let isBlank = false;
+    const fieldName = columnEx.fieldName?.toLowerCase();
+    const addressUrl = getCellValue<string>('addressurl', item)[0];
+    if (fieldName === 'address' && typeof addressUrl === 'string' && addressUrl.trim() !== '') {
+        ({ isBlank, cellContents } = getAddressLinkCell(columnEx, item, addressUrl));
+        return { cellContents, isBlank };
+    }
     switch (columnEx.cellType?.toLowerCase()) {
         case CellTypes.Expand:
             cellContents = getExpandIconCell(item, columnEx, cellNavigation);
@@ -327,9 +333,35 @@ function getLinkCell(
     const cellText = getCellValue<string>(column.fieldName, item)[0];
 
     const isBlank = !cellText || cellText === '';
+    const label = `${column.name ?? column.fieldName ?? 'item'} ${cellText}`.trim();
     const cellContents = !isBlank ? (
-        <Link onClick={cellNavigation} underline>
+        <Link onClick={cellNavigation} underline aria-label={label}>
             {cellText}
+        </Link>
+    ) : (
+        <></>
+    );
+    return { isBlank, cellContents };
+}
+
+function getAddressLinkCell(
+    column: IGridColumn,
+    item: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord | Record<string, unknown>,
+    addressUrl: string,
+) {
+    const cellText = getCellValue<string>(column.fieldName, item)[0];
+    const isBlank = !cellText || cellText === '';
+    const label = `${column.name ?? column.fieldName ?? 'Address'} ${cellText} (opens in new tab)`.trim();
+    const cellContents = !isBlank ? (
+        <Link
+            href={addressUrl}
+            underline
+            aria-label={label}
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            {cellText}{' '}
+            <span aria-hidden="true">(opens in new tab)</span>
         </Link>
     ) : (
         <></>

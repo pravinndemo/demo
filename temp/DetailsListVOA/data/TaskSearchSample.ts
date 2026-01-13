@@ -1,5 +1,6 @@
 export interface TaskSearchItem {
     saleId?: string;
+    suid?: string;
     uprn: string;
     taskId: string;
     taskStatus: string;

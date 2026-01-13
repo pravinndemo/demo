@@ -19,40 +19,6 @@ export interface LoadResult {
   filters?: Record<string, string | string[]>;
 }
 
-const getPrefilterParams = (context: ComponentFramework.Context<IInputs>): Record<string, string> => {
-  const params = context.parameters as unknown as Record<string, { raw?: string | number | boolean }>;
-  const normalizeText = (raw?: string | number | boolean): string => {
-    if (raw === undefined || raw === null) return '';
-    const text = String(raw).trim();
-    return text;
-  };
-  const normalizeMulti = (raw?: string | number | boolean): string => {
-    const text = normalizeText(raw);
-    if (!text) return '';
-    try {
-      const parsed: unknown = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        return parsed.map((value) => String(value).trim()).filter((value) => value !== '').join(',');
-      }
-    } catch {
-      // ignore JSON parsing errors; fall back to raw text
-    }
-    return text;
-  };
-  const addIfPresent = (obj: Record<string, string>, key: string, value: string): void => {
-    if (value.trim().length > 0) {
-      obj[key] = value.trim();
-    }
-  };
-  const result: Record<string, string> = {};
-  addIfPresent(result, 'billingAuthority', normalizeMulti(params.billingAuthorities?.raw));
-  addIfPresent(result, 'assignedTo', normalizeMulti(params.caseworkers?.raw));
-  addIfPresent(result, 'taskStatus', normalizeMulti(params.workThat?.raw));
-  addIfPresent(result, 'assignedFromDate', normalizeText(params.fromDate?.raw));
-  addIfPresent(result, 'assignedToDate', normalizeText(params.toDate?.raw));
-  return result;
-};
-
 const resolveCustomApiName = (context: ComponentFramework.Context<IInputs>): string => {
   const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiName?.raw;
   const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
@@ -84,11 +50,11 @@ export async function loadGridData(
     currentPage: number;
     pageSize: number;
     clientSort?: ClientSortState;
+    prefilters?: unknown;
   },
 ): Promise<LoadResult> {
   const pageSize = args.pageSize ?? (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 10;
-  const apiParamsBase = buildApiParamsFor(args.tableKey, args.filters as never, args.currentPage, pageSize);
-  const prefilterParams = getPrefilterParams(context);
+  const apiParamsBase = buildApiParamsFor(args.tableKey, args.filters as never, args.currentPage, pageSize, args.prefilters);
   const customApiName = resolveCustomApiName(context);
   const customApiType = resolveCustomApiType(context);
 
@@ -97,7 +63,6 @@ export async function loadGridData(
   const buildParams = (page: number) => {
     const p: Record<string, string> = {
       ...apiParamsBase,
-      ...prefilterParams,
       pageNumber: String(page + 1),
       pageSize: String(pageSize),
     };
