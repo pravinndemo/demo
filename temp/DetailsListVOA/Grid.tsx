@@ -18,6 +18,8 @@ import {
   PrimaryButton,
   SelectionMode,
   ShimmeredDetailsList,
+  ConstrainMode,
+  DetailsListLayoutMode,
   Overlay,
   ThemeProvider,
   TextField,
@@ -28,7 +30,9 @@ import {
   MessageBarType,
   Dropdown,
   ComboBox,
+  IComboBox,
   IComboBoxOption,
+  Icon,
   Label,
   SearchBox,
   Spinner,
@@ -413,13 +417,38 @@ export const Grid = React.memo((props: GridProps) => {
   const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState>(MANAGER_PREFILTER_DEFAULT);
 
   const screenName = (canvasScreenName ?? '').toLowerCase();
-  const isAssignment = screenName.includes('assignment');
-  const isManagerAssign = isAssignment && screenName.includes('manager');
-  const isQcAssign = isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
-  const showAssign = isManagerAssign || isQcAssign;
-  const assignActionText = isQcAssign ? 'Assign QC Tasks' : 'Assign Tasks';
-  const assignHeaderText = isQcAssign ? 'QC Assignment' : 'Manager Assignment';
-  const assignUserListTitle = isQcAssign ? 'QC Users' : 'SVT Users';
+    const isAssignment = screenName.includes('assignment');
+    const isManagerAssign = isAssignment && screenName.includes('manager');
+    const isQcAssign = isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
+    const isCaseworkerView = screenName.includes('caseworker');
+    const isQcView = !isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
+    const isSalesSearch = screenName.includes('sales') || screenName.includes('record search');
+    const showAssign = isManagerAssign || isQcAssign;
+    const assignActionText = isQcAssign ? 'Assign QC Tasks' : 'Assign Tasks';
+    const assignHeaderText = isQcAssign ? 'QC Assignment' : 'Manager Assignment';
+    const assignUserListTitle = isQcAssign ? 'QC Users' : 'SVT Users';
+    const pageHeaderIconName = isManagerAssign
+      ? 'People'
+      : isQcAssign
+        ? 'Shield'
+        : isCaseworkerView
+          ? 'Contact'
+          : isQcView
+            ? 'ClipboardList'
+            : isSalesSearch
+              ? 'Search'
+              : undefined;
+    const pageHeaderText = isManagerAssign
+      ? 'Manager Assignment'
+      : isQcAssign
+        ? 'QC Assignment'
+        : isCaseworkerView
+          ? 'Caseworker View'
+          : isQcView
+            ? 'Quality Control View'
+            : isSalesSearch
+              ? 'Sales Record Search'
+              : undefined;
   const prefilterStorageKey = React.useMemo(
     () => `voa-prefilters:${tableKey}:${screenName || 'default'}`,
     [screenName, tableKey],
@@ -596,7 +625,7 @@ export const Grid = React.memo((props: GridProps) => {
   );
 
   const onPrefilterWorkThatChange = React.useCallback(
-    (_: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
+    (_: React.FormEvent<IComboBox>, option?: IComboBoxOption) => {
       const nextWork = option?.key as ManagerWorkThat | undefined;
       setPrefilters((prev) => ({
         ...prev,
@@ -631,11 +660,10 @@ export const Grid = React.memo((props: GridProps) => {
     onPrefilterApply(normalized);
   }, [onPrefilterApply, prefilters]);
 
-  const handlePrefilterClear = React.useCallback((ev?: React.MouseEvent<HTMLElement>) => {
-    ev?.preventDefault();
-    setPrefilters(MANAGER_PREFILTER_DEFAULT);
-    onPrefilterClear?.();
-  }, [onPrefilterClear]);
+    const handlePrefilterClear = React.useCallback(() => {
+      setPrefilters(MANAGER_PREFILTER_DEFAULT);
+      onPrefilterClear?.();
+    }, [onPrefilterClear]);
 
   const getLengthErrors = React.useCallback(
     (fs: GridFilterState) => {
@@ -1977,6 +2005,7 @@ export const Grid = React.memo((props: GridProps) => {
   return (
     <ThemeProvider theme={theme}>
       <div
+        className="voa-grid-shell"
         style={{ height, display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}
         ref={topRef}
         tabIndex={-1}
@@ -1996,12 +2025,22 @@ export const Grid = React.memo((props: GridProps) => {
             {errorMessage}
           </MessageBar>
         )}
-        {statusMessage && (
-          <MessageBar messageBarType={statusMessage.type} style={{ marginBottom: 16 }}>
-            {statusMessage.text}
-          </MessageBar>
-        )}
-        {isManagerAssign && (
+          {statusMessage && (
+            <MessageBar messageBarType={statusMessage.type} style={{ marginBottom: 16 }}>
+              {statusMessage.text}
+            </MessageBar>
+          )}
+          {pageHeaderText && (
+            <div className="voa-page-header" role="heading" aria-level={2}>
+              {pageHeaderIconName && (
+                <Icon iconName={pageHeaderIconName} className="voa-page-header__icon" aria-hidden="true" />
+              )}
+              <Text variant="xLarge" className="voa-page-header__title">
+                {pageHeaderText}
+              </Text>
+            </div>
+          )}
+          {isManagerAssign && (
         <Stack
           horizontal
           wrap
@@ -2026,10 +2065,10 @@ export const Grid = React.memo((props: GridProps) => {
             <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner">
               <div className="voa-prefilter-field">
                 <Label htmlFor="prefilter-billing" className="voa-prefilter-label">Billing Authority</Label>
-                <Dropdown
-                  id="prefilter-billing"
-                  ariaLabel="Billing Authority"
-                  placeholder="Select Billing Authorities"
+              <Dropdown
+                id="prefilter-billing"
+                ariaLabel="Billing Authority"
+                placeholder="Select Billing Authorities"
                   multiSelect
                   options={MANAGER_BILLING_AUTHORITY_OPTIONS}
                   selectedKeys={prefilters.billingAuthorities}
@@ -2042,10 +2081,10 @@ export const Grid = React.memo((props: GridProps) => {
             <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner">
               <div className="voa-prefilter-field">
                 <Label htmlFor="prefilter-caseworker" className="voa-prefilter-label">Caseworker</Label>
-                <Dropdown
-                  id="prefilter-caseworker"
-                  ariaLabel="Caseworker"
-                  placeholder="Select User"
+              <Dropdown
+                id="prefilter-caseworker"
+                ariaLabel="Caseworker"
+                placeholder="Select User"
                   multiSelect
                   options={MANAGER_CASEWORKER_OPTIONS}
                   selectedKeys={prefilters.caseworkers}
@@ -2058,14 +2097,14 @@ export const Grid = React.memo((props: GridProps) => {
           <Stack.Item className="voa-prefilter-col voa-prefilter-col-workthat">
             <div className="voa-prefilter-field">
               <Label htmlFor="prefilter-workthat" className="voa-prefilter-label">Work that</Label>
-              <Dropdown
+              <ComboBox
                 id="prefilter-workthat"
                 ariaLabel="Work that"
                 placeholder="Select a option"
                 options={prefilterWorkThatOptions}
                 selectedKey={prefilters.workThat}
                 onChange={onPrefilterWorkThatChange}
-                styles={{ dropdown: { width: '100%' } }}
+                styles={{ root: { width: '100%' } }}
               />
             </div>
           </Stack.Item>
@@ -2108,14 +2147,19 @@ export const Grid = React.memo((props: GridProps) => {
             <div className="voa-prefilter-field voa-prefilter-actions">
               <span className="voa-prefilter-label-spacer" aria-hidden="true"></span>
               <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
-                <PrimaryButton text="Search" onClick={handlePrefilterSearch} disabled={prefilterSearchDisabled} />
-                <Link
+                <PrimaryButton
+                  text="Search"
+                  iconProps={{ iconName: 'Search' }}
+                  onClick={handlePrefilterSearch}
+                  disabled={prefilterSearchDisabled}
+                />
+                <DefaultButton
+                  text="Clear search"
+                  iconProps={{ iconName: 'ClearFilter' }}
                   onClick={handlePrefilterClear}
-                  aria-label="Clear prefilters"
-                  styles={{ root: { fontSize: 14 } }}
-                >
-                  Clear filters
-                </Link>
+                  aria-label="Clear search filters"
+                  className="voa-prefilter-clear"
+                />
               </Stack>
             </div>
           </Stack.Item>
@@ -2169,71 +2213,99 @@ export const Grid = React.memo((props: GridProps) => {
           </Stack.Item>
         </Stack>
         )}
-        {showResults && (
-          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }} style={{ margin: '4px 0 8px 0' }}>
-            <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>
-              {selectedCount} selected of {typeof taskCount === 'number' ? taskCount : filteredItems.length}
-            </Text>
-            <DefaultButton
-              text="Clear filters"
-              iconProps={{ iconName: 'ClearFilter' }}
-              onClick={() => clearAllColumnFilters()}
-              disabled={Object.keys(columnFiltersState).length === 0}
-              styles={{ root: { height: 28 } }}
-            />
-            <Stack.Item styles={{ root: { marginLeft: 'auto', display: 'flex', gap: 8 } }}>
-              <PrimaryButton
-                text="View Sales Record"
-                iconProps={{ iconName: 'View' }}
-                disabled={selectedCount !== 1}
-                onClick={onViewSelected}
-                ariaLabel="View selected sales record"
-              />
-              {showAssign && (
+          {showResults && (
+            <div className="voa-grid-toolbar" role="toolbar" aria-label="Table actions">
+              <div className="voa-grid-toolbar__left">
                 <DefaultButton
-                  text={assignActionText}
-                  iconProps={{ iconName: 'AddFriend' }}
-                  onClick={() => setAssignPanelOpen(true)}
-                  ariaLabel={assignActionText}
+                  text="Clear filters"
+                  iconProps={{ iconName: 'ClearFilter' }}
+                  onClick={() => clearAllColumnFilters()}
+                  disabled={Object.keys(columnFiltersState).length === 0}
+                  ariaLabel="Clear column filters"
                 />
+              </div>
+              <div className="voa-grid-toolbar__center" role="status" aria-live="polite">
+                <Text variant="medium" className="voa-grid-toolbar__count">
+                  Selected: {selectedCount} of {typeof taskCount === 'number' ? taskCount : filteredItems.length}
+                </Text>
+              </div>
+              <div className="voa-grid-toolbar__right">
+                <PrimaryButton
+                  text="View Sales Record"
+                  iconProps={{ iconName: 'View' }}
+                  disabled={selectedCount !== 1}
+                  onClick={onViewSelected}
+                  ariaLabel="View selected sales record"
+                />
+                {showAssign && (
+                  <DefaultButton
+                    text={assignActionText}
+                    iconProps={{ iconName: 'AddFriend' }}
+                    onClick={() => setAssignPanelOpen(true)}
+                    ariaLabel={assignActionText}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+          {showResults && (
+            <div
+              id="voa-grid-results"
+              ref={resultsRef}
+              className="voa-grid-results"
+              data-is-scrollable="true"
+              style={{
+                flex: 1,
+                minHeight: 0,
+                minWidth: 0,
+                width: '100%',
+                maxWidth: '100%',
+                overflowY: 'auto',
+                overflowX: 'auto',
+              }}
+              role="region"
+              aria-label="Results table scroll region"
+              tabIndex={0}
+            >
+              <div className="voa-grid-list">
+                <ShimmeredDetailsList
+                  className={ClassNames.PowerCATFluentDetailsList}
+                  componentRef={componentRef}
+                  items={filteredItems}
+                  columns={columnsWithIcons}
+                  setKey="grid"
+                  enableShimmer={itemsLoading || shimmer}
+                  onShouldVirtualize={() => true}
+                  useReducedRowRenderer={true}
+                  enableUpdateAnimations={false}
+                  selectionMode={selectionType}
+                  selection={selection}
+                  checkboxVisibility={selectionType === SelectionMode.none ? CheckboxVisibility.hidden : CheckboxVisibility.always}
+                  constrainMode={ConstrainMode.unconstrained}
+                  layoutMode={DetailsListLayoutMode.fixedColumns}
+                  onColumnHeaderClick={onColumnHeaderClick}
+                  onColumnHeaderContextMenu={onColumnHeaderContextMenu}
+                  onItemInvoked={onItemInvoked}
+                  columnReorderOptions={props.allowColumnReorder ? columnReorderOptions : undefined}
+                  compact={compact}
+                  isHeaderVisible={isHeaderVisible}
+                />
+              </div>
+              {!itemsLoading && !shimmer && filteredItems.length === 0 && (
+                <div className="voa-empty-state" role="status" aria-live="polite">
+                  <div className="voa-empty-state__icon" aria-hidden="true">
+                    <Icon iconName="PageList" />
+                  </div>
+                  <Text variant="mediumPlus" className="voa-empty-state__title">
+                    We didn&apos;t find anything to show here
+                  </Text>
+                  <Text variant="small" className="voa-empty-state__text">
+                    Try adjusting your filters or search.
+                  </Text>
+                </div>
               )}
-            </Stack.Item>
-          </Stack>
-        )}
-        {showResults && !itemsLoading && !shimmer && filteredItems.length === 0 && (
-          <MessageBar messageBarType={MessageBarType.info} style={{ marginBottom: 16 }}>
-            No results found.
-          </MessageBar>
-        )}
-        {showResults && (
-          <div
-            id="voa-grid-results"
-            ref={resultsRef}
-            className="voa-grid-results"
-            style={{ flex: 1, minHeight: 0, minWidth: 0, overflowY: 'auto', overflowX: 'auto' }}
-            role="region"
-            aria-label="Results table scroll region"
-            tabIndex={0}
-          >
-            <ShimmeredDetailsList
-              className={ClassNames.PowerCATFluentDetailsList}
-              componentRef={componentRef}
-              items={filteredItems}
-              columns={columnsWithIcons}
-              setKey="grid"
-              enableShimmer={itemsLoading || shimmer}
-              selectionMode={selectionType}
-              selection={selection}
-              checkboxVisibility={selectionType === SelectionMode.none ? CheckboxVisibility.hidden : CheckboxVisibility.always}
-              onColumnHeaderClick={onColumnHeaderClick}
-              onColumnHeaderContextMenu={onColumnHeaderContextMenu}
-              onItemInvoked={onItemInvoked}
-              columnReorderOptions={props.allowColumnReorder ? columnReorderOptions : undefined}
-              compact={compact}
-              isHeaderVisible={isHeaderVisible}
-            />
-          </div>
-        )}
+            </div>
+          )}
         {showResults && menuState && (
           <ContextualMenu
             target={menuState.target}
@@ -2249,7 +2321,7 @@ export const Grid = React.memo((props: GridProps) => {
             id="voa-grid-pagination"
             horizontal
             tokens={{ childrenGap: 6 }}
-            style={{ marginTop: 8, paddingLeft: 8, paddingRight: 8 }}
+            className="voa-grid-pagination"
             verticalAlign="center"
             role="navigation"
             aria-label="Pagination"

@@ -390,6 +390,14 @@ function getAddressLinkCell(
             aria-label={label}
             target="_blank"
             rel="noopener noreferrer"
+            className="voa-mda-link"
+            onClick={(ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                if (addressUrl) {
+                    window.open(addressUrl, '_blank', 'noopener,noreferrer');
+                }
+            }}
         >
             {cellText}{' '}
             <span aria-hidden="true">(opens in new tab)</span>

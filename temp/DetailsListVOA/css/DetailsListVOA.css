@@ -81,11 +81,204 @@
 }
 
 .PowerCATFluentDetailsList {
+  display: inline-block;
+  width: max-content;
   min-width: max-content;
+}
+
+.voa-grid-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  width: min(100%, 100vw);
+  max-width: 100vw;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .voa-grid-results {
   scrollbar-gutter: stable both-edges;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #e6e6e6;
+  border-left: none;
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.voa-grid-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+  background: #fafafa;
+  border: 1px solid #e6e6e6;
+  border-left: none;
+  border-right: none;
+}
+
+.voa-grid-toolbar__left,
+.voa-grid-toolbar__right,
+.voa-grid-toolbar__center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.voa-grid-toolbar__left {
+  justify-self: start;
+}
+
+.voa-grid-toolbar__center {
+  justify-self: center;
+}
+
+.voa-grid-toolbar__right {
+  justify-self: end;
+}
+
+.voa-grid-toolbar__count {
+  font-weight: 600;
+}
+
+.voa-grid-toolbar .ms-Button {
+  height: 32px;
+  border-radius: 4px;
+}
+
+.voa-grid-toolbar .ms-Button-label {
+  font-weight: 600;
+}
+
+.voa-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 6px 12px;
+  background: #f3f2f1;
+  border-bottom: 1px solid #b1b4b6;
+  gap: 8px;
+}
+
+.voa-page-header__icon {
+  font-size: 18px;
+  color: #1d70b8;
+}
+
+.voa-page-header__title {
+  font-weight: 700;
+  color: #0b0c0c;
+}
+
+@media (max-width: 900px) {
+  .voa-grid-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .voa-grid-toolbar__center {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .voa-grid-toolbar__right {
+    order: 2;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+.voa-grid-list {
+  flex: 0 0 auto;
+}
+
+.voa-empty-state {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px 24px;
+  color: #5d656e;
+  text-align: center;
+}
+
+.voa-empty-state__icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #e5e5e5;
+  color: #6b6b6b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.voa-empty-state__title {
+  font-weight: 600;
+  color: #212a35;
+  margin-bottom: 4px;
+}
+
+.voa-empty-state__text {
+  color: #5d656e;
+}
+
+.PowerCATFluentDetailsList .ms-DetailsHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f7f7f7;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+  width: max-content;
+  min-width: max-content;
+}
+
+.PowerCATFluentDetailsList .ms-DetailsHeader-cell {
+  background: #f7f7f7;
+}
+
+.PowerCATFluentDetailsList .ms-DetailsHeader-cell {
+  font-weight: 600;
+}
+
+.PowerCATFluentDetailsList .ms-DetailsRow {
+  border-bottom: 1px solid #e6e6e6;
+  width: max-content;
+  min-width: max-content;
+}
+
+.PowerCATFluentDetailsList .ms-DetailsRow-fields {
+  width: max-content;
+  min-width: max-content;
+}
+
+.PowerCATFluentDetailsList .ms-DetailsHeader-cell:first-child,
+.PowerCATFluentDetailsList .ms-DetailsRow-cell:first-child {
+  border-left: 3px solid #e6e6e6;
+  padding-left: 6px;
+}
+
+.voa-grid-pagination {
+  position: sticky;
+  bottom: 0;
+  background: #ffffff;
+  padding: 8px 8px;
+  border-top: 1px solid #e6e6e6;
+  z-index: 2;
 }
 
 .voa-summary-tag {
@@ -100,6 +293,24 @@
   letter-spacing: 0.4px;
 }
 
+.voa-mda-link {
+  color: #005A9E;
+  text-decoration: none;
+}
+
+.voa-mda-link:hover {
+  text-decoration: underline;
+}
+
+.voa-mda-link:focus {
+  outline: 2px solid #ffbf47;
+  outline-offset: 2px;
+}
+
+.voa-mda-link:visited {
+  color: #3B5B7E;
+}
+
 .voa-assign-overlay {
   position: fixed;
   inset: 0;
@@ -109,40 +320,46 @@
 }
 
 .voa-prefilter-bar {
-  margin-bottom: 16px;
-  padding: 0 8px;
+  margin-bottom: 8px;
+  padding: 0;
   width: 100%;
+  max-width: 100vw;
   min-width: 0;
   box-sizing: border-box;
+  align-self: stretch;
   position: sticky;
   top: 0;
   z-index: 4;
-  background: #ffffff;
-  border-bottom: 1px solid #e6e6e6;
+  background: #f3f2f1;
+  border-bottom: 1px solid #b1b4b6;
+  box-shadow: none;
 }
 
 .voa-prefilter-bar .ms-Stack-inner {
   display: grid !important;
   grid-template-columns:
-    minmax(0, 1fr)
-    minmax(0, 1fr)
-    minmax(0, 1fr)
-    minmax(300px, 1.2fr)
+    minmax(190px, 260px)
+    minmax(210px, 300px)
+    minmax(210px, 300px)
+    minmax(220px, 300px)
     max-content;
   grid-template-rows: auto auto auto;
   column-gap: 12px;
-  row-gap: 12px;
+  row-gap: 8px;
   align-items: end;
   width: 100%;
+  max-width: 1200px;
+  margin: 0;
+  padding: 8px 12px 10px;
   min-width: 0;
   box-sizing: border-box;
 }
 
 .voa-prefilter-bar--no-date .ms-Stack-inner {
   grid-template-columns:
-    minmax(0, 1fr)
-    minmax(0, 1fr)
-    minmax(0, 1fr)
+    minmax(190px, 260px)
+    minmax(210px, 300px)
+    minmax(210px, 300px)
     max-content;
 }
 
@@ -218,11 +435,19 @@
 .voa-prefilter-field {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.voa-prefilter-field .ms-ComboBox,
+.voa-prefilter-field .ms-Dropdown {
+  min-width: 0;
 }
 
 .voa-prefilter-label {
-  min-height: 22px;
-  line-height: 22px;
+  min-height: 18px;
+  line-height: 18px;
+  font-weight: 600;
+  color: #0b0c0c;
 }
 
 .voa-prefilter-label--daterange {
@@ -231,12 +456,36 @@
 
 .voa-prefilter-label-spacer {
   display: block;
-  min-height: 22px;
+  min-height: 18px;
 }
 
 .voa-prefilter-actions {
   display: flex;
   align-items: flex-end;
+  gap: 8px;
+}
+
+.voa-prefilter-actions .ms-Button--primary {
+  background: #1d70b8;
+  border-color: #1d70b8;
+}
+
+.voa-prefilter-actions .ms-Button--primary:hover {
+  background: #175a8b;
+  border-color: #175a8b;
+}
+
+.voa-prefilter-clear {
+  border-color: #1d70b8;
+  color: #1d70b8;
+}
+
+.voa-prefilter-clear .ms-Button-icon {
+  color: #005A9E;
+}
+
+.voa-prefilter-clear .ms-Button-label {
+  font-weight: 600;
 }
 
 @media (max-width: 1100px) {

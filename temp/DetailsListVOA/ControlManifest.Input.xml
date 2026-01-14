@@ -87,60 +87,6 @@
       default-value="[]"
     />
     <property
-      name="searchBy"
-      display-name-key="Search By"
-      description-key="Prefilter mode (e.g., Billing Authority or Caseworker)."
-      of-type="SingleLine.Text"
-      usage="input"
-      required="false"
-      default-value=""
-    />
-    <property
-      name="billingAuthorities"
-      display-name-key="Billing Authorities"
-      description-key="Selected billing authorities (JSON array or comma-separated)."
-      of-type="SingleLine.Text"
-      usage="input"
-      required="false"
-      default-value=""
-    />
-    <property
-      name="caseworkers"
-      display-name-key="Caseworkers"
-      description-key="Selected caseworkers (JSON array or comma-separated)."
-      of-type="SingleLine.Text"
-      usage="input"
-      required="false"
-      default-value=""
-    />
-    <property
-      name="workThat"
-      display-name-key="Work That"
-      description-key="Selected work-that filter option."
-      of-type="SingleLine.Text"
-      usage="input"
-      required="false"
-      default-value=""
-    />
-    <property
-      name="fromDate"
-      display-name-key="From Date"
-      description-key="Filter from date (YYYY-MM-DD)."
-      of-type="SingleLine.Text"
-      usage="input"
-      required="false"
-      default-value=""
-    />
-    <property
-      name="toDate"
-      display-name-key="To Date"
-      description-key="Filter to date (YYYY-MM-DD)."
-      of-type="SingleLine.Text"
-      usage="input"
-      required="false"
-      default-value=""
-    />
-    <property
       name="searchTrigger"
       display-name-key="Search Trigger"
       description-key="Updated on Search click to trigger a refresh."
