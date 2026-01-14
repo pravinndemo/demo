@@ -39,13 +39,17 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
         public string QcAssignedToDate { get; set; }
         public string QcCompleteFromDate { get; set; }
         public string QcCompleteToDate { get; set; }
+        public string SortField { get; set; }
+        public string SortDirection { get; set; }
 
         public IDictionary<string, string> ToQueryParameters()
         {
+            var sortField = NormalizeSortField(SortField);
+            var sortDirection = NormalizeSortDirection(SortDirection);
             var parameters = new Dictionary<string, string>
             {
-                ["pageNumber"] = PageNumber,
-                ["pageSize"] = PageSize,
+                ["page-number"] = PageNumber,
+                ["page-size"] = PageSize,
                 ["source"] = Source,
                 ["saleId"] = SaleId,
                 ["taskId"] = TaskId,
@@ -77,6 +81,8 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
                 ["qcAssignedToDate"] = QcAssignedToDate,
                 ["qcCompleteFromDate"] = QcCompleteFromDate,
                 ["qcCompleteToDate"] = QcCompleteToDate,
+                ["sort-field"] = sortField,
+                ["sort-direction"] = sortDirection,
             };
 
             return parameters
@@ -89,6 +95,36 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
             var parameters = ToQueryParameters();
             return string.Join("&", parameters.Select(pair =>
                 $"{pair.Key}={HttpUtility.UrlEncode(pair.Value)}"));
+        }
+
+        private static string NormalizeSortField(string sortField)
+        {
+            if (string.IsNullOrWhiteSpace(sortField))
+            {
+                return null;
+            }
+
+            var normalized = sortField.Trim().ToLowerInvariant();
+            if (normalized == "taskid" || normalized == "task_id")
+            {
+                return "task_id";
+            }
+            if (normalized == "saleid" || normalized == "sale_id")
+            {
+                return "sale_id";
+            }
+            return normalized;
+        }
+
+        private static string NormalizeSortDirection(string sortDirection)
+        {
+            if (string.IsNullOrWhiteSpace(sortDirection))
+            {
+                return null;
+            }
+
+            var normalized = sortDirection.Trim().ToLowerInvariant();
+            return normalized == "desc" ? "desc" : "asc";
         }
     }
 

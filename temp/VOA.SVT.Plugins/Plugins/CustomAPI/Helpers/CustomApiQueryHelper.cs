@@ -64,6 +64,8 @@ namespace VOA.SVT.Plugins.CustomAPI.Helpers
                 QcAssignedToDate = GetString(inputParameters, "qcAssignedToDate"),
                 QcCompleteFromDate = GetString(inputParameters, "qcCompleteFromDate"),
                 QcCompleteToDate = GetString(inputParameters, "qcCompleteToDate"),
+                SortField = GetString(inputParameters, "sortField"),
+                SortDirection = GetString(inputParameters, "sortDirection"),
             };
         }
 
