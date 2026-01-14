@@ -17,6 +17,7 @@ interface SalesPageInfo {
   pageNumber?: number;
   pageSize?: number;
   totalRecords?: number;
+  totalRows?: number;
 }
 
 interface SalesApiItem {
@@ -189,6 +190,16 @@ const toStringArray = (value: unknown): string[] | undefined => {
 
 const toStringArrayOrEmpty = (value: unknown): string[] => toStringArray(value) ?? [];
 
+const toDelimitedStringArray = (value: unknown, delimiter: string): string[] | undefined => {
+  const text = toText(value);
+  if (!text) return undefined;
+  const parts = text
+    .split(delimiter)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
+  return parts.length > 0 ? parts : undefined;
+};
+
 const toStringOrArray = (value: unknown): string | string[] | undefined => {
   if (Array.isArray(value)) {
     const out = value.map((entry) => toText(entry)).filter((entry): entry is string => !!entry && entry.length > 0);
@@ -222,13 +233,13 @@ const normalizeSalesItem = (item: SalesApiItem): TaskSearchItem => {
     reviewFlags: toStringArrayOrEmpty(getNormalizedValue(map, 'reviewFlags', ['reviewFlag'])),
     outlierRatio: toNumber(getNormalizedValue(map, 'outlierRatio')),
     overallFlag: toText(getNormalizedValue(map, 'overallFlag')) ?? undefined,
-    summaryFlags: toStringArrayOrEmpty(getNormalizedValue(map, 'summaryFlags', ['summaryFlag'])),
+    summaryFlags: toDelimitedStringArray(getNormalizedValue(map, 'summaryFlags', ['summaryFlag']), ';') ?? [],
     assignedTo,
     assignedDate: toText(getNormalizedValue(map, 'assignedDate')) ?? undefined,
-    taskCompletedDate: toText(getNormalizedValue(map, 'taskCompletedDate', ['completedDate', 'taskcomplpleteddate'])) ?? undefined,
+    taskCompletedDate: toText(getNormalizedValue(map, 'taskCompletedDate', ['completedDate', 'taskcomplpleteddate', 'taskcompleteddate'])) ?? undefined,
     qcAssignedTo: toStringOrArrayOrEmpty(getNormalizedValue(map, 'qcAssignedTo', ['acassignedto', 'qeassssignedto'])),
-    qcAssignedDate: toText(getNormalizedValue(map, 'qcAssignedDate')) ?? undefined,
-    qcCompletedDate: toText(getNormalizedValue(map, 'qcCompletedDate')) ?? undefined,
+    qcAssignedDate: toText(getNormalizedValue(map, 'qcAssignedDate', ['qcassigneddate'])) ?? undefined,
+    qcCompletedDate: toText(getNormalizedValue(map, 'qcCompletedDate', ['qccompleteddate'])) ?? undefined,
   };
 };
 
@@ -256,7 +267,7 @@ export const normalizeSearchResponse = (payload: TaskSearchResponse | SalesApiRe
     const sales = payload.sales ?? [];
     return {
       items: sales.map(normalizeSalesItem),
-      totalCount: payload.pageInfo?.totalRecords ?? sales.length,
+      totalCount: payload.pageInfo?.totalRecords ?? payload.pageInfo?.totalRows ?? sales.length,
       page: payload.pageInfo?.pageNumber ?? 1,
       pageSize: payload.pageInfo?.pageSize ?? sales.length,
       filters: payload.filters ? normalizeFilterMap(payload.filters) : undefined,

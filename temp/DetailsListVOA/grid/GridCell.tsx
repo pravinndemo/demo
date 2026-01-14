@@ -217,7 +217,13 @@ function getTextTagCell(
     const cellContents = !isBlank ? (
         <span>
             {tagValues.map((t, idx) => (
-                <span key={idx} className={tagColorClass} title={t} style={{ marginRight: 6 }}>
+                <span
+                    key={idx}
+                    className={tagColorClass}
+                    title={t}
+                    aria-label={`${column.name ?? column.fieldName ?? 'Tag'} ${t}`}
+                    style={{ marginRight: 6 }}
+                >
                     {t}
                 </span>
             ))}

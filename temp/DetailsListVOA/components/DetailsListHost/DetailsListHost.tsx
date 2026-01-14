@@ -366,16 +366,14 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     }
   }, [headerFilters, clientSort, currentPage, storageKey, storageKeyNC, storageKeySort, storageKeySortNC, storageKeyPage, storageKeyPageNC, hydrated]);
 
-  // Build columns (includes auto-add from API item)
+  // Build columns from defined config only (no auto-add from API fields).
   const datasetColumns = React.useMemo(() => {
     const t0 = performance.now();
-    // When using externalItems, avoid auto-adding all API fields; rely on profile/config only
-    const sampleFromApi = hasLoadedApim && apimItems.length > 0 && externalItems === undefined ? (apimItems[0] as Record<string, unknown>) : undefined;
-    const cols = buildColumns(columnDisplayNames, columnConfigs, sampleFromApi);
+    const cols = buildColumns(columnDisplayNames, columnConfigs, undefined);
     const t1 = performance.now();
     logPerf('[Grid Perf] Build columns (ms):', Math.round(t1 - t0), 'count:', cols.length);
     return cols;
-  }, [apimItems, columnConfigs, columnDisplayNames, hasLoadedApim, externalItems]);
+  }, [columnConfigs, columnDisplayNames]);
 
   const clientUrl = resolveClientUrl(context);
 
