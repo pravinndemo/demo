@@ -1977,7 +1977,7 @@ export const Grid = React.memo((props: GridProps) => {
   return (
     <ThemeProvider theme={theme}>
       <div
-        style={{ height, display: 'flex', flexDirection: 'column' }}
+        style={{ height, display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}
         ref={topRef}
         tabIndex={-1}
         aria-label="Results table"
@@ -2209,7 +2209,8 @@ export const Grid = React.memo((props: GridProps) => {
           <div
             id="voa-grid-results"
             ref={resultsRef}
-            style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto' }}
+            className="voa-grid-results"
+            style={{ flex: 1, minHeight: 0, minWidth: 0, overflowY: 'auto', overflowX: 'auto' }}
             role="region"
             aria-label="Results table scroll region"
             tabIndex={0}
