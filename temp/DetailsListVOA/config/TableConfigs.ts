@@ -76,7 +76,7 @@ const SALES_COLUMN_FILTERS: Record<string, ColumnFilterConfig> = {
   taskstatus: { control: 'multiSelect', optionFields: ['taskstatus', 'status', 'statuscode'], minLength: 1 },
   assignedto: { control: 'singleSelect', optionFields: ['assignedto'], minLength: 1 },
   assigneddate: { control: 'dateRange', minLength: 1 },
-  completeddate: { control: 'dateRange', minLength: 1 },
+  taskcompleteddate: { control: 'dateRange', minLength: 1 },
   qcassignedto: { control: 'singleSelect', optionFields: ['qcassignedto'], minLength: 1 },
   qcassigneddate: { control: 'dateRange', minLength: 1 },
   qccompleteddate: { control: 'dateRange', minLength: 1 },
@@ -181,11 +181,6 @@ const buildSalesParams = (
     if (filters.qcCompletedDate.from) params.qcCompleteFromDate = filters.qcCompletedDate.from;
     if (filters.qcCompletedDate.to) params.qcCompleteToDate = filters.qcCompletedDate.to;
   }
-  if (filters.completedDate) {
-    if (filters.completedDate.from) params.completedFromDate = filters.completedDate.from;
-    if (filters.completedDate.to) params.completedToDate = filters.completedDate.to;
-  }
-
   return params;
 };
 
@@ -217,7 +212,6 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
       'qcAssignedTo',
       'qcAssignedDate',
       'qcCompletedDate',
-      'completedDate',
     ],
   },
   allsales: {
@@ -246,7 +240,6 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
       'qcAssignedTo',
       'qcAssignedDate',
       'qcCompletedDate',
-      'completedDate',
     ],
   },
   // My Assignment
@@ -276,7 +269,6 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
       'qcAssignedTo',
       'qcAssignedDate',
       'qcCompletedDate',
-      'completedDate',
     ],
   },
   // Manager dashboard
@@ -307,7 +299,6 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
       'qcAssignedTo',
       'qcAssignedDate',
       'qcCompletedDate',
-      'completedDate',
     ],
   },
   // QA dashboard
@@ -337,7 +328,6 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
       'qcAssignedTo',
       'qcAssignedDate',
       'qcCompletedDate',
-      'completedDate',
     ],
   },
 };

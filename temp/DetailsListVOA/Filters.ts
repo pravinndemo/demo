@@ -24,7 +24,6 @@ export type SearchByOption =
   | 'assignedDate'
   | 'qcAssignedTo'
   | 'qcAssignedDate'
-  | 'completedDate'
   | 'qcCompletedDate';
 
 export type ManualCheckFilter = 'all' | 'yes' | 'no';
@@ -70,7 +69,6 @@ export interface GridFilterState {
   qcAssignedTo?: string;
   qcAssignedDate?: DateRangeFilter;
   qcCompletedDate?: DateRangeFilter;
-  completedDate?: DateRangeFilter;
   source?: string;
   bacode?: string;
 }
@@ -230,14 +228,6 @@ export const sanitizeFilters = (filters: GridFilterState): GridFilterState => {
       }
     : undefined;
   if (qcCompletedDate && (qcCompletedDate.from || qcCompletedDate.to)) sanitized.qcCompletedDate = qcCompletedDate;
-
-  const completedDate = filters.completedDate
-    ? {
-        from: filters.completedDate.from?.trim() ?? undefined,
-        to: filters.completedDate.to?.trim() ?? undefined,
-      }
-    : undefined;
-  if (completedDate && (completedDate.from || completedDate.to)) sanitized.completedDate = completedDate;
 
   if (filters.bacode) {
     const trimmed = filters.bacode.trim();

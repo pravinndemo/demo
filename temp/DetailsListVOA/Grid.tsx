@@ -302,7 +302,6 @@ const SEARCH_FIELD_CONFIGS: Record<SearchByOption, SearchFieldConfig> = {
   },
   qcAssignedDate: { key: 'qcAssignedDate', label: 'QC Assigned date', control: 'dateRange', stateKey: 'qcAssignedDate' },
   qcCompletedDate: { key: 'qcCompletedDate', label: 'QC Completed date', control: 'dateRange', stateKey: 'qcCompletedDate' },
-  completedDate: { key: 'completedDate', label: 'Completed date', control: 'dateRange', stateKey: 'completedDate' },
 };
 
 export function getRecordKey(record: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord): string {
@@ -758,7 +757,7 @@ export const Grid = React.memo((props: GridProps) => {
     key === 'salePrice' || key === 'ratio' || key === 'outlierRatio';
 
   const updateDateRange = React.useCallback(
-    (key: 'transactionDate' | 'assignedDate' | 'qcAssignedDate' | 'qcCompletedDate' | 'completedDate', part: 'from' | 'to', value?: Date | null) => {
+    (key: 'transactionDate' | 'assignedDate' | 'qcAssignedDate' | 'qcCompletedDate', part: 'from' | 'to', value?: Date | null) => {
       setFilters((prev) => {
         const existing = prev[key] ?? {};
         return { ...prev, [key]: { ...existing, [part]: toISODateString(value) } };
