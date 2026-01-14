@@ -175,7 +175,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   onColumnFiltersApply,
 }) => {
   // Parse basic params
-  const pageSize = (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 10;
+  const pageSize = (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 500;
   const tableKey = (CONTROL_CONFIG.tableKey || 'sales').trim().toLowerCase();
 
   // Column display names and configs
@@ -203,7 +203,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       const map: Record<string, ColumnConfig> = {};
       merged.forEach((c) => {
         const n = c.ColName?.trim().toLowerCase();
-        if (n) map[n] = c;
+        if (n && n !== 'completeddate') map[n] = c;
       });
       // Ensure multi-value flags render as tags by default
       if (!map.summaryflags) {

@@ -358,6 +358,7 @@ export const Grid = React.memo((props: GridProps) => {
 
   const theme = useTheme(themeJSON);
   const topRef = React.useRef<HTMLDivElement>(null);
+  const resultsRef = React.useRef<HTMLDivElement>(null);
   const paginationButtonStyles = React.useMemo(
     () => ({
       root: {
@@ -1597,7 +1598,11 @@ export const Grid = React.memo((props: GridProps) => {
   }, [menuState, onColumnFiltersChange]);
 
   const onGoToTop = React.useCallback(() => {
-    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (resultsRef.current) {
+      resultsRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     topRef.current?.focus?.();
   }, []);
 
@@ -2201,7 +2206,14 @@ export const Grid = React.memo((props: GridProps) => {
           </MessageBar>
         )}
         {showResults && (
-          <div id="voa-grid-results" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <div
+            id="voa-grid-results"
+            ref={resultsRef}
+            style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto' }}
+            role="region"
+            aria-label="Results table scroll region"
+            tabIndex={0}
+          >
             <ShimmeredDetailsList
               className={ClassNames.PowerCATFluentDetailsList}
               componentRef={componentRef}

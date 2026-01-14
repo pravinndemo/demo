@@ -226,7 +226,7 @@ const normalizeSalesItem = (item: SalesApiItem): TaskSearchItem => {
     postcode: toTextOrEmpty(getNormalizedValue(map, 'postcode', ['postCode'])),
     transactionDate: toTextOrEmpty(getNormalizedValue(map, 'transactionDate')),
     billingAuthority: toText(getNormalizedValue(map, 'billingAuthority', ['billingauthorityity'])) ?? undefined,
-    salePrice: toNumber(getNormalizedValue(map, 'saleprice', ['salePrice'])),
+    salePrice: toNumber(getNormalizedValue(map, 'saleprice', ['salePrice', 'salesPrice'])),
     ratio: toNumber(getNormalizedValue(map, 'ratio')),
     dwellingType: toText(getNormalizedValue(map, 'dwellingType', ['deellingtype', 'dwellinlingtype', 'dwelwellingtype'])) ?? undefined,
     flaggedForReview: toBoolean(getNormalizedValue(map, 'flaggedForReview')),

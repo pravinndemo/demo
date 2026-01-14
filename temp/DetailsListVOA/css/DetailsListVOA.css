@@ -80,6 +80,22 @@
   outline-offset: -2px;
 }
 
+.PowerCATFluentDetailsList {
+  min-width: max-content;
+}
+
+.voa-summary-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  min-width: 24px;
+  max-width: 40px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
 .voa-assign-overlay {
   position: fixed;
   inset: 0;
@@ -91,27 +107,36 @@
 .voa-prefilter-bar {
   margin-bottom: 16px;
   padding: 0 8px;
+  width: 100%;
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: #ffffff;
+  border-bottom: 1px solid #e6e6e6;
 }
 
 .voa-prefilter-bar .ms-Stack-inner {
   display: grid !important;
   grid-template-columns:
-    minmax(220px, 1fr)
-    minmax(260px, 1fr)
-    minmax(220px, 1fr)
-    max-content
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(300px, 1.2fr)
     max-content;
   grid-template-rows: auto auto auto;
   column-gap: 12px;
   row-gap: 12px;
   align-items: end;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .voa-prefilter-bar--no-date .ms-Stack-inner {
   grid-template-columns:
-    minmax(220px, 1fr)
-    minmax(260px, 1fr)
-    minmax(220px, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
     max-content;
 }
 
@@ -151,6 +176,7 @@
 
 .voa-prefilter-date-fields .ms-DatePicker {
   min-width: 220px;
+  max-width: 260px;
 }
 
 .voa-prefilter-date-fields .ms-DatePicker .ms-TextField-fieldGroup input {

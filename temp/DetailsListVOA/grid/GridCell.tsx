@@ -214,24 +214,49 @@ function getTextTagCell(
         borderColor: (tagBorderColor || '#CAD0D5') + CSS_IMPORTANT,
     })}`;
     const isBlank = tagValues.length === 0;
+    const isSummaryFlags = (column.fieldName ?? '').toLowerCase() === 'summaryflags';
     const cellContents = !isBlank ? (
         <span>
-            {tagValues.map((t, idx) => (
-                <span
-                    key={idx}
-                    className={tagColorClass}
-                    title={t}
-                    aria-label={`${column.name ?? column.fieldName ?? 'Tag'} ${t}`}
-                    style={{ marginRight: 6 }}
-                >
-                    {t}
-                </span>
-            ))}
+            {tagValues.map((t, idx) => {
+                const text = t.toString().trim();
+                const displayText = isSummaryFlags && text.length > 2 ? text.slice(0, 2) : text;
+                const colors = isSummaryFlags ? getSummaryTagColors(text) : undefined;
+                const summaryClass = isSummaryFlags ? 'voa-summary-tag' : undefined;
+                const summaryStyle = colors
+                    ? { background: colors.background, borderColor: colors.borderColor, color: colors.color }
+                    : undefined;
+                return (
+                    <span
+                        key={idx}
+                        className={`${tagColorClass}${summaryClass ? ` ${summaryClass}` : ''}`}
+                        title={text}
+                        aria-label={`${column.name ?? column.fieldName ?? 'Tag'} ${text}`}
+                        style={{ marginRight: 6, ...(summaryStyle ?? {}) }}
+                    >
+                        {displayText}
+                    </span>
+                );
+            })}
         </span>
     ) : (
         <></>
     );
     return { isBlank, cellContents };
+}
+
+function getSummaryTagColors(text: string): { background: string; borderColor: string; color: string } {
+    const palette = [
+        { background: '#E7F0F7', borderColor: '#2B6CB0', color: '#1B3F6B' },
+        { background: '#E9F6F2', borderColor: '#1E7A62', color: '#0F4F3F' },
+        { background: '#FFF3E0', borderColor: '#B26A00', color: '#6B3A00' },
+        { background: '#F3E8FF', borderColor: '#5A2D82', color: '#3A1B57' },
+        { background: '#FDECEE', borderColor: '#B71C1C', color: '#7A1212' },
+    ];
+    let hash = 0;
+    for (let i = 0; i < text.length; i += 1) {
+        hash = (hash + text.charCodeAt(i) * (i + 1)) % 997;
+    }
+    return palette[hash % palette.length];
 }
 
 function getIconCell(

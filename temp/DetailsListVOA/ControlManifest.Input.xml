@@ -56,7 +56,7 @@
       default-value="voa_GetViewSaleRecordById"
     />
     <!-- Number of records shown per page -->
-    <property name="pageSize" display-name-key="PageSize" description-key="PageSize description" of-type="Whole.None" usage="input" required="false" default-value="10" />
+    <property name="pageSize" display-name-key="PageSize" description-key="PageSize description" of-type="Whole.None" usage="input" required="false" default-value="500" />
     <property
       name="serverDrivenThreshold"
       display-name-key="Server Driven Threshold"

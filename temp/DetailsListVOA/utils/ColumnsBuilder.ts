@@ -10,6 +10,7 @@ export function buildColumns(
 
   const ensure = (name: string, defaultDisplayName: string, width = 100): void => {
     const lower = name.toLowerCase();
+    if (lower === 'completeddate') return;
     if (cols.some((c) => c.name?.toLowerCase() === lower)) return;
     cols.push({
       name,

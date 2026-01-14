@@ -53,7 +53,7 @@ export async function loadGridData(
     prefilters?: unknown;
   },
 ): Promise<LoadResult> {
-  const pageSize = args.pageSize ?? (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 10;
+  const pageSize = args.pageSize ?? (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 500;
   const apiParamsBase = buildApiParamsFor(args.tableKey, args.filters as never, args.currentPage, pageSize, args.prefilters);
   const customApiName = resolveCustomApiName(context);
   const customApiType = resolveCustomApiType(context);
