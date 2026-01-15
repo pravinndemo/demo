@@ -103,6 +103,7 @@ export interface GridProps {
   prefilterApplied?: boolean;
   onPrefilterApply?: (prefilters: ManagerPrefilterState) => void;
   onPrefilterClear?: () => void;
+  onBackRequested?: () => void;
 }
 
 interface AssignUser {
@@ -358,6 +359,7 @@ export const Grid = React.memo((props: GridProps) => {
     onAssignTasks,
     onPrefilterApply,
     onPrefilterClear,
+    onBackRequested,
   } = props;
 
   const theme = useTheme(themeJSON);
@@ -2032,12 +2034,23 @@ export const Grid = React.memo((props: GridProps) => {
           )}
           {pageHeaderText && (
             <div className="voa-page-header" role="heading" aria-level={2}>
-              {pageHeaderIconName && (
-                <Icon iconName={pageHeaderIconName} className="voa-page-header__icon" aria-hidden="true" />
+              {onBackRequested && (
+                <IconButton
+                  className="voa-back-button"
+                  iconProps={{ iconName: 'Back' }}
+                  ariaLabel="Back"
+                  title="Back"
+                  onClick={onBackRequested}
+                />
               )}
-              <Text variant="xLarge" className="voa-page-header__title">
-                {pageHeaderText}
-              </Text>
+              <div className="voa-page-header__center">
+                {pageHeaderIconName && (
+                  <Icon iconName={pageHeaderIconName} className="voa-page-header__icon" aria-hidden="true" />
+                )}
+                <Text variant="xLarge" className="voa-page-header__title">
+                  {pageHeaderText}
+                </Text>
+              </div>
             </div>
           )}
           {isManagerAssign && (

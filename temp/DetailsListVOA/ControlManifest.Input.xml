@@ -121,6 +121,7 @@
     <property name="selectedTaskIdsJson" display-name-key="Selected Task IDs (JSON)" description-key="JSON array of selected Task IDs" of-type="SingleLine.Text" usage="output" required="false" />
     <property name="selectedSaleIdsJson" display-name-key="Selected Sale IDs (JSON)" description-key="JSON array of selected Sale IDs" of-type="SingleLine.Text" usage="output" required="false" />
     <property name="selectedCount" display-name-key="Selected Count" description-key="Count of selected rows" of-type="Whole.None" usage="output" required="false" />
+    <property name="backRequestId" display-name-key="Back Request Id" description-key="Updated when the user presses the back button." of-type="SingleLine.Text" usage="output" required="false" />
 
 
     <resources>

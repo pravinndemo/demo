@@ -4,8 +4,8 @@ import { ColumnConfig } from '../Component.types';
 // Any JSON provided in `columnConfig` will be merged on top to override.
 
 const SALES_COLUMNS: ColumnConfig[] = [
-  { ColName: 'saleid', ColDisplayName: 'Sale ID', ColWidth: 120 },
-  { ColName: 'taskid', ColDisplayName: 'Task ID', ColWidth: 120, ColCellType: 'link' },
+  { ColName: 'saleid', ColDisplayName: 'Sale ID', ColWidth: 120, ColCellType: 'link' },
+  { ColName: 'taskid', ColDisplayName: 'Task ID', ColWidth: 120 },
   { ColName: 'uprn', ColDisplayName: 'UPRN', ColWidth: 120 },
   { ColName: 'address', ColDisplayName: 'Address', ColWidth: 280, ColMultiLine: true },
   { ColName: 'postcode', ColDisplayName: 'Post code', ColWidth: 110 },

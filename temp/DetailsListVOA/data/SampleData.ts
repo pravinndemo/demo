@@ -10,8 +10,8 @@ export type SampleRecordValue = string | number | boolean | string[] | number[] 
 export type SampleRecord = Record<string, SampleRecordValue>;
 
 export const SAMPLE_COLUMNS: SampleColumnDefinition[] = [
-    { name: 'saleid', displayName: 'Sale ID', width: 120 },
-    { name: 'taskid', displayName: 'Task ID', width: 120, cellType:'link' },
+    { name: 'saleid', displayName: 'Sale ID', width: 120, cellType:'link' },
+    { name: 'taskid', displayName: 'Task ID', width: 120 },
     { name: 'uprn', displayName: 'UPRN', width: 120 },
     { name: 'address', displayName: 'Address', width: 260 },
     { name: 'postcode', displayName: 'Postcode', width: 110 },

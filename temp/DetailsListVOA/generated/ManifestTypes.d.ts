@@ -24,4 +24,5 @@ export interface IOutputs {
     selectedTaskIdsJson?: string;
     selectedSaleIdsJson?: string;
     selectedCount?: number;
+    backRequestId?: string;
 }

@@ -16,6 +16,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private selectedTaskIdsJson?: string;
   private selectedSaleIdsJson?: string;
   private selectedCount?: number;
+  private backRequestId?: string;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
@@ -65,6 +66,10 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
             this.selectedCount = count;
             this._notifyOutputChanged();
           },
+          onBackRequested: () => {
+            this.backRequestId = new Date().toISOString();
+            this._notifyOutputChanged();
+          },
         }),
         //React.createElement(StatutorySpatialUnitBrowser, null)
       ),
@@ -79,6 +84,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       selectedSaleIdsJson: this.selectedSaleIdsJson,
       selectedCount: this.selectedCount,
       saleDetails: this._saleDetails,
+      backRequestId: this.backRequestId,
     } as IOutputs;
   }
 
@@ -89,7 +95,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private async onTaskClick(taskId?: string, saleId?: string): Promise<void> {
     this._saleDetails = '';
 
-    if (!taskId || !saleId) {
+    if (!saleId) {
       this._saleDetails = JSON.stringify(this.getEmptySaleRecord());
       this._notifyOutputChanged();
       return;

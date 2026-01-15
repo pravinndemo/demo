@@ -22,6 +22,8 @@ export interface DetailsListHostProps {
   onSelectionChange?: (args: { taskId?: string; saleId?: string; selectedTaskIds?: string[]; selectedSaleIds?: string[] }) => void;
   // Emit count of selected rows (even if IDs are missing)
   onSelectionCountChange?: (count: number) => void;
+  // Triggered when the back button is pressed
+  onBackRequested?: () => void;
   // When provided, the host renders these items instead of loading via APIM.
   externalItems?: unknown[];
   // Bubble header filter Apply back to parent (used by external item scenarios to call API with extra params)
@@ -184,6 +186,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   onRowInvoke,
   onSelectionChange,
   onSelectionCountChange,
+  onBackRequested,
   externalItems,
   onColumnFiltersApply,
 }) => {
@@ -228,12 +231,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       if (!map.reviewflags) {
         map.reviewflags = { ColName: 'reviewflags', ColCellType: 'tag' } as ColumnConfig;
       }
-      if (map.taskid) {
-        if (!map.taskid.ColCellType) {
-          map.taskid = { ...map.taskid, ColCellType: 'link' } as ColumnConfig;
+      if (map.saleid) {
+        if (!map.saleid.ColCellType) {
+          map.saleid = { ...map.saleid, ColCellType: 'link' } as ColumnConfig;
         }
       } else {
-        map.taskid = { ColName: 'taskid', ColCellType: 'link' } as ColumnConfig;
+        map.saleid = { ColName: 'saleid', ColCellType: 'link' } as ColumnConfig;
       }
       setColumnConfigs(map);
     } catch {
@@ -821,7 +824,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     },
   };
 
-  return <Grid {...(props as unknown as GridProps)} height={allocatedHeight} />;
+  return <Grid {...(props as unknown as GridProps)} height={allocatedHeight} onBackRequested={onBackRequested} />;
 };
 
 DetailsListHost.displayName = 'DetailsListHost';
