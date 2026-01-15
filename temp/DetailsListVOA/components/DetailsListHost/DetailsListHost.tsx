@@ -54,6 +54,19 @@ const resolveClientUrl = (ctx: ComponentFramework.Context<IInputs>): string => {
   return '';
 };
 
+const normalizeSuid = (value: unknown): string => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const lowered = trimmed.toLowerCase();
+  if (lowered === 'null' || lowered === 'undefined') return '';
+  const unwrapped = trimmed.replace(/^[{(]?(.*?)[)}]?$/, '$1');
+  const isGuid = /^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(unwrapped);
+  return isGuid ? unwrapped : '';
+};
+
 const toFilterValueString = (val: ColumnFilterValue | undefined): string => {
   if (val === undefined || val === null) return '';
   if (typeof val === 'string') return val;
@@ -176,6 +189,9 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 }) => {
   // Parse basic params
   const pageSize = (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 500;
+  const allocatedHeight = typeof context.mode?.allocatedHeight === 'number' && context.mode.allocatedHeight > 0
+    ? context.mode.allocatedHeight
+    : undefined;
   const tableKey = (CONTROL_CONFIG.tableKey || 'sales').trim().toLowerCase();
 
   // Column display names and configs
@@ -407,12 +423,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         Object.keys(obj).forEach((k) => (r[k.toLowerCase()] = obj[k]));
         // some handy aliases
         r.saleid = r.saleid ?? (r as Record<string, unknown> & { saleId?: unknown }).saleId;
-        const suidValue = r.suid;
-        const suid = typeof suidValue === 'string'
-          ? suidValue
-          : typeof suidValue === 'number'
-            ? String(suidValue)
-            : '';
+        const suid = normalizeSuid(r.suid);
         r.addressurl = suid && clientUrl ? buildSsuUrl(clientUrl, suid) : '';
         all.push(id);
         recs[id] = r;
@@ -810,7 +821,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     },
   };
 
-  return <Grid {...(props as unknown as GridProps)} />;
+  return <Grid {...(props as unknown as GridProps)} height={allocatedHeight} />;
 };
 
 DetailsListHost.displayName = 'DetailsListHost';

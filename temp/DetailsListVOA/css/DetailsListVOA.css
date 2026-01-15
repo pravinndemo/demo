@@ -96,6 +96,7 @@
   max-width: 100vw;
   overflow-x: hidden;
   overflow-y: hidden;
+  scrollbar-gutter: stable both-edges;
 }
 
 .voa-grid-results {
@@ -118,7 +119,7 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  padding: 4px 8px;
+  padding: 4px 12px;
   background: #fafafa;
   border: 1px solid #e6e6e6;
   border-left: none;
@@ -144,6 +145,9 @@
 
 .voa-grid-toolbar__right {
   justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 
 .voa-grid-toolbar__count {
@@ -179,7 +183,7 @@
   color: #0b0c0c;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1400px) {
   .voa-grid-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -245,6 +249,7 @@
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
   width: max-content;
   min-width: max-content;
+  padding-left: 12px;
 }
 
 .PowerCATFluentDetailsList .ms-DetailsHeader-cell {
@@ -259,6 +264,7 @@
   border-bottom: 1px solid #e6e6e6;
   width: max-content;
   min-width: max-content;
+  padding-left: 12px;
 }
 
 .PowerCATFluentDetailsList .ms-DetailsRow-fields {
@@ -268,8 +274,8 @@
 
 .PowerCATFluentDetailsList .ms-DetailsHeader-cell:first-child,
 .PowerCATFluentDetailsList .ms-DetailsRow-cell:first-child {
-  border-left: 3px solid #e6e6e6;
-  padding-left: 6px;
+  border-left: 2px solid #b1b4b6;
+  padding-left: 2px;
 }
 
 .voa-grid-pagination {
@@ -338,17 +344,17 @@
 .voa-prefilter-bar .ms-Stack-inner {
   display: grid !important;
   grid-template-columns:
-    minmax(190px, 260px)
-    minmax(210px, 300px)
-    minmax(210px, 300px)
-    minmax(220px, 300px)
+    minmax(160px, 1fr)
+    minmax(200px, 1fr)
+    minmax(200px, 1fr)
+    minmax(220px, 1fr)
     max-content;
   grid-template-rows: auto auto auto;
   column-gap: 12px;
   row-gap: 8px;
   align-items: end;
   width: 100%;
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0;
   padding: 8px 12px 10px;
   min-width: 0;
@@ -357,9 +363,9 @@
 
 .voa-prefilter-bar--no-date .ms-Stack-inner {
   grid-template-columns:
-    minmax(190px, 260px)
-    minmax(210px, 300px)
-    minmax(210px, 300px)
+    minmax(160px, 1fr)
+    minmax(200px, 1fr)
+    minmax(200px, 1fr)
     max-content;
 }
 
@@ -463,6 +469,7 @@
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .voa-prefilter-actions .ms-Button--primary {
@@ -488,7 +495,7 @@
   font-weight: 600;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .voa-prefilter-bar .ms-Stack-inner {
     display: flex !important;
     flex-wrap: wrap;
