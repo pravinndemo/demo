@@ -102,6 +102,10 @@
   --voa-pagination-height: 48px;
 }
 
+.voa-grid-shell--assignment {
+  --voa-pagination-height: 0px;
+}
+
 .voa-grid-results {
   scrollbar-gutter: stable both-edges;
   flex: 1 1 auto;
@@ -117,6 +121,12 @@
   flex-direction: column;
   box-sizing: border-box;
   padding-bottom: var(--voa-pagination-height);
+}
+
+.voa-grid-shell--assignment .voa-grid-results {
+  padding-bottom: 0;
+  border-top: none;
+  border-bottom: none;
 }
 
 .voa-grid-toolbar {
@@ -166,6 +176,85 @@
 
 .voa-grid-toolbar .ms-Button-label {
   font-weight: 600;
+}
+
+.voa-command-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.voa-command-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.voa-command-bar__title {
+  font-weight: 600;
+  color: #212a35;
+}
+
+.voa-command-bar__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.voa-command-bar__meta {
+  color: #5d656e;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.voa-command-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.voa-command-bar .ms-Button {
+  height: 32px;
+  border-radius: 4px;
+}
+
+.voa-command-bar .voa-back-button {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.voa-command-bar .ms-Button-label {
+  font-weight: 600;
+}
+
+.voa-prefilter-toggle {
+  height: 32px;
+  min-width: 32px;
+  white-space: nowrap;
+}
+
+.voa-prefilter-toggle .ms-Button-icon {
+  font-size: 14px;
+}
+
+.voa-grid-toolbar .voa-prefilter-toggle,
+.voa-prefilter-actions .voa-prefilter-toggle,
+.voa-command-bar .voa-prefilter-toggle {
+  padding: 0 10px;
+  height: 32px;
 }
 
 .voa-page-header {
@@ -331,6 +420,11 @@
   z-index: 3;
 }
 
+.voa-grid-shell--assignment .voa-grid-pagination {
+  position: static;
+  flex: 0 0 auto;
+}
+
 .voa-summary-tag {
   display: inline-flex;
   align-items: center;
@@ -388,18 +482,27 @@
   box-shadow: none;
 }
 
+.voa-prefilter-bar--inline {
+  margin-bottom: 0;
+  position: static;
+  top: auto;
+  z-index: auto;
+  background: #ffffff;
+  border-bottom: 1px solid #e6e6e6;
+}
+
 .voa-prefilter-bar .ms-Stack-inner {
   display: grid !important;
   grid-template-columns:
-    minmax(160px, 1fr)
+    minmax(140px, 1fr)
+    minmax(180px, 1fr)
+    minmax(180px, 1fr)
     minmax(200px, 1fr)
-    minmax(200px, 1fr)
-    minmax(220px, 1fr)
-    minmax(200px, 1fr);
-  grid-template-rows: auto auto auto;
-  column-gap: 12px;
+    minmax(160px, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
   row-gap: 8px;
-  align-items: end;
+  align-items: start;
   width: 100%;
   max-width: 100%;
   margin: 0;
@@ -410,31 +513,60 @@
 
 .voa-prefilter-bar--no-date .ms-Stack-inner {
   grid-template-columns:
-    minmax(160px, 1fr)
-    minmax(200px, 1fr)
-    minmax(200px, 1fr)
-    minmax(200px, 1fr);
+    minmax(140px, 1fr)
+    minmax(180px, 1fr)
+    minmax(180px, 1fr)
+    minmax(160px, 1fr);
 }
 
-.voa-prefilter-col-searchby {
+.voa-prefilter-col-searchby-label {
   grid-column: 1;
-  grid-row: 1 / span 2;
+  grid-row: 1;
 }
 
-.voa-prefilter-col-owner {
+.voa-prefilter-col-searchby-field {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.voa-prefilter-col-owner-label {
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: 1;
 }
 
-.voa-prefilter-col-workthat {
+.voa-prefilter-col-owner-field {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.voa-prefilter-col-workthat-label {
   grid-column: 3;
-  grid-row: 1 / span 2;
+  grid-row: 1;
 }
 
-.voa-prefilter-col-daterange {
+.voa-prefilter-col-workthat-field {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.voa-prefilter-col-daterange-label {
   grid-column: 4;
-  grid-row: 1 / span 3;
+  grid-row: 1;
+  align-self: stretch;
+}
+
+.voa-prefilter-col-daterange-label .voa-prefilter-field {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.voa-prefilter-col-daterange-fields {
+  grid-column: 4;
+  grid-row: 2;
   justify-self: start;
+  align-self: start;
 }
 
 .voa-prefilter-date-title {
@@ -447,12 +579,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 0;
 }
 
 .voa-prefilter-date-fields .ms-DatePicker {
-  min-width: 220px;
-  max-width: 260px;
+  min-width: 180px;
+  max-width: 210px;
 }
 
 .voa-prefilter-date-fields .ms-DatePicker .ms-TextField-fieldGroup input {
@@ -472,19 +604,21 @@
 }
 
 .voa-prefilter-bar .ms-Label {
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .voa-prefilter-col-actions {
   grid-column: 5;
   grid-row: 2;
   justify-self: end;
+  align-self: start;
 }
 
 .voa-prefilter-bar--no-date .voa-prefilter-col-actions {
   grid-column: 4;
   grid-row: 2;
   justify-self: end;
+  align-self: start;
 }
 
 .voa-prefilter-field {
@@ -516,11 +650,148 @@
 
 .voa-prefilter-actions {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 8px;
   flex-wrap: wrap;
   width: 100%;
   justify-content: flex-end;
+}
+
+.voa-prefilter-bar--inline .ms-Stack-inner {
+  display: grid !important;
+  grid-template-columns:
+    minmax(140px, 1fr)
+    minmax(180px, 1fr)
+    minmax(180px, 1fr)
+    minmax(200px, 1fr)
+    minmax(140px, auto);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 6px;
+  align-items: start;
+  padding: 6px 12px 8px;
+}
+
+.voa-prefilter-bar--inline.voa-prefilter-bar--no-date .ms-Stack-inner {
+  grid-template-columns:
+    minmax(140px, 1fr)
+    minmax(180px, 1fr)
+    minmax(180px, 1fr)
+    minmax(140px, auto);
+}
+
+.voa-prefilter-bar--inline .ms-Label {
+  margin-bottom: 0;
+}
+
+.voa-prefilter-bar--inline .voa-prefilter-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.voa-prefilter-bar--inline .voa-prefilter-label {
+  min-height: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+.voa-prefilter-bar--inline .voa-prefilter-label-spacer {
+  display: none;
+}
+
+.voa-prefilter-bar--inline .voa-prefilter-field .ms-ComboBox,
+.voa-prefilter-bar--inline .voa-prefilter-field .ms-Dropdown {
+  width: 100%;
+  min-width: 0;
+}
+
+.voa-prefilter-bar--inline .voa-prefilter-actions {
+  align-items: flex-start;
+}
+
+.voa-prefilter-bar--inline .voa-prefilter-date-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 0;
+}
+
+.voa-prefilter-bar--inline .voa-prefilter-date-fields .ms-DatePicker {
+  min-width: 160px;
+  max-width: 190px;
+}
+
+.voa-prefilter-bar--inline .ms-Dropdown-title,
+.voa-prefilter-bar--inline .ms-ComboBox-Input,
+.voa-prefilter-bar--inline .ms-TextField-fieldGroup {
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.voa-prefilter-bar--inline .ms-Dropdown-title {
+  display: flex;
+  align-items: center;
+  padding: 6px 30px 6px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 20px;
+  height: 32px;
+}
+
+.voa-prefilter-bar--inline .ms-ComboBox-Input,
+.voa-prefilter-bar--inline .ms-TextField-fieldGroup input {
+  padding: 6px 10px;
+}
+
+.voa-prefilter-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.2;
+  max-height: 2.4em;
+}
+
+.voa-prefilter-bar--inline .voa-prefilter-title {
+  -webkit-line-clamp: 1;
+  white-space: nowrap;
+  max-height: 1.2em;
+}
+
+@media (max-width: 1200px) {
+  .voa-prefilter-bar--inline .ms-Stack-inner {
+    grid-template-columns: minmax(200px, 1fr);
+    row-gap: 6px;
+  }
+
+  .voa-prefilter-bar--inline.voa-prefilter-bar--no-date .ms-Stack-inner {
+    grid-template-columns: minmax(200px, 1fr);
+  }
+
+  .voa-prefilter-bar--inline .voa-prefilter-col-searchby-label,
+  .voa-prefilter-bar--inline .voa-prefilter-col-searchby-field,
+  .voa-prefilter-bar--inline .voa-prefilter-col-owner-label,
+  .voa-prefilter-bar--inline .voa-prefilter-col-owner-field,
+  .voa-prefilter-bar--inline .voa-prefilter-col-workthat-label,
+  .voa-prefilter-bar--inline .voa-prefilter-col-workthat-field,
+  .voa-prefilter-bar--inline .voa-prefilter-col-daterange-label,
+  .voa-prefilter-bar--inline .voa-prefilter-col-daterange-fields,
+  .voa-prefilter-bar--inline .voa-prefilter-col-actions,
+  .voa-prefilter-bar--inline.voa-prefilter-bar--no-date .voa-prefilter-col-actions {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+  }
+
+  .voa-prefilter-bar--inline .voa-prefilter-col-actions {
+    justify-self: start;
+  }
 }
 
 .voa-prefilter-actions .ms-Button--primary {
@@ -552,10 +823,14 @@
     flex-wrap: wrap;
     gap: 16px;
   }
-  .voa-prefilter-col-searchby,
-  .voa-prefilter-col-owner,
-  .voa-prefilter-col-workthat,
-  .voa-prefilter-col-daterange,
+  .voa-prefilter-col-searchby-label,
+  .voa-prefilter-col-searchby-field,
+  .voa-prefilter-col-owner-label,
+  .voa-prefilter-col-owner-field,
+  .voa-prefilter-col-workthat-label,
+  .voa-prefilter-col-workthat-field,
+  .voa-prefilter-col-daterange-label,
+  .voa-prefilter-col-daterange-fields,
   .voa-prefilter-col-actions {
     grid-column: auto;
     grid-row: auto;

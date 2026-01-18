@@ -51,7 +51,7 @@ import { IGridColumn, ColumnConfig } from './Component.types';
 import { GridCell } from '../DetailsListVOA/grid/GridCell';
 import { ClassNames } from '../DetailsListVOA/grid/Grid.styles';
 import { GridFilterState, NumericFilter, NumericFilterMode, createDefaultGridFilters, sanitizeFilters, SearchByOption, DateRangeFilter } from './Filters';
-import { getSearchByOptionsFor, getColumnFilterConfigFor, isLookupFieldFor, ColumnFilterConfig } from '../DetailsListVOA/config/TableConfigs';
+import { getSearchByOptionsFor, getColumnFilterConfigFor, isLookupFieldFor, isViewSalesRecordEnabledFor, ColumnFilterConfig } from '../DetailsListVOA/config/TableConfigs';
 import { MANAGER_PREFILTER_DEFAULT, MANAGER_SEARCH_BY_OPTIONS, MANAGER_BILLING_AUTHORITY_OPTIONS, MANAGER_CASEWORKER_OPTIONS, getManagerWorkThatOptions, isManagerCompletedWorkThat, type ManagerPrefilterState, type ManagerSearchBy, type ManagerWorkThat } from './config/PrefilterConfigs';
 
 type DataSet = ComponentFramework.PropertyHelper.DataSetApi.EntityRecord & IObjectWithKey;
@@ -126,6 +126,8 @@ const defaultTheme = createTheme({
     },
   },
 });
+
+const PREFILTER_COLLAPSE_BREAKPOINT = 1200;
 
 function useTheme(themeJSON?: string | IPartialTheme) {
   return React.useMemo(() => {
@@ -358,6 +360,7 @@ export const Grid = React.memo((props: GridProps) => {
     canvasScreenName,
     onAssignTasks,
     onPrefilterApply,
+    prefilterApplied,
     onPrefilterClear,
     onBackRequested,
   } = props;
@@ -417,19 +420,22 @@ export const Grid = React.memo((props: GridProps) => {
   const [assignLoading, setAssignLoading] = React.useState(false);
   const [assignSelectedUserId, setAssignSelectedUserId] = React.useState<string | undefined>();
   const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState>(MANAGER_PREFILTER_DEFAULT);
+  const [prefilterExpanded, setPrefilterExpanded] = React.useState(true);
+  const [prefilterContainerWidth, setPrefilterContainerWidth] = React.useState<number | null>(null);
 
   const screenName = (canvasScreenName ?? '').toLowerCase();
-    const isAssignment = screenName.includes('assignment');
-    const isManagerAssign = isAssignment && screenName.includes('manager');
-    const isQcAssign = isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
-    const isCaseworkerView = screenName.includes('caseworker');
-    const isQcView = !isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
-    const isSalesSearch = screenName.includes('sales') || screenName.includes('record search');
-    const showAssign = isManagerAssign || isQcAssign;
-    const assignActionText = isQcAssign ? 'Assign QC Tasks' : 'Assign Tasks';
-    const assignHeaderText = isQcAssign ? 'QC Assignment' : 'Manager Assignment';
-    const assignUserListTitle = isQcAssign ? 'QC Users' : 'SVT Users';
-    const pageHeaderIconName = isManagerAssign
+  const isAssignment = screenName.includes('assignment');
+  const isManagerAssign = isAssignment && screenName.includes('manager');
+  const isQcAssign = isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
+  const isCaseworkerView = screenName.includes('caseworker');
+  const isQcView = !isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
+  const isSalesSearch = screenName.includes('sales') || screenName.includes('record search');
+  const showAssign = isManagerAssign || isQcAssign;
+  const useAssignmentLayout = isManagerAssign;
+  const assignActionText = isQcAssign ? 'Assign QC Tasks' : 'Assign Tasks';
+  const assignHeaderText = isQcAssign ? 'QC Assignment' : 'Manager Assignment';
+  const assignUserListTitle = isQcAssign ? 'QC Users' : 'SVT Users';
+  const pageHeaderIconName = isManagerAssign
       ? 'People'
       : isQcAssign
         ? 'Shield'
@@ -440,7 +446,7 @@ export const Grid = React.memo((props: GridProps) => {
             : isSalesSearch
               ? 'Search'
               : undefined;
-    const pageHeaderText = isManagerAssign
+  const pageHeaderText = isManagerAssign
       ? 'Manager Assignment'
       : isQcAssign
         ? 'QC Assignment'
@@ -503,6 +509,37 @@ export const Grid = React.memo((props: GridProps) => {
       // ignore storage failures
     }
   }, [isManagerAssign, isPrefilterDefault, prefilterStorageKey, prefilters]);
+
+  React.useEffect(() => {
+    if (!useAssignmentLayout) return;
+    const element = topRef.current;
+    if (!element) return;
+    const updateWidth = (width: number) => {
+      if (!Number.isFinite(width)) return;
+      setPrefilterContainerWidth(Math.round(width));
+    };
+    const updateFromElement = () => updateWidth(element.clientWidth);
+    updateFromElement();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver((entries) => {
+        if (!entries || entries.length === 0) return;
+        updateWidth(entries[0].contentRect.width);
+      });
+      observer.observe(element);
+      return () => observer.disconnect();
+    }
+    const handleResize = () => updateFromElement();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [useAssignmentLayout]);
+
+  const isPrefilterNarrow = useAssignmentLayout
+    && prefilterContainerWidth !== null
+    && prefilterContainerWidth < PREFILTER_COLLAPSE_BREAKPOINT;
+
+  const togglePrefilters = React.useCallback(() => {
+    setPrefilterExpanded((prev) => !prev);
+  }, []);
 
   const dateStrings: IDatePickerStrings = React.useMemo(
     () => ({
@@ -627,7 +664,7 @@ export const Grid = React.memo((props: GridProps) => {
   );
 
   const onPrefilterWorkThatChange = React.useCallback(
-    (_: React.FormEvent<IComboBox>, option?: IComboBoxOption) => {
+    (_: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
       const nextWork = option?.key as ManagerWorkThat | undefined;
       setPrefilters((prev) => ({
         ...prev,
@@ -660,7 +697,10 @@ export const Grid = React.memo((props: GridProps) => {
       completedTo: isManagerCompletedWorkThat(prefilters.workThat) ? prefilters.completedTo : undefined,
     };
     onPrefilterApply(normalized);
-  }, [onPrefilterApply, prefilters]);
+    if (isPrefilterNarrow) {
+      setPrefilterExpanded(false);
+    }
+  }, [isPrefilterNarrow, onPrefilterApply, prefilters]);
 
     const handlePrefilterClear = React.useCallback(() => {
       setPrefilters(MANAGER_PREFILTER_DEFAULT);
@@ -1422,6 +1462,15 @@ export const Grid = React.memo((props: GridProps) => {
     }
   }, []);
 
+  const onViewSelected = React.useCallback(() => {
+    const selected = selection.getSelection();
+    if (selected.length !== 1) return;
+    const first = selected[0] as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord | undefined;
+    if (first) {
+      onNavigate(first);
+    }
+  }, [onNavigate, selection]);
+
   const onItemInvoked = React.useCallback(
     (item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord) => {
       onNavigate(item);
@@ -1636,15 +1685,6 @@ export const Grid = React.memo((props: GridProps) => {
     topRef.current?.focus?.();
   }, []);
 
-  const onViewSelected = React.useCallback(() => {
-    const selected = selection.getSelection();
-    if (selected.length !== 1) return;
-    const first = selected?.[0] as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord | undefined;
-    if (first) {
-      onNavigate(first);
-    }
-  }, [onNavigate, selection]);
-
   const assignUsers = React.useMemo(() => {
     if (isQcAssign) {
       return [
@@ -1721,6 +1761,17 @@ export const Grid = React.memo((props: GridProps) => {
     () => getManagerWorkThatOptions(prefilters.searchBy),
     [prefilters.searchBy],
   );
+  const renderPrefilterTitle = React.useCallback((options?: IDropdownOption[]) => {
+    const text = (options ?? [])
+      .map((opt) => String(opt.text ?? opt.key ?? '').trim())
+      .filter((val) => val !== '')
+      .join(', ');
+    return (
+      <span className="voa-prefilter-title" title={text} aria-label={text}>
+        {text}
+      </span>
+    );
+  }, []);
   const prefilterNeedsCompletedDates = isManagerCompletedWorkThat(prefilters.workThat);
   const prefilterHasOwner = prefilters.searchBy === 'billingAuthority'
     ? prefilters.billingAuthorities.length > 0
@@ -1732,6 +1783,11 @@ export const Grid = React.memo((props: GridProps) => {
     || !prefilterHasWorkThat
     || !prefilterHasFromDate
     || !!prefilterFromDateError;
+  const prefilterIsDefault = isPrefilterDefault(prefilters);
+  const hasColumnFilters = Object.keys(columnFiltersState).length > 0;
+  const showViewSalesRecord = isViewSalesRecordEnabledFor(tableKey);
+  const showPrefilterToggle = useAssignmentLayout && !!showResults && !!prefilterApplied;
+  const prefilterToggleText = prefilterExpanded ? 'Hide Prefilter' : 'Show Prefilter';
 
   const menuItems = React.useMemo<IContextualMenuItem[]>(() => {
     if (!menuState) return [];
@@ -2007,7 +2063,7 @@ export const Grid = React.memo((props: GridProps) => {
   return (
     <ThemeProvider theme={theme}>
       <div
-        className="voa-grid-shell"
+        className={`voa-grid-shell${useAssignmentLayout ? ' voa-grid-shell--assignment' : ''}`}
         style={{ height, display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}
         ref={topRef}
         tabIndex={-1}
@@ -2032,7 +2088,71 @@ export const Grid = React.memo((props: GridProps) => {
               {statusMessage.text}
             </MessageBar>
           )}
-          {pageHeaderText && (
+          {pageHeaderText && useAssignmentLayout && (
+            <div className="voa-command-bar" role="heading" aria-level={2}>
+              <div className="voa-command-bar__left">
+                {onBackRequested && (
+                  <IconButton
+                    className="voa-back-button"
+                    iconProps={{ iconName: 'Back' }}
+                    ariaLabel="Back"
+                    title="Back"
+                    onClick={onBackRequested}
+                  />
+                )}
+                <div className="voa-command-bar__title-group">
+                  <Text variant="large" className="voa-command-bar__title">
+                    {pageHeaderText}
+                  </Text>
+                  <Text variant="small" className="voa-command-bar__meta" role="status" aria-live="polite">
+                    Selected: {selectedCount} of {typeof taskCount === 'number' ? taskCount : filteredItems.length}
+                  </Text>
+                </div>
+              </div>
+              <div className="voa-command-bar__actions">
+                {showPrefilterToggle && (
+                  <DefaultButton
+                    className="voa-prefilter-toggle"
+                    text={prefilterToggleText}
+                    iconProps={{ iconName: prefilterExpanded ? 'FilterSolid' : 'Filter' }}
+                    ariaLabel={prefilterToggleText}
+                    title={prefilterToggleText}
+                    aria-expanded={prefilterExpanded}
+                    aria-controls="voa-prefilter-panel"
+                    onClick={togglePrefilters}
+                  />
+                )}
+                {showResults && showViewSalesRecord && (
+                  <DefaultButton
+                    text="View Sales Record"
+                    iconProps={{ iconName: 'View' }}
+                    onClick={onViewSelected}
+                    disabled={selectedCount !== 1}
+                    ariaLabel="View selected sales record"
+                  />
+                )}
+                {hasColumnFilters && (
+                  <DefaultButton
+                    text="Clear filters"
+                    iconProps={{ iconName: 'ClearFilter' }}
+                    onClick={() => clearAllColumnFilters()}
+                    disabled={!hasColumnFilters}
+                    ariaLabel="Clear column filters"
+                  />
+                )}
+                {showAssign && (
+                  <PrimaryButton
+                    text={assignActionText}
+                    iconProps={{ iconName: 'AddFriend' }}
+                    onClick={() => setAssignPanelOpen(true)}
+                    disabled={selectedCount === 0}
+                    ariaLabel={assignActionText}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+          {pageHeaderText && !useAssignmentLayout && (
             <div className="voa-page-header" role="heading" aria-level={2}>
               {onBackRequested && (
                 <IconButton
@@ -2053,108 +2173,144 @@ export const Grid = React.memo((props: GridProps) => {
               </div>
             </div>
           )}
-          {isManagerAssign && (
+          {isManagerAssign && prefilterExpanded && (
         <Stack
           horizontal
           wrap
           verticalAlign="end"
           tokens={{ childrenGap: 16 }}
-          className={`voa-prefilter-bar${prefilterNeedsCompletedDates ? '' : ' voa-prefilter-bar--no-date'}`}
+          id="voa-prefilter-panel"
+          className={`voa-prefilter-bar${useAssignmentLayout ? ' voa-prefilter-bar--inline' : ''}${prefilterNeedsCompletedDates ? '' : ' voa-prefilter-bar--no-date'}`}
         >
-          <Stack.Item className="voa-prefilter-col voa-prefilter-col-searchby">
+          <Stack.Item className="voa-prefilter-col voa-prefilter-col-searchby-label">
             <div className="voa-prefilter-field">
               <Label htmlFor="prefilter-searchby" className="voa-prefilter-label">Search by</Label>
+            </div>
+          </Stack.Item>
+          <Stack.Item className="voa-prefilter-col voa-prefilter-col-searchby-field">
+            <div className="voa-prefilter-field">
               <Dropdown
                 id="prefilter-searchby"
                 ariaLabel="Search by"
                 options={MANAGER_SEARCH_BY_OPTIONS}
                 selectedKey={prefilters.searchBy}
                 onChange={onPrefilterSearchByChange}
+                onRenderTitle={renderPrefilterTitle}
                 styles={{ dropdown: { width: '100%' } }}
               />
             </div>
           </Stack.Item>
           {prefilters.searchBy === 'billingAuthority' ? (
-            <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner">
-              <div className="voa-prefilter-field">
-                <Label htmlFor="prefilter-billing" className="voa-prefilter-label">Billing Authority</Label>
-              <Dropdown
-                id="prefilter-billing"
-                ariaLabel="Billing Authority"
-                placeholder="Select Billing Authorities"
-                  multiSelect
-                  options={MANAGER_BILLING_AUTHORITY_OPTIONS}
-                  selectedKeys={prefilters.billingAuthorities}
-                  onChange={onPrefilterBillingChange}
-                  styles={{ dropdown: { width: '100%' } }}
-                />
-              </div>
-            </Stack.Item>
+            <>
+              <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner-label">
+                <div className="voa-prefilter-field">
+                  <Label htmlFor="prefilter-billing" className="voa-prefilter-label">Billing Authority</Label>
+                </div>
+              </Stack.Item>
+              <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner-field">
+                <div className="voa-prefilter-field">
+                  <Dropdown
+                    id="prefilter-billing"
+                    ariaLabel="Billing Authority"
+                    placeholder="Select Billing Authorities"
+                    multiSelect
+                    options={MANAGER_BILLING_AUTHORITY_OPTIONS}
+                    selectedKeys={prefilters.billingAuthorities}
+                    onChange={onPrefilterBillingChange}
+                    onRenderTitle={renderPrefilterTitle}
+                    styles={{ dropdown: { width: '100%' } }}
+                  />
+                </div>
+              </Stack.Item>
+            </>
           ) : (
-            <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner">
-              <div className="voa-prefilter-field">
-                <Label htmlFor="prefilter-caseworker" className="voa-prefilter-label">Caseworker</Label>
-              <Dropdown
-                id="prefilter-caseworker"
-                ariaLabel="Caseworker"
-                placeholder="Select User"
-                  multiSelect
-                  options={MANAGER_CASEWORKER_OPTIONS}
-                  selectedKeys={prefilters.caseworkers}
-                  onChange={onPrefilterCaseworkerChange}
-                  styles={{ dropdown: { width: '100%' } }}
-                />
-              </div>
-            </Stack.Item>
+            <>
+              <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner-label">
+                <div className="voa-prefilter-field">
+                  <Label htmlFor="prefilter-caseworker" className="voa-prefilter-label">Caseworker</Label>
+                </div>
+              </Stack.Item>
+              <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner-field">
+                <div className="voa-prefilter-field">
+                  <Dropdown
+                    id="prefilter-caseworker"
+                    ariaLabel="Caseworker"
+                    placeholder="Select User"
+                    multiSelect
+                    options={MANAGER_CASEWORKER_OPTIONS}
+                    selectedKeys={prefilters.caseworkers}
+                    onChange={onPrefilterCaseworkerChange}
+                    onRenderTitle={renderPrefilterTitle}
+                    styles={{ dropdown: { width: '100%' } }}
+                  />
+                </div>
+              </Stack.Item>
+            </>
           )}
-          <Stack.Item className="voa-prefilter-col voa-prefilter-col-workthat">
+          <Stack.Item className="voa-prefilter-col voa-prefilter-col-workthat-label">
             <div className="voa-prefilter-field">
               <Label htmlFor="prefilter-workthat" className="voa-prefilter-label">Work that</Label>
-              <ComboBox
+            </div>
+          </Stack.Item>
+          <Stack.Item className="voa-prefilter-col voa-prefilter-col-workthat-field">
+            <div className="voa-prefilter-field">
+              <Dropdown
                 id="prefilter-workthat"
                 ariaLabel="Work that"
                 placeholder="Select a option"
                 options={prefilterWorkThatOptions}
                 selectedKey={prefilters.workThat}
                 onChange={onPrefilterWorkThatChange}
-                styles={{ root: { width: '100%' } }}
+                onRenderTitle={renderPrefilterTitle}
+                styles={{ dropdown: { width: '100%' } }}
               />
             </div>
           </Stack.Item>
           {prefilterNeedsCompletedDates && (
-            <Stack.Item className="voa-prefilter-col voa-prefilter-col-daterange">
-              <div role="group" aria-labelledby="voa-prefilter-date-range" className="voa-prefilter-field">
-                <Label id="voa-prefilter-date-range" className="voa-prefilter-label voa-prefilter-label--daterange">Select Completed Date Range</Label>
-                <div className="voa-prefilter-date-fields">
-                  <DatePicker
-                    placeholder="Select a From date..."
-                    firstDayOfWeek={DayOfWeek.Monday}
-                    strings={dateStrings}
-                    value={parseISODate(prefilters.completedFrom)}
-                    formatDate={formatDisplayDate}
-                    onSelectDate={onPrefilterFromDateChange}
-                    maxDate={today}
-                    styles={{ root: { width: 220 } }}
-                    ariaLabel="From date"
-                  />
-                  {prefilterFromDateError && (
-                    <Text variant="small" styles={{ root: { color: theme.palette.redDark, marginTop: -2 } }}>
-                      {prefilterFromDateError}
-                    </Text>
-                  )}
-                  <DatePicker
-                    placeholder="Select a To date..."
-                    firstDayOfWeek={DayOfWeek.Monday}
-                    strings={dateStrings}
-                    value={parseISODate(prefilters.completedTo)}
-                    formatDate={formatDisplayDate}
-                    disabled
-                    styles={{ root: { width: 220 } }}
-                    ariaLabel="To date"
-                  />
+            <>
+              <Stack.Item className="voa-prefilter-col voa-prefilter-col-daterange-label">
+                <div className="voa-prefilter-field">
+                  <Label
+                    id="voa-prefilter-date-range"
+                    className="voa-prefilter-label voa-prefilter-label--daterange"
+                  >
+                    Select Completed Date Range
+                  </Label>
                 </div>
-              </div>
-            </Stack.Item>
+              </Stack.Item>
+              <Stack.Item className="voa-prefilter-col voa-prefilter-col-daterange-fields">
+                <div role="group" aria-labelledby="voa-prefilter-date-range" className="voa-prefilter-field">
+                  <div className="voa-prefilter-date-fields">
+                    <DatePicker
+                      placeholder="Select a From date..."
+                      firstDayOfWeek={DayOfWeek.Monday}
+                      strings={dateStrings}
+                      value={parseISODate(prefilters.completedFrom)}
+                      formatDate={formatDisplayDate}
+                      onSelectDate={onPrefilterFromDateChange}
+                      maxDate={today}
+                      styles={{ root: { width: 180 } }}
+                      ariaLabel="From date"
+                    />
+                    {prefilterFromDateError && (
+                      <Text variant="small" styles={{ root: { color: theme.palette.redDark, marginTop: -2 } }}>
+                        {prefilterFromDateError}
+                      </Text>
+                    )}
+                    <DatePicker
+                      placeholder="Select a To date..."
+                      firstDayOfWeek={DayOfWeek.Monday}
+                      strings={dateStrings}
+                      value={parseISODate(prefilters.completedTo)}
+                      formatDate={formatDisplayDate}
+                      disabled
+                      styles={{ root: { width: 180 } }}
+                      ariaLabel="To date"
+                    />
+                  </div>
+                </div>
+              </Stack.Item>
+            </>
           )}
           <Stack.Item className="voa-prefilter-col voa-prefilter-col-actions">
             <div className="voa-prefilter-field voa-prefilter-actions">
@@ -2166,13 +2322,15 @@ export const Grid = React.memo((props: GridProps) => {
                   onClick={handlePrefilterSearch}
                   disabled={prefilterSearchDisabled}
                 />
-                <DefaultButton
-                  text="Clear search"
-                  iconProps={{ iconName: 'ClearFilter' }}
-                  onClick={handlePrefilterClear}
-                  aria-label="Clear search filters"
-                  className="voa-prefilter-clear"
-                />
+                {!prefilterIsDefault && (
+                  <DefaultButton
+                    text="Clear search"
+                    iconProps={{ iconName: 'ClearFilter' }}
+                    onClick={handlePrefilterClear}
+                    aria-label="Clear search filters"
+                    className="voa-prefilter-clear"
+                  />
+                )}
               </Stack>
             </div>
           </Stack.Item>
@@ -2226,16 +2384,18 @@ export const Grid = React.memo((props: GridProps) => {
           </Stack.Item>
         </Stack>
         )}
-          {showResults && (
+          {showResults && !useAssignmentLayout && (
             <div className="voa-grid-toolbar" role="toolbar" aria-label="Table actions">
               <div className="voa-grid-toolbar__left">
-                <DefaultButton
-                  text="Clear filters"
-                  iconProps={{ iconName: 'ClearFilter' }}
-                  onClick={() => clearAllColumnFilters()}
-                  disabled={Object.keys(columnFiltersState).length === 0}
-                  ariaLabel="Clear column filters"
-                />
+                {hasColumnFilters && (
+                  <DefaultButton
+                    text="Clear filters"
+                    iconProps={{ iconName: 'ClearFilter' }}
+                    onClick={() => clearAllColumnFilters()}
+                    disabled={!hasColumnFilters}
+                    ariaLabel="Clear column filters"
+                  />
+                )}
               </div>
               <div className="voa-grid-toolbar__center" role="status" aria-live="polite">
                 <Text variant="medium" className="voa-grid-toolbar__count">
@@ -2243,13 +2403,15 @@ export const Grid = React.memo((props: GridProps) => {
                 </Text>
               </div>
               <div className="voa-grid-toolbar__right">
-                <PrimaryButton
-                  text="View Sales Record"
-                  iconProps={{ iconName: 'View' }}
-                  disabled={selectedCount !== 1}
-                  onClick={onViewSelected}
-                  ariaLabel="View selected sales record"
-                />
+                {showViewSalesRecord && (
+                  <DefaultButton
+                    text="View Sales Record"
+                    iconProps={{ iconName: 'View' }}
+                    onClick={onViewSelected}
+                    disabled={selectedCount !== 1}
+                    ariaLabel="View selected sales record"
+                  />
+                )}
                 {showAssign && (
                   <DefaultButton
                     text={assignActionText}
@@ -2273,7 +2435,7 @@ export const Grid = React.memo((props: GridProps) => {
                 minWidth: 0,
                 width: '100%',
                 maxWidth: '100%',
-                overflowY: 'auto',
+                overflowY: 'scroll',
                 overflowX: 'auto',
               }}
               role="region"

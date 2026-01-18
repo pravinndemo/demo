@@ -578,12 +578,24 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 
   // Handlers
   const [selectedCount, setSelectedCount] = React.useState(0);
-  const selection: Selection<IObjectWithKey> = new Selection<IObjectWithKey>({
-    getKey: (item: IObjectWithKey) => (item as unknown as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord).getRecordId(),
+  const onSelectionChangeRef = React.useRef(onSelectionChange);
+  const onSelectionCountChangeRef = React.useRef(onSelectionCountChange);
+  React.useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [onSelectionChange]);
+  React.useEffect(() => {
+    onSelectionCountChangeRef.current = onSelectionCountChange;
+  }, [onSelectionCountChange]);
+  const selectionRef = React.useRef<Selection<IObjectWithKey>>();
+  const selection = (selectionRef.current ??= new Selection<IObjectWithKey>({
+    getKey: (item: IObjectWithKey) =>
+      (item as unknown as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord).getRecordId(),
     onSelectionChanged: () => {
+      const selection = selectionRef.current;
+      if (!selection) return;
       setSelectedCount((sel) => {
         const next = selection.getSelectedCount();
-        onSelectionCountChange?.(next);
+        onSelectionCountChangeRef.current?.(next);
         return next !== sel ? next : sel;
       });
       // Emit selected Task/Sale IDs to parent without fetching details
@@ -599,12 +611,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         const taskIds = pairs.map(p => p.taskId).filter((v): v is string => !!v);
         const saleIds = pairs.map(p => p.saleId).filter((v): v is string => !!v);
         const first = pairs[0] ?? { taskId: undefined, saleId: undefined };
-        onSelectionChange?.({ taskId: first.taskId, saleId: first.saleId, selectedTaskIds: taskIds, selectedSaleIds: saleIds });
+        onSelectionChangeRef.current?.({ taskId: first.taskId, saleId: first.saleId, selectedTaskIds: taskIds, selectedSaleIds: saleIds });
       } catch {
         // ignore selection mapping errors
       }
     },
-  });
+  }));
   const componentRef = React.createRef<IDetailsList>();
 
   const onNavigate = (item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord): void => {

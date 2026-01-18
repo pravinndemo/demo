@@ -7,7 +7,7 @@ const SALES_COLUMNS: ColumnConfig[] = [
   { ColName: 'saleid', ColDisplayName: 'Sale ID', ColWidth: 120, ColCellType: 'link' },
   { ColName: 'taskid', ColDisplayName: 'Task ID', ColWidth: 120 },
   { ColName: 'uprn', ColDisplayName: 'UPRN', ColWidth: 120 },
-  { ColName: 'address', ColDisplayName: 'Address', ColWidth: 280, ColMultiLine: true },
+  { ColName: 'address', ColDisplayName: 'Address', ColWidth: 280, ColMultiLine: true, ColCellType: 'link' },
   { ColName: 'postcode', ColDisplayName: 'Post code', ColWidth: 110 },
   { ColName: 'billingauthority', ColDisplayName: 'Billing Authority', ColWidth: 180 },
   { ColName: 'transactiondate', ColDisplayName: 'Transaction Date', ColWidth: 160 },

@@ -28,6 +28,7 @@ export interface TableConfig {
   // Controls which top-of-grid search modes are available per persona/table
   searchByOptions: SearchByOption[];
   columnFilterConfig: Record<string, ColumnFilterConfig>;
+  showViewSalesRecord?: boolean;
 }
 
 const salesLookupFields = new Set<string>([
@@ -190,6 +191,7 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
     lookupFields: salesLookupFields,
     buildApiParams: buildSalesParams,
     columnFilterConfig: SALES_COLUMN_FILTERS,
+    showViewSalesRecord: true,
     searchByOptions: [
       'saleId',
       'taskId',
@@ -218,6 +220,7 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
     lookupFields: salesLookupFields,
     buildApiParams: buildSalesParams,
     columnFilterConfig: SALES_COLUMN_FILTERS,
+    showViewSalesRecord: true,
     searchByOptions: [
       'saleId',
       'taskId',
@@ -247,6 +250,7 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
     lookupFields: new Set<string>([...salesLookupFields]),
     buildApiParams: buildSalesParams,
     columnFilterConfig: SALES_COLUMN_FILTERS,
+    showViewSalesRecord: true,
     searchByOptions: [
       'saleId',
       'taskId',
@@ -277,6 +281,7 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
     buildApiParams: buildSalesParams,
     buildPrefilterParams: (prefilters?: unknown) => mapManagerPrefiltersToApi(prefilters as ManagerPrefilterState | undefined),
     columnFilterConfig: SALES_COLUMN_FILTERS,
+    showViewSalesRecord: true,
     searchByOptions: [
       'saleId',
       'taskId',
@@ -306,6 +311,7 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
     lookupFields: new Set<string>([...salesLookupFields]),
     buildApiParams: buildSalesParams,
     columnFilterConfig: SALES_COLUMN_FILTERS,
+    showViewSalesRecord: true,
     searchByOptions: [
       'saleId',
       'taskId',
@@ -361,6 +367,10 @@ export function buildApiParamsFor(
 
 export function getSearchByOptionsFor(table?: string): SearchByOption[] {
   return getConfig(table).searchByOptions;
+}
+
+export function isViewSalesRecordEnabledFor(table?: string): boolean {
+  return getConfig(table).showViewSalesRecord !== false;
 }
 
 export function getColumnFilterConfigFor(table: string, fieldName?: string): ColumnFilterConfig | undefined {
