@@ -77,6 +77,21 @@ export const createDefaultGridFilters = (): GridFilterState => ({
   searchBy: 'taskId',
 });
 
+const UK_POSTCODE_FULL_REGEX = /^(GIR0AA|(?:[A-Z][0-9]{1,2}|[A-Z][A-HJ-Y][0-9]{1,2}|[A-Z][0-9][A-Z]|[A-Z][A-HJ-Y][0-9]?[A-Z])[0-9][A-Z]{2})$/;
+const UK_POSTCODE_OUTWARD_REGEX = /^(?:[A-Z][0-9]{1,2}|[A-Z][A-HJ-Y][0-9]{1,2}|[A-Z][0-9][A-Z]|[A-Z][A-HJ-Y][0-9]?[A-Z])$/;
+
+export const normalizeUkPostcode = (value: string): string =>
+  value.toUpperCase().trim();
+
+export const isValidUkPostcode = (value: string, allowPartial = false): boolean => {
+  const normalized = normalizeUkPostcode(value).replace(/\s+/g, '');
+  if (!normalized) return false;
+  if (allowPartial && normalized.length <= 4) {
+    return UK_POSTCODE_OUTWARD_REGEX.test(normalized);
+  }
+  return UK_POSTCODE_FULL_REGEX.test(normalized);
+};
+
 export const sanitizeFilters = (filters: GridFilterState): GridFilterState => {
   const sanitized: GridFilterState = {
     searchBy: filters.searchBy,
@@ -98,7 +113,7 @@ export const sanitizeFilters = (filters: GridFilterState): GridFilterState => {
   }
 
   if (filters.postcode) {
-    const trimmed = filters.postcode.trim().toUpperCase();
+    const trimmed = normalizeUkPostcode(filters.postcode);
     sanitized.postcode = trimmed.length >= 2 ? trimmed : undefined;
   }
 

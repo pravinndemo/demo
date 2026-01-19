@@ -50,7 +50,7 @@ import { RecordsColumns } from '../DetailsListVOA/config/ManifestConstants';
 import { IGridColumn, ColumnConfig } from './Component.types';
 import { GridCell } from '../DetailsListVOA/grid/GridCell';
 import { ClassNames } from '../DetailsListVOA/grid/Grid.styles';
-import { GridFilterState, NumericFilter, NumericFilterMode, createDefaultGridFilters, sanitizeFilters, SearchByOption, DateRangeFilter } from './Filters';
+import { GridFilterState, NumericFilter, NumericFilterMode, createDefaultGridFilters, sanitizeFilters, SearchByOption, DateRangeFilter, isValidUkPostcode, normalizeUkPostcode } from './Filters';
 import { getSearchByOptionsFor, getColumnFilterConfigFor, isLookupFieldFor, isViewSalesRecordEnabledFor, ColumnFilterConfig } from '../DetailsListVOA/config/TableConfigs';
 import { MANAGER_PREFILTER_DEFAULT, MANAGER_SEARCH_BY_OPTIONS, MANAGER_BILLING_AUTHORITY_OPTIONS, MANAGER_CASEWORKER_OPTIONS, getManagerWorkThatOptions, isManagerCompletedWorkThat, type ManagerPrefilterState, type ManagerSearchBy, type ManagerWorkThat } from './config/PrefilterConfigs';
 
@@ -410,6 +410,7 @@ export const Grid = React.memo((props: GridProps) => {
   }>();
   const [menuFilterValue, setMenuFilterValue] = React.useState<ColumnFilterValue>('');
   const [menuFilterText, setMenuFilterText] = React.useState('');
+  const [menuFilterError, setMenuFilterError] = React.useState<string | undefined>();
   const liveFilterTimer = React.useRef<number | undefined>(undefined);
   const [filters, setFilters] = React.useState<GridFilterState>(searchFilters);
   const autoSearchEnabled = false;
@@ -719,16 +720,23 @@ export const Grid = React.memo((props: GridProps) => {
         }
       }
       const address = (fs.address ?? '').trim();
-      const postcode = (fs.postcode ?? '').trim();
+      const postcode = normalizeUkPostcode(fs.postcode ?? '');
       const summary = (fs.summaryFlag ?? '').trim();
+      const postcodeError = fs.searchBy === 'postcode' && postcode.length > 0
+        ? postcode.length < 2
+          ? 'Enter at least 2 characters'
+          : !isValidUkPostcode(postcode, true)
+            ? 'Enter a valid UK postcode'
+            : undefined
+        : undefined;
       return {
         address: fs.searchBy === 'address' && address.length > 0 && address.length < 3 ? 'Enter at least 3 characters' : undefined,
-        postcode: fs.searchBy === 'postcode' && postcode.length > 0 && postcode.length < 2 ? 'Enter at least 2 characters' : undefined,
+        postcode: postcodeError,
         summaryFlag: fs.searchBy === 'summaryFlag' && summary.length > 0 && summary.length < 3 ? 'Enter at least 3 characters' : undefined,
         searchField,
       };
     },
-    [],
+    [isValidUkPostcode, normalizeUkPostcode],
   );
 
   // Debounced search when typing in non-UPRN text fields
@@ -1552,6 +1560,7 @@ export const Grid = React.memo((props: GridProps) => {
       }
       setMenuFilterValue(initialValue);
       setMenuFilterText(typeof initialValue === 'string' ? initialValue : '');
+      setMenuFilterError(undefined);
       setMenuState({ target, column: gridCol });
     },
     [columnFiltersState, tableKey],
@@ -1587,7 +1596,18 @@ export const Grid = React.memo((props: GridProps) => {
   const applyFilter = React.useCallback(() => {
     if (!menuState) return;
     const fieldName = (menuState.column.fieldName ?? menuState.column.key) ?? '';
+    const normalizedField = fieldName.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    if (normalizedField === 'postcode') {
+      const trimmed = normalizeUkPostcode(String(menuFilterText ?? ''));
+      if (trimmed && !isValidUkPostcode(trimmed, true)) {
+        setMenuFilterError('Enter a valid UK postcode');
+        return;
+      }
+    }
     const cfg: ColumnFilterConfig | undefined = getColumnFilterConfigFor(tableKey, fieldName);
+    if (menuFilterError) {
+      setMenuFilterError(undefined);
+    }
     setColumnFilters((prev) => {
       const updated: Record<string, ColumnFilterValue> = { ...prev };
       if (!cfg) {
@@ -1656,7 +1676,7 @@ export const Grid = React.memo((props: GridProps) => {
     });
     setMenuState(undefined);
     menuState.target?.focus?.();
-  }, [menuFilterValue, menuFilterText, menuState, onColumnFiltersChange, tableKey]);
+  }, [isValidUkPostcode, menuFilterError, menuFilterText, menuFilterValue, menuState, normalizeUkPostcode, onColumnFiltersChange, tableKey]);
 
   const clearFilter = React.useCallback(() => {
     if (!menuState) {
@@ -1672,6 +1692,7 @@ export const Grid = React.memo((props: GridProps) => {
     });
     setMenuFilterValue('');
     setMenuFilterText('');
+    setMenuFilterError(undefined);
     setMenuState(undefined);
     menuState.target?.focus?.();
   }, [menuState, onColumnFiltersChange]);
@@ -1800,6 +1821,8 @@ export const Grid = React.memo((props: GridProps) => {
     const numVal = (menuFilterValue as NumericFilter) ?? { mode: '>=' };
     const dateVal = (menuFilterValue as DateRangeFilter) ?? {};
     const minLen = cfg?.minLength ?? 1;
+    const normalizedField = fieldName.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const isPostcodeField = normalizedField === 'postcode';
 
     const isApplyDisabled = () => {
       if (!cfg) {
@@ -1839,19 +1862,21 @@ export const Grid = React.memo((props: GridProps) => {
 
     const renderControl = () => {
       if (!cfg) {
-          return (
-            <TextField
-              label={`Filter ${menuState.column.name}`}
-              placeholder={`Filter ${menuState.column.name}`}
-              value={textVal}
-              onChange={(_, v) => {
-                const next = v ?? '';
-                setMenuFilterValue(next);
-                setMenuFilterText(next);
-              }}
-            />
-          );
-        }
+        return (
+          <TextField
+            label={`Filter ${menuState.column.name}`}
+            placeholder={`Filter ${menuState.column.name}`}
+            value={textVal}
+            onChange={(_, v) => {
+              const next = v ?? '';
+              setMenuFilterValue(next);
+              setMenuFilterText(next);
+              if (menuFilterError) setMenuFilterError(undefined);
+            }}
+            errorMessage={isPostcodeField ? menuFilterError : undefined}
+          />
+        );
+      }
       switch (cfg.control) {
         case 'textEq':
         case 'textPrefix':
@@ -1865,7 +1890,9 @@ export const Grid = React.memo((props: GridProps) => {
                   const next = v ?? '';
                   setMenuFilterValue(next);
                   setMenuFilterText(next);
+                  if (menuFilterError) setMenuFilterError(undefined);
                 }}
+                errorMessage={isPostcodeField ? menuFilterError : undefined}
               />
             );
           case 'singleSelect':
@@ -2044,6 +2071,7 @@ export const Grid = React.memo((props: GridProps) => {
   }, [
     menuState,
     tableKey,
+    menuFilterError,
     menuFilterValue,
     menuFilterText,
     handleSort,
@@ -2497,6 +2525,7 @@ export const Grid = React.memo((props: GridProps) => {
             horizontal
             tokens={{ childrenGap: 6 }}
             className="voa-grid-pagination"
+            style={{ width: '100%' }}
             verticalAlign="center"
             role="navigation"
             aria-label="Pagination"
@@ -2511,14 +2540,14 @@ export const Grid = React.memo((props: GridProps) => {
             />
             {(() => {
               const pageItems: (number | 'ellipsis')[] = [];
-              if (totalPages <= 9) {
+              if (totalPages <= 11) {
                 pageItems.push(...Array.from({ length: totalPages }, (_, i) => i));
-              } else if (currentPage <= 3) {
-                pageItems.push(0, 1, 2, 3, 4, 'ellipsis', totalPages - 1);
-              } else if (currentPage >= totalPages - 4) {
-                pageItems.push(0, 'ellipsis', totalPages - 5, totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1);
+              } else if (currentPage <= 4) {
+                pageItems.push(0, 1, 2, 3, 4, 5, 6, 'ellipsis', totalPages - 1);
+              } else if (currentPage >= totalPages - 5) {
+                pageItems.push(0, 'ellipsis', totalPages - 6, totalPages - 5, totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1);
               } else {
-                pageItems.push(0, 'ellipsis', currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2, 'ellipsis', totalPages - 1);
+                pageItems.push(0, 'ellipsis', currentPage - 3, currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2, currentPage + 3, 'ellipsis', totalPages - 1);
               }
 
               return pageItems.map((item, index) => {
