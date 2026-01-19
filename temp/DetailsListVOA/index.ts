@@ -50,6 +50,8 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
           onRowInvoke: (args) => {
             this.selectedTaskId = args?.taskId;
             this.selectedSaleId = args?.saleId;
+            console.log('[DetailsListVOA] Row invoke:', { taskId: args?.taskId, saleId: args?.saleId });
+            this.emitAction('viewSale');
             void this.onTaskClick(args?.taskId, args?.saleId);
           },
           onSelectionChange: (args) => {
@@ -70,8 +72,8 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
           },
           onBackRequested: () => {
             this.backRequestId = new Date().toISOString();
-            this.setAction('back');
-            this._notifyOutputChanged();
+            console.log('[DetailsListVOA] Back requested:', { backRequestId: this.backRequestId });
+            this.emitAction('back');
           },
         }),
         //React.createElement(StatutorySpatialUnitBrowser, null)
@@ -80,7 +82,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   }
 
   public getOutputs(): IOutputs {
-    return {
+    const outputs = {
       selectedTaskId: this.selectedTaskId,
       selectedSaleId: this.selectedSaleId,
       selectedTaskIdsJson: this.selectedTaskIdsJson,
@@ -91,6 +93,11 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       actionRequestId: this.actionRequestId,
       backRequestId: this.backRequestId,
     } as IOutputs;
+    if (this.actionRequestId) {
+      this.actionType = undefined;
+      this.actionRequestId = undefined;
+    }
+    return outputs;
   }
 
   public destroy(): void {
@@ -99,10 +106,11 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
 
   private async onTaskClick(taskId?: string, saleId?: string): Promise<void> {
     this._saleDetails = '';
+    console.log('[DetailsListVOA] Fetching sale details:', { taskId, saleId });
 
     if (!saleId) {
       this._saleDetails = JSON.stringify(this.getEmptySaleRecord());
-      this.setAction('viewSale');
+      console.log('[DetailsListVOA] Empty sale details returned (no saleId).');
       this._notifyOutputChanged();
       return;
     }
@@ -129,13 +137,21 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       this._saleDetails = JSON.stringify(this.getEmptySaleRecord());
     }
 
-    this.setAction('viewSale');
+    console.log('[DetailsListVOA] Sale details updated.', {
+      hasDetails: !!this._saleDetails,
+      length: this._saleDetails.length,
+    });
     this._notifyOutputChanged();
   }
 
-  private setAction(type: 'back' | 'viewSale'): void {
+  private emitAction(type: 'back' | 'viewSale'): void {
     this.actionType = type;
     this.actionRequestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    console.log('[DetailsListVOA] Action emitted:', {
+      actionType: this.actionType,
+      actionRequestId: this.actionRequestId,
+    });
+    this._notifyOutputChanged();
   }
 
   private resolveViewSaleRecordApiName(): string {
