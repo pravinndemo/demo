@@ -20,6 +20,8 @@ export interface IOutputs {
     selectedTaskId?: string;
     selectedSaleId?: string;
     saleDetails?: string;
+    actionType?: string;
+    actionRequestId?: string;
     selectedTaskIdsJson?: string;
     selectedSaleIdsJson?: string;
     selectedCount?: number;

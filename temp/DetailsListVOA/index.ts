@@ -17,6 +17,8 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private selectedSaleIdsJson?: string;
   private selectedCount?: number;
   private backRequestId?: string;
+  private actionType?: string;
+  private actionRequestId?: string;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
@@ -68,6 +70,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
           },
           onBackRequested: () => {
             this.backRequestId = new Date().toISOString();
+            this.setAction('back');
             this._notifyOutputChanged();
           },
         }),
@@ -84,6 +87,8 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       selectedSaleIdsJson: this.selectedSaleIdsJson,
       selectedCount: this.selectedCount,
       saleDetails: this._saleDetails,
+      actionType: this.actionType,
+      actionRequestId: this.actionRequestId,
       backRequestId: this.backRequestId,
     } as IOutputs;
   }
@@ -97,6 +102,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
 
     if (!saleId) {
       this._saleDetails = JSON.stringify(this.getEmptySaleRecord());
+      this.setAction('viewSale');
       this._notifyOutputChanged();
       return;
     }
@@ -123,7 +129,13 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       this._saleDetails = JSON.stringify(this.getEmptySaleRecord());
     }
 
+    this.setAction('viewSale');
     this._notifyOutputChanged();
+  }
+
+  private setAction(type: 'back' | 'viewSale'): void {
+    this.actionType = type;
+    this.actionRequestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
   private resolveViewSaleRecordApiName(): string {
