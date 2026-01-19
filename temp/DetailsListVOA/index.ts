@@ -56,7 +56,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
           },
           onSelectionChange: (args) => {
             // Selection should only emit IDs and not fetch details
-            this.clearActionOutputs();
             this.selectedTaskId = args?.taskId;
             this.selectedSaleId = args?.saleId;
             this.selectedTaskIdsJson = JSON.stringify((args?.selectedTaskIds ?? []).filter((v) => !!v));
@@ -150,11 +149,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       actionRequestId: this.actionRequestId,
     });
     this._notifyOutputChanged();
-  }
-
-  private clearActionOutputs(): void {
-    this.actionType = undefined;
-    this.actionRequestId = undefined;
   }
 
   private resolveViewSaleRecordApiName(): string {

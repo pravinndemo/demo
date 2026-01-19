@@ -834,6 +834,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         // ignore storage failures
       }
     },
+    disableViewSalesRecordAction: true,
+    rowInvokeEnabled: false,
   };
 
   return <Grid {...(props as unknown as GridProps)} height={allocatedHeight} onBackRequested={onBackRequested} />;

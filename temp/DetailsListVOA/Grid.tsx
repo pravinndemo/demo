@@ -104,6 +104,8 @@ export interface GridProps {
   onPrefilterApply?: (prefilters: ManagerPrefilterState) => void;
   onPrefilterClear?: () => void;
   onBackRequested?: () => void;
+  disableViewSalesRecordAction?: boolean;
+  rowInvokeEnabled?: boolean;
 }
 
 interface AssignUser {
@@ -363,6 +365,8 @@ export const Grid = React.memo((props: GridProps) => {
     prefilterApplied,
     onPrefilterClear,
     onBackRequested,
+    disableViewSalesRecordAction = false,
+    rowInvokeEnabled = true,
   } = props;
 
   const theme = useTheme(themeJSON);
@@ -1471,6 +1475,9 @@ export const Grid = React.memo((props: GridProps) => {
   }, []);
 
   const onViewSelected = React.useCallback(() => {
+    if (disableViewSalesRecordAction) {
+      return;
+    }
     const selected = selection.getSelection();
     if (selected.length !== 1) return;
     const first = selected[0] as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord | undefined;
@@ -2155,7 +2162,7 @@ export const Grid = React.memo((props: GridProps) => {
                     text="View Sales Record"
                     iconProps={{ iconName: 'View' }}
                     onClick={onViewSelected}
-                    disabled={selectedCount !== 1}
+                    disabled={disableViewSalesRecordAction || selectedCount !== 1}
                     ariaLabel="View selected sales record"
                   />
                 )}
@@ -2436,7 +2443,7 @@ export const Grid = React.memo((props: GridProps) => {
                     text="View Sales Record"
                     iconProps={{ iconName: 'View' }}
                     onClick={onViewSelected}
-                    disabled={selectedCount !== 1}
+                    disabled={disableViewSalesRecordAction || selectedCount !== 1}
                     ariaLabel="View selected sales record"
                   />
                 )}
@@ -2488,7 +2495,7 @@ export const Grid = React.memo((props: GridProps) => {
                   layoutMode={DetailsListLayoutMode.fixedColumns}
                   onColumnHeaderClick={onColumnHeaderClick}
                   onColumnHeaderContextMenu={onColumnHeaderContextMenu}
-                  onItemInvoked={onItemInvoked}
+                  onItemInvoked={rowInvokeEnabled ? onItemInvoked : undefined}
                   columnReorderOptions={props.allowColumnReorder ? columnReorderOptions : undefined}
                   compact={compact}
                   isHeaderVisible={isHeaderVisible}
