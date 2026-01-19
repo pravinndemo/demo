@@ -56,6 +56,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
           },
           onSelectionChange: (args) => {
             // Selection should only emit IDs and not fetch details
+            this.clearActionOutputs();
             this.selectedTaskId = args?.taskId;
             this.selectedSaleId = args?.saleId;
             this.selectedTaskIdsJson = JSON.stringify((args?.selectedTaskIds ?? []).filter((v) => !!v));
@@ -67,8 +68,10 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
             this._notifyOutputChanged();
           },
           onSelectionCountChange: (count) => {
-            this.selectedCount = count;
-            this._notifyOutputChanged();
+            if (this.selectedCount !== count) {
+              this.selectedCount = count;
+              this._notifyOutputChanged();
+            }
           },
           onBackRequested: () => {
             this.backRequestId = new Date().toISOString();
@@ -82,7 +85,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   }
 
   public getOutputs(): IOutputs {
-    const outputs = {
+    return {
       selectedTaskId: this.selectedTaskId,
       selectedSaleId: this.selectedSaleId,
       selectedTaskIdsJson: this.selectedTaskIdsJson,
@@ -93,11 +96,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       actionRequestId: this.actionRequestId,
       backRequestId: this.backRequestId,
     } as IOutputs;
-    if (this.actionRequestId) {
-      this.actionType = undefined;
-      this.actionRequestId = undefined;
-    }
-    return outputs;
   }
 
   public destroy(): void {
@@ -152,6 +150,11 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       actionRequestId: this.actionRequestId,
     });
     this._notifyOutputChanged();
+  }
+
+  private clearActionOutputs(): void {
+    this.actionType = undefined;
+    this.actionRequestId = undefined;
   }
 
   private resolveViewSaleRecordApiName(): string {
