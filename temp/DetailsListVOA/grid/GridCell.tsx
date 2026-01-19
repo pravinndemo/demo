@@ -367,8 +367,13 @@ function getLinkCell(
     const label = `${column.name ?? column.fieldName ?? 'item'} ${cellText}`.trim();
     const isAddress = (column.fieldName ?? '').toLowerCase() === 'address';
     const linkClassName = isAddress ? 'voa-mda-link' : undefined;
+    const onClick = (ev?: React.MouseEvent<HTMLElement>) => {
+        ev?.preventDefault();
+        ev?.stopPropagation();
+        cellNavigation();
+    };
     const cellContents = !isBlank ? (
-        <Link onClick={cellNavigation} underline aria-label={label} className={linkClassName}>
+        <Link onClick={onClick} underline aria-label={label} className={linkClassName}>
             {cellText}
         </Link>
     ) : (

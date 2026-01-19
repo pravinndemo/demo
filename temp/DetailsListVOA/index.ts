@@ -19,7 +19,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private backRequestId?: string;
   private actionType?: string;
   private actionRequestId?: string;
-  private notifyScheduled = false;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
@@ -52,6 +51,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
             this.selectedTaskId = args?.taskId;
             this.selectedSaleId = args?.saleId;
             console.log('[DetailsListVOA] Row invoke:', { taskId: args?.taskId, saleId: args?.saleId });
+            this._saleDetails = '';
             this.emitAction('viewSale');
             void this.onTaskClick(args?.taskId, args?.saleId);
           },
@@ -64,17 +64,15 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
             const taskCount = args?.selectedTaskIds?.length ?? 0;
             const saleCount = args?.selectedSaleIds?.length ?? 0;
             this.selectedCount = taskCount || saleCount;
-            this._saleDetails = '';
-            this.queueNotify();
           },
           onSelectionCountChange: (count) => {
             if (this.selectedCount !== count) {
               this.selectedCount = count;
-              this.queueNotify();
             }
           },
           onBackRequested: () => {
             this.backRequestId = new Date().toISOString();
+            this._saleDetails = '';
             console.log('[DetailsListVOA] Back requested:', { backRequestId: this.backRequestId });
             this.emitAction('back');
           },
@@ -109,7 +107,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
     if (!saleId) {
       this._saleDetails = JSON.stringify(this.getEmptySaleRecord());
       console.log('[DetailsListVOA] Empty sale details returned (no saleId).');
-      this.queueNotify();
+      this._notifyOutputChanged();
       return;
     }
 
@@ -139,7 +137,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       hasDetails: !!this._saleDetails,
       length: this._saleDetails.length,
     });
-    this.queueNotify();
+    this._notifyOutputChanged();
   }
 
   private emitAction(type: 'back' | 'viewSale'): void {
@@ -149,16 +147,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       actionType: this.actionType,
       actionRequestId: this.actionRequestId,
     });
-    this.queueNotify();
-  }
-
-  private queueNotify(): void {
-    if (this.notifyScheduled) return;
-    this.notifyScheduled = true;
-    setTimeout(() => {
-      this.notifyScheduled = false;
-      this._notifyOutputChanged();
-    }, 0);
+    this._notifyOutputChanged();
   }
 
   private resolveViewSaleRecordApiName(): string {

@@ -834,7 +834,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         // ignore storage failures
       }
     },
-    disableViewSalesRecordAction: true,
     rowInvokeEnabled: false,
   };
 
