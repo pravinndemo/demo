@@ -1,9 +1,9 @@
-# svtGetSaleRecords Custom API (SVT List)
+# voa_GetAllSalesRecord Custom API (SVT List)
 
 ## Purpose
-`svtGetSaleRecords` is an **unbound** Dataverse Custom API used by the SVT List PCF control to load grid rows. The control assembles the current search filters, column header filters, sorting, and paging into a request, executes the API through `Xrm.WebApi.execute`, then normalizes the response into the grid’s `TaskSearchResponse` format for rendering and filter synchronization.【F:DetailsListVOA/services/CustomApi.ts†L11-L73】【F:DetailsListVOA/services/GridDataController.ts†L62-L123】【F:DetailsListVOA/services/DataService.ts†L73-L188】
+`voa_GetAllSalesRecord` is an **unbound** Dataverse Custom API used by the SVT List PCF control to load grid rows. The control assembles the current search filters, column header filters, sorting, and paging into a request, executes the API through `Xrm.WebApi.execute`, then normalizes the response into the grid’s `TaskSearchResponse` format for rendering and filter synchronization.【F:DetailsListVOA/services/CustomApi.ts†L11-L73】【F:DetailsListVOA/services/GridDataController.ts†L62-L123】【F:DetailsListVOA/services/DataService.ts†L73-L188】
 
-The API name is configured in the control config and defaults to `svtGetSaleRecords` for this repo build.【F:DetailsListVOA/config/ControlConfig.ts†L1-L4】
+The API name is configured in the control config and defaults to `voa_GetAllSalesRecord` for this repo build (overridable via PCF input parameters).【F:DetailsListVOA/config/ControlConfig.ts†L1-L8】【F:DetailsListVOA/services/GridDataController.ts†L13-L45】
 
 ---
 
@@ -132,7 +132,7 @@ These response filters are applied to the grid and stay synchronized as users re
 
 ---
 
-## Using `svtGetSaleRecords` in a Canvas app
+## Using `voa_GetAllSalesRecord` in a Canvas app
 Canvas apps can call the Custom API directly and parse the `Result` string returned by the plugin.
 
 ### Example Power Fx flow
@@ -140,7 +140,7 @@ Canvas apps can call the Custom API directly and parse the `Result` string retur
    ```
    Set(
      salesResponse,
-     svtGetSaleRecords({
+    voa_GetAllSalesRecord({
        pageNumber: "1",
        pageSize: "25",
        sortField: "saleId",
@@ -223,3 +223,9 @@ If(
   Text(parsedSale.taskDetails.saleId)
 )
 ```
+
+---
+
+## Related Custom API docs
+- `docs/svtGetViewSaleRecordById.md` (sale details by Sale ID).
+- `docs/svtTaskAssignment.md` (task assignment endpoint).
