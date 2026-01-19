@@ -19,6 +19,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private backRequestId?: string;
   private actionType?: string;
   private actionRequestId?: string;
+  private notifyScheduled = false;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
@@ -64,12 +65,12 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
             const saleCount = args?.selectedSaleIds?.length ?? 0;
             this.selectedCount = taskCount || saleCount;
             this._saleDetails = '';
-            this._notifyOutputChanged();
+            this.queueNotify();
           },
           onSelectionCountChange: (count) => {
             if (this.selectedCount !== count) {
               this.selectedCount = count;
-              this._notifyOutputChanged();
+              this.queueNotify();
             }
           },
           onBackRequested: () => {
@@ -108,7 +109,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
     if (!saleId) {
       this._saleDetails = JSON.stringify(this.getEmptySaleRecord());
       console.log('[DetailsListVOA] Empty sale details returned (no saleId).');
-      this._notifyOutputChanged();
+      this.queueNotify();
       return;
     }
 
@@ -138,7 +139,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       hasDetails: !!this._saleDetails,
       length: this._saleDetails.length,
     });
-    this._notifyOutputChanged();
+    this.queueNotify();
   }
 
   private emitAction(type: 'back' | 'viewSale'): void {
@@ -148,7 +149,16 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       actionType: this.actionType,
       actionRequestId: this.actionRequestId,
     });
-    this._notifyOutputChanged();
+    this.queueNotify();
+  }
+
+  private queueNotify(): void {
+    if (this.notifyScheduled) return;
+    this.notifyScheduled = true;
+    setTimeout(() => {
+      this.notifyScheduled = false;
+      this._notifyOutputChanged();
+    }, 0);
   }
 
   private resolveViewSaleRecordApiName(): string {
