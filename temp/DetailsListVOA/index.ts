@@ -71,9 +71,8 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
             }
           },
           onBackRequested: () => {
-            this.backRequestId = new Date().toISOString();
             this._saleDetails = '';
-            console.log('[DetailsListVOA] Back requested:', { backRequestId: this.backRequestId });
+            console.log('[DetailsListVOA] Back requested');
             this.emitAction('back');
           },
         }),
@@ -145,9 +144,11 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private emitAction(type: 'back' | 'viewSale'): void {
     this.actionType = type;
     this.actionRequestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.backRequestId = this.actionRequestId;
     console.log('[DetailsListVOA] Action emitted:', {
       actionType: this.actionType,
       actionRequestId: this.actionRequestId,
+      backRequestId: this.backRequestId,
     });
     if (type === 'viewSale') {
       this.notifyOutputChangedAsync();

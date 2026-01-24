@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Selection, SelectionMode, IDetailsList, IObjectWithKey, MessageBarType } from '@fluentui/react';
 import { DetailsList as Grid, GridProps } from '../DetailsList';
 import { PCFContext } from '../context/PCFContext';
-import { ColumnConfig } from '../../Component.types';
+import { ColumnConfig, AssignUser } from '../../Component.types';
 import { GridFilterState, createDefaultGridFilters, sanitizeFilters, NumericFilter, DateRangeFilter } from '../../Filters';
 import { getProfileConfigs } from '../../config/ColumnProfiles';
 import { CONTROL_CONFIG } from '../../config/ControlConfig';
@@ -32,6 +32,11 @@ export interface DetailsListHostProps {
 
 type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFilter;
 type FilterOptionsMap = Record<string, string[]>;
+interface AssignableUsersResult {
+  success?: boolean;
+  message?: string;
+  users?: AssignUser[];
+}
 
 const SSU_APP_ID = 'cdb5343c-51c1-ec11-983e-002248438fff';
 
@@ -283,16 +288,33 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const [serverDriven, setServerDriven] = React.useState(false);
   const [apimLoading, setApimLoading] = React.useState(false);
   const [hasLoadedApim, setHasLoadedApim] = React.useState(false);
+  const [loadErrorMessage, setLoadErrorMessage] = React.useState<string | undefined>(undefined);
   const [assignMessage, setAssignMessage] = React.useState<{ text: string; type: MessageBarType } | undefined>(undefined);
+  const [assignUsers, setAssignUsers] = React.useState<AssignUser[]>([]);
+  const [assignUsersLoading, setAssignUsersLoading] = React.useState(false);
+  const [assignUsersError, setAssignUsersError] = React.useState<string | undefined>(undefined);
+  const [assignPanelOpen, setAssignPanelOpen] = React.useState(false);
   const [assignPendingRefresh, setAssignPendingRefresh] = React.useState(false);
   const assignRefreshResolve = React.useRef<null | ((ok: boolean) => void)>(null);
+  const assignUsersLoadKeyRef = React.useRef<string>('');
+  const handleAssignPanelToggle = React.useCallback((isOpen: boolean) => {
+    setAssignPanelOpen(isOpen);
+    if (isOpen) {
+      setAssignUsers([]);
+      setAssignUsersError(undefined);
+      setAssignUsersLoading(true);
+    }
+  }, []);
   // Defer persistence until after initial hydration to avoid add/remove flicker in localStorage
   const [hydrated, setHydrated] = React.useState(false);
   const allowColumnReorder = (context.parameters as unknown as Record<string, { raw?: string | boolean }>).allowColumnReorder?.raw === true ||
     String((context.parameters as unknown as Record<string, { raw?: string | boolean }>).allowColumnReorder?.raw ?? '').toLowerCase() === 'true';
   const canvasScreenName = (context.parameters as unknown as Record<string, { raw?: string }>).canvasScreenName?.raw ?? '';
   const screenName = canvasScreenName.toLowerCase();
-  const isManagerAssign = screenName.includes('assignment') && screenName.includes('manager');
+  const isAssignment = screenName.includes('assignment');
+  const isManagerAssign = isAssignment && screenName.includes('manager');
+  const isQcAssign = isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
+  const assignmentContextKey = isManagerAssign ? 'manager' : isQcAssign ? 'qa' : '';
 
   // Persist header filters per table for consistent UX across reloads
   const storageKey = React.useMemo(() => `voa-grid-filters:${tableKey}`, [tableKey]);
@@ -522,6 +544,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setTotalCount((externalItems ?? []).length);
       setServerDriven(false);
       setHasLoadedApim(true);
+      setLoadErrorMessage(undefined);
     }
   }, [externalItems]);
 
@@ -539,6 +562,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setTotalCount(0);
       setServerDriven(false);
       setApiFilterOptions({});
+      setLoadErrorMessage(undefined);
       return;
     }
     const trigger = String((context.parameters as unknown as Record<string, { raw?: string | number }>).searchTrigger?.raw ?? '');
@@ -552,6 +576,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       || !hasLoadedApim;
     if (!changed) return;
     lastRef.current = { table: tableKey, trigger, page: currentPage, size: pageSize, sort: sortKey, nonce: searchNonce };
+    setLoadErrorMessage(undefined);
     setApimLoading(true);
     void (async () => {
       const res = await loadGridData(context, {
@@ -567,6 +592,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setServerDriven(res.serverDriven);
       setApimLoading(false);
       setHasLoadedApim(true);
+      setLoadErrorMessage(res.errorMessage);
       if (assignPendingRefresh && assignRefreshResolve.current) {
         assignRefreshResolve.current(true);
         assignRefreshResolve.current = null;
@@ -575,6 +601,99 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setApiFilterOptions(normalizeFilterOptions(res.filters));
     })();
   }, [context, tableKey, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isManagerAssign]);
+
+  React.useEffect(() => {
+    if (!assignPanelOpen || !assignmentContextKey) {
+      assignUsersLoadKeyRef.current = '';
+      setAssignUsersLoading(false);
+      if (!assignPanelOpen) {
+        setAssignUsers([]);
+        setAssignUsersError(undefined);
+      }
+      return;
+    }
+
+    const apiName = resolveAssignableUsersApiName();
+    if (!apiName) {
+      setAssignUsers([]);
+      setAssignUsersError('Assignable users API name is not configured.');
+      setAssignUsersLoading(false);
+      return;
+    }
+
+    const customApiType = resolveCustomApiTypeForAssignableUsers();
+    const requestKey = `${assignmentContextKey}|${apiName}|${customApiType}|${canvasScreenName}`;
+    if (assignUsersLoadKeyRef.current === requestKey) {
+      return;
+    }
+    assignUsersLoadKeyRef.current = requestKey;
+
+    setAssignUsers([]);
+    setAssignUsersLoading(true);
+    setAssignUsersError(undefined);
+
+    void (async () => {
+      try {
+        const response = await executeUnboundCustomApi<{ Result?: string; result?: string }>(
+          context,
+          apiName,
+          { screenName: canvasScreenName ?? '' },
+          { operationType: customApiType },
+        );
+        const rawResult = typeof response?.Result === 'string'
+          ? response.Result
+          : typeof response?.result === 'string'
+            ? response.result
+            : '';
+
+        if (!rawResult) {
+          setAssignUsers([]);
+          setAssignUsersError('No response from assignable users API.');
+          return;
+        }
+
+        let parsed: AssignableUsersResult | undefined;
+        try {
+          parsed = JSON.parse(rawResult) as AssignableUsersResult;
+        } catch {
+          setAssignUsers([]);
+          setAssignUsersError('Unable to parse assignable users response.');
+          return;
+        }
+
+        if (!parsed?.success) {
+          setAssignUsers([]);
+          setAssignUsersError(parsed?.message ?? 'Unable to load assignable users.');
+          return;
+        }
+
+        const users = Array.isArray(parsed.users) ? parsed.users : [];
+        const normalized = users
+          .map((u) => ({
+            id: String(u?.id ?? ''),
+            firstName: String(u?.firstName ?? ''),
+            lastName: String(u?.lastName ?? ''),
+            email: String(u?.email ?? ''),
+            team: String(u?.team ?? ''),
+            role: String(u?.role ?? ''),
+          }))
+          .filter((u) => u.id);
+
+        if (assignUsersLoadKeyRef.current !== requestKey) {
+          return;
+        }
+
+        setAssignUsers(normalized);
+      } catch (err) {
+        setAssignUsers([]);
+        setAssignUsersError(err instanceof Error ? err.message : 'Unable to load assignable users.');
+      } finally {
+        if (assignUsersLoadKeyRef.current === requestKey) {
+          setAssignUsersLoading(false);
+        }
+      }
+    })();
+  }, [assignPanelOpen, assignmentContextKey, canvasScreenName, context]);
 
   // Handlers
   const [selectedCount, setSelectedCount] = React.useState(0);
@@ -646,6 +765,20 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return resolveCustomApiOperationType(fromContext ?? CONTROL_CONFIG.customApiType);
   };
 
+  const resolveAssignableUsersApiName = (): string => {
+    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).assignableUsersApiName?.raw;
+    const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
+    const fallback = normalizeCustomApiName(CONTROL_CONFIG.assignableUsersApiName);
+    return fromContext || fallback || '';
+  };
+
+  const resolveCustomApiTypeForAssignableUsers = (): number => {
+    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).assignableUsersApiType?.raw;
+    const fromContext = typeof raw === 'string' ? raw : undefined;
+    const fallback = CONTROL_CONFIG.assignableUsersApiType ?? CONTROL_CONFIG.customApiType;
+    return resolveCustomApiOperationType(fromContext ?? fallback);
+  };
+
   const assignTasksToUser = async (user: { id: string; firstName: string; lastName: string }): Promise<boolean> => {
     try {
       const selected = selection.getSelection() as Record<string, unknown>[];
@@ -675,6 +808,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
             taskId,
             assignedByUserId: assignedBy,
             date: assignedDate,
+            screenName,
           },
           { operationType: customApiType },
         );
@@ -743,6 +877,11 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     selectedCount,
     allowColumnReorder,
     statusMessage: assignMessage,
+    errorMessage: loadErrorMessage,
+    assignUsers,
+    assignUsersLoading,
+    assignUsersError,
+    onAssignPanelToggle: handleAssignPanelToggle,
     onAssignTasks: assignTasksToUser,
     onLoadFilterOptions: (field, query) => {
       const key = String(field ?? '').toLowerCase();

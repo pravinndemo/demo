@@ -6,4 +6,8 @@ export const CONTROL_CONFIG = {
   tableKey: 'sales',
   serverDrivenThreshold: 2000,
   taskAssignmentApiName: 'voa_SvtTaskAssignment',
+  assignableUsersApiName: 'voa_SvtGetAssignableUsers',
+  assignableUsersApiType: 'function',
+  emptyStateTitle: "We didn't find anything to show here",
+  emptyStateMessage: 'Try adjusting your filters or search.',
 };

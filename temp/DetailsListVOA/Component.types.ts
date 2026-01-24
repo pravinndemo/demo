@@ -58,3 +58,12 @@ export interface ColumnConfig {
     ColRowHeader?: boolean;
     ColSortBy?: string;
 }
+
+export interface AssignUser {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    team: string;
+    role: string;
+}

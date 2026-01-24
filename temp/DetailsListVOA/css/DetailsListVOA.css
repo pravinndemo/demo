@@ -84,7 +84,7 @@
   display: inline-block;
   width: max-content;
   min-width: max-content;
-  --voa-list-right-pad: 16px;
+  --voa-list-right-pad: 24px;
 }
 
 .voa-grid-shell {
@@ -506,7 +506,7 @@
     minmax(160px, 1fr);
   grid-template-rows: auto auto;
   column-gap: 10px;
-  row-gap: 12px;
+  row-gap: 6px;
   align-items: start;
   width: 100%;
   max-width: 100%;
@@ -609,7 +609,7 @@
 }
 
 .voa-prefilter-bar .ms-Label {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .voa-prefilter-col-actions {
@@ -674,7 +674,7 @@
     minmax(140px, auto);
   grid-template-rows: auto auto;
   column-gap: 10px;
-  row-gap: 12px;
+  row-gap: 6px;
   align-items: start;
   padding: 6px 12px 8px;
 }
@@ -688,7 +688,7 @@
 }
 
 .voa-prefilter-bar--inline .ms-Label {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .voa-prefilter-bar--inline .voa-prefilter-field {
@@ -801,14 +801,58 @@
   }
 }
 
-.voa-prefilter-actions .ms-Button--primary {
-  background: #1d70b8;
+.voa-prefilter-actions .ms-Button--primary,
+.voa-command-bar__actions .ms-Button--primary {
+  background: #ffffff;
   border-color: #1d70b8;
+  color: #1d70b8;
 }
 
-.voa-prefilter-actions .ms-Button--primary:hover {
-  background: #175a8b;
-  border-color: #175a8b;
+.voa-prefilter-actions .ms-Button--primary .ms-Button-icon,
+.voa-prefilter-actions .ms-Button--primary .ms-Button-label,
+.voa-command-bar__actions .ms-Button--primary .ms-Button-icon,
+.voa-command-bar__actions .ms-Button--primary .ms-Button-label {
+  color: #1d70b8;
+}
+
+.voa-prefilter-actions .ms-Button--primary:hover,
+.voa-command-bar__actions .ms-Button--primary:hover {
+  background: #e8f1fb;
+  border-color: #1d70b8;
+  color: #1d70b8;
+}
+
+.voa-prefilter-actions .ms-Button--primary:hover .ms-Button-icon,
+.voa-prefilter-actions .ms-Button--primary:hover .ms-Button-label,
+.voa-command-bar__actions .ms-Button--primary:hover .ms-Button-icon,
+.voa-command-bar__actions .ms-Button--primary:hover .ms-Button-label {
+  color: #1d70b8;
+}
+
+.voa-prefilter-actions .ms-Button--primary.is-disabled,
+.voa-prefilter-actions .ms-Button--primary.is-disabled:hover,
+.voa-prefilter-actions .ms-Button--primary:disabled,
+.voa-command-bar__actions .ms-Button--primary.is-disabled,
+.voa-command-bar__actions .ms-Button--primary.is-disabled:hover,
+.voa-command-bar__actions .ms-Button--primary:disabled {
+  background: #f3f2f1;
+  border-color: #c8c8c8;
+  color: #a6a6a6;
+}
+
+.voa-prefilter-actions .ms-Button--primary.is-disabled .ms-Button-icon,
+.voa-prefilter-actions .ms-Button--primary.is-disabled .ms-Button-label,
+.voa-prefilter-actions .ms-Button--primary.is-disabled:hover .ms-Button-icon,
+.voa-prefilter-actions .ms-Button--primary.is-disabled:hover .ms-Button-label,
+.voa-prefilter-actions .ms-Button--primary:disabled .ms-Button-icon,
+.voa-prefilter-actions .ms-Button--primary:disabled .ms-Button-label,
+.voa-command-bar__actions .ms-Button--primary.is-disabled .ms-Button-icon,
+.voa-command-bar__actions .ms-Button--primary.is-disabled .ms-Button-label,
+.voa-command-bar__actions .ms-Button--primary.is-disabled:hover .ms-Button-icon,
+.voa-command-bar__actions .ms-Button--primary.is-disabled:hover .ms-Button-label,
+.voa-command-bar__actions .ms-Button--primary:disabled .ms-Button-icon,
+.voa-command-bar__actions .ms-Button--primary:disabled .ms-Button-label {
+  color: #a6a6a6;
 }
 
 .voa-prefilter-clear {

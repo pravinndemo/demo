@@ -62,3 +62,4 @@ Then read values with `Text()`, `Value()`, or `Boolean()` in Power Fx. This patt
 ## Related docs
 - `docs/svtGetSaleRecords.md` (search + grid data retrieval).
 - `docs/svtTaskAssignment.md` (assignment custom API).
+- `docs/svtManualTaskCreation.md` (manual task creation endpoint).

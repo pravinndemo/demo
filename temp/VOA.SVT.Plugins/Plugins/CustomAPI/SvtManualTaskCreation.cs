@@ -1,10 +1,11 @@
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Extensions;
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
-using System.Web;
 using VOA.Common;
 using VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model;
 using VOA.SVT.Plugins.CustomAPI.Helpers;
@@ -12,15 +13,15 @@ using VOA.SVT.Plugins.Helpers;
 
 namespace VOA.SVT.Plugins.CustomAPI
 {
-    public class GetAllSalesRecord : PluginBase
+    public class SvtManualTaskCreation : PluginBase
     {
         /// <summary>
         /// Name of the API configuration returned by voa_CredentialProvider
         /// </summary>
-        private const string CONFIGURATION_NAME = "SVTGetSalesRecord";
+        private const string CONFIGURATION_NAME = "SVTManualTaskCreation";
 
-        public GetAllSalesRecord(string unsecureConfiguration, string secureConfiguration)
-            : base(typeof(GetAllSalesRecord))
+        public SvtManualTaskCreation(string unsecureConfiguration, string secureConfiguration)
+            : base(typeof(SvtManualTaskCreation))
         {
             // Custom API plugin -> generally no secure/unsecure config usage.
         }
@@ -33,6 +34,36 @@ namespace VOA.SVT.Plugins.CustomAPI
             }
 
             var context = localPluginContext.PluginExecutionContext;
+            var userContext = SvtUserContextResolver.Resolve(
+                localPluginContext.SystemUserService,
+                context.InitiatingUserId,
+                localPluginContext.TracingService);
+            if (userContext.Persona != SvtPersona.Manager)
+            {
+                localPluginContext.TracingService.Trace(
+                    $"SVT ManualTaskCreation denied. User={context.InitiatingUserId}, Persona={userContext.Persona}");
+                context.OutputParameters["Result"] = BuildResult(false, "SVT manual task creation is restricted to SVT Managers.", string.Empty);
+                return;
+            }
+            var saleId = GetInput(context, "saleId");
+            var sourceType = GetInput(context, "sourceType");
+            var createdBy = GetInput(context, "createdBy");
+
+            if (string.IsNullOrWhiteSpace(saleId))
+            {
+                context.OutputParameters["Result"] = BuildResult(false, "saleId is required.", string.Empty);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(sourceType))
+            {
+                sourceType = "M";
+            }
+
+            if (string.IsNullOrWhiteSpace(createdBy))
+            {
+                createdBy = context.InitiatingUserId.ToString();
+            }
 
             // 1) Read secrets/config from credential provider action
             var getSecretsRequest = new OrganizationRequest("voa_CredentialProvider")
@@ -56,25 +87,26 @@ namespace VOA.SVT.Plugins.CustomAPI
 
             if (string.IsNullOrWhiteSpace(apiConfig.Address))
             {
-                context.OutputParameters["Result"] = BuildErrorPayload(
-                    GetIntInput(context, "pageNumber", 1),
-                    GetIntInput(context, "pageSize", 0),
-                    "SVTGetSalesRecord configuration missing Address.");
+                context.OutputParameters["Result"] = BuildResult(false, "SVTManualTaskCreation configuration missing Address.", string.Empty);
                 return;
             }
 
-            localPluginContext.TracingService.Trace("SVT GetAllSalesRecord started.");
+            localPluginContext.TracingService.Trace("SVT ManualTaskCreation started.");
 
             // 2) OAuth token (if needed)
             localPluginContext.TracingService.Trace("Generating authentication token...");
             var auth = new Authentication(localPluginContext, apiConfig);
             var authResult = auth.GenerateAuthentication();
 
-            // 3) Build full URL (base Address + query from Custom API inputs)
-            var searchQuery = CustomApiQueryHelper.BuildSearchQuery(context.InputParameters);
-            var fullUrl = BuildUrl(apiConfig.Address, searchQuery);
+            var fullUrl = BuildUrl(apiConfig.Address, saleId);
+            var payload = new Dictionary<string, string>
+            {
+                ["sourceType"] = sourceType ?? string.Empty,
+                ["createdBy"] = createdBy ?? string.Empty
+            };
+            var jsonBody = JsonSerializer.Serialize(payload);
 
-            localPluginContext.TracingService.Trace($"Calling APIM URL: {Truncate(fullUrl, 300)}");
+            localPluginContext.TracingService.Trace($"Posting manual task creation to APIM. Url={Truncate(fullUrl, 300)} Payload={Truncate(jsonBody, 500)}");
 
             using (var httpClient = new HttpClient())
             {
@@ -97,14 +129,14 @@ namespace VOA.SVT.Plugins.CustomAPI
                         new AuthenticationHeaderValue("Bearer", authResult.AccessToken);
                 }
 
-                using (var request = new HttpRequestMessage(HttpMethod.Get, fullUrl))
+                using (var request = new HttpRequestMessage(HttpMethod.Post, fullUrl))
                 {
+                    request.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
                     HttpResponseMessage response = null;
                     string body = string.Empty;
 
                     try
                     {
-                        // Sync plugin: avoid deadlocks by using GetAwaiter().GetResult()
                         response = httpClient.SendAsync(request).GetAwaiter().GetResult();
                         body = response.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? string.Empty;
 
@@ -113,27 +145,20 @@ namespace VOA.SVT.Plugins.CustomAPI
                             localPluginContext.TracingService.Trace(
                                 $"APIM call failed. Status={(int)response.StatusCode} {response.ReasonPhrase}. BodySnippet={Truncate(body, 500)}");
 
-                            context.OutputParameters["Result"] = BuildErrorPayload(
-                                GetIntInput(context, "pageNumber", 1),
-                                GetIntInput(context, "pageSize", 0),
-                                $"APIM call failed ({(int)response.StatusCode} {response.ReasonPhrase}).");
+                            context.OutputParameters["Result"] = BuildResult(false, "Manual task creation failed.", body);
                             return;
                         }
 
-                        // Trace minimal response snippet (avoid PII / noisy logs)
-                        localPluginContext.TracingService.Trace($"APIM response snippet: {Truncate(body, 200)}");
-
-                        // Return raw JSON back via Custom API output parameter (Result)
-                        context.OutputParameters["Result"] = body;
-                        localPluginContext.TracingService.Trace("SVT GetAllSalesRecord completed successfully.");
+                        var successMessage = string.IsNullOrWhiteSpace(body)
+                            ? "Manual task creation succeeded. No response body returned."
+                            : "Manual task creation succeeded.";
+                        context.OutputParameters["Result"] = BuildResult(true, successMessage, body);
+                        localPluginContext.TracingService.Trace("SVT ManualTaskCreation completed successfully.");
                     }
                     catch (Exception ex)
                     {
                         localPluginContext.TracingService.Trace($"APIM call exception: {ex}");
-                        context.OutputParameters["Result"] = BuildErrorPayload(
-                            GetIntInput(context, "pageNumber", 1),
-                            GetIntInput(context, "pageSize", 0),
-                            "Failed to call APIM for SVT sales records.");
+                        context.OutputParameters["Result"] = BuildResult(false, "Manual task creation failed.", ex.Message);
                     }
                     finally
                     {
@@ -143,54 +168,48 @@ namespace VOA.SVT.Plugins.CustomAPI
             }
         }
 
-        private static string BuildUrl(string baseAddress, string searchQuery)
+        private static string GetInput(IPluginExecutionContext context, string key)
+            => context.InputParameters.Contains(key) ? context.InputParameters[key]?.ToString() : null;
+
+        private static string BuildUrl(string baseAddress, string saleId)
         {
-            if (string.IsNullOrWhiteSpace(searchQuery))
+            if (string.IsNullOrWhiteSpace(baseAddress))
             {
                 return baseAddress;
             }
 
-            var trimmed = searchQuery.Trim();
-            if (trimmed.StartsWith("?", StringComparison.Ordinal))
+            var trimmed = baseAddress.TrimEnd('/');
+
+            if (trimmed.Contains("{saleId}", StringComparison.Ordinal))
             {
-                trimmed = trimmed.Substring(1);
+                return trimmed.Replace("{saleId}", saleId);
             }
 
-            if (baseAddress.Contains("?"))
+            if (trimmed.Contains("{id}", StringComparison.Ordinal))
             {
-                return baseAddress.EndsWith("&", StringComparison.Ordinal)
-                    ? baseAddress + HttpUtility.UrlEncode(trimmed)
-                    : baseAddress + "&" + trimmed;
+                return trimmed.Replace("{id}", saleId);
             }
 
-            return baseAddress + "?" + trimmed;
+            if (trimmed.EndsWith("/sales", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{trimmed}/{saleId}/task";
+            }
+
+            return $"{trimmed}/sales/{saleId}/task";
+        }
+
+        private static string BuildResult(bool success, string message, string payload)
+        {
+            var safeMessage = (message ?? string.Empty).Replace("\"", "'");
+            var safePayload = (payload ?? string.Empty).Replace("\"", "'");
+            return "{" +
+                   "\"success\":" + (success ? "true" : "false") + "," +
+                   "\"message\":\"" + safeMessage + "\"," +
+                   "\"payload\":\"" + safePayload + "\"" +
+                   "}";
         }
 
         private static string Truncate(string s, int maxLen)
             => string.IsNullOrEmpty(s) ? s : (s.Length > maxLen ? s.Substring(0, maxLen) : s);
-
-        private static int GetIntInput(IPluginExecutionContext context, string key, int fallback)
-        {
-            if (context?.InputParameters == null || !context.InputParameters.Contains(key))
-            {
-                return fallback;
-            }
-
-            var raw = context.InputParameters[key]?.ToString();
-            return int.TryParse(raw, out var value) ? value : fallback;
-        }
-
-        private static string BuildErrorPayload(int pageNumber, int pageSize, string message)
-        {
-            var payload = new
-            {
-                items = Array.Empty<object>(),
-                totalCount = 0,
-                page = pageNumber,
-                pageSize = pageSize,
-                errorMessage = message ?? string.Empty
-            };
-            return JsonSerializer.Serialize(payload);
-        }
     }
 }

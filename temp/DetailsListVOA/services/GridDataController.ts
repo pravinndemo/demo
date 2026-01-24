@@ -17,6 +17,7 @@ export interface LoadResult {
   totalCount: number;
   serverDriven: boolean;
   filters?: Record<string, string | string[]>;
+  errorMessage?: string;
 }
 
 const resolveCustomApiName = (context: ComponentFramework.Context<IInputs>): string => {
@@ -91,7 +92,13 @@ export async function loadGridData(
     const firstPageCount = firstPayload.items?.length ?? 0;
     const serverDriven = total > threshold || total > firstPageCount;
     const responseFilters = firstPayload.filters;
-    return { items: firstPayload.items ?? [], totalCount: total, serverDriven, filters: responseFilters };
+    return {
+      items: firstPayload.items ?? [],
+      totalCount: total,
+      serverDriven,
+      filters: responseFilters,
+      errorMessage: firstPayload.errorMessage,
+    };
   } catch (err) {
     // On error, log and fall back to showing local sample data (from SampleData)
     const errText = (() => {
@@ -109,6 +116,11 @@ export async function loadGridData(
       /* ignore logging failures */
     }
     // Sample fallback disabled for now; return empty set on error.
-    return { items: [], totalCount: 0, serverDriven: false };
+    return {
+      items: [],
+      totalCount: 0,
+      serverDriven: false,
+      errorMessage: 'Unable to load results. Please try again.',
+    };
   }
 }

@@ -47,7 +47,8 @@ import {
 import * as React from 'react';
 import { NoFields } from '../DetailsListVOA/grid/NoFields';
 import { RecordsColumns } from '../DetailsListVOA/config/ManifestConstants';
-import { IGridColumn, ColumnConfig } from './Component.types';
+import { CONTROL_CONFIG } from '../DetailsListVOA/config/ControlConfig';
+import { IGridColumn, ColumnConfig, AssignUser } from './Component.types';
 import { GridCell } from '../DetailsListVOA/grid/GridCell';
 import { ClassNames } from '../DetailsListVOA/grid/Grid.styles';
 import { GridFilterState, NumericFilter, NumericFilterMode, createDefaultGridFilters, sanitizeFilters, SearchByOption, DateRangeFilter, isValidUkPostcode, normalizeUkPostcode } from './Filters';
@@ -56,6 +57,7 @@ import { MANAGER_PREFILTER_DEFAULT, MANAGER_SEARCH_BY_OPTIONS, MANAGER_BILLING_A
 
 type DataSet = ComponentFramework.PropertyHelper.DataSetApi.EntityRecord & IObjectWithKey;
 type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFilter;
+const ASSIGN_LOADING_ROW_ID = '__loading__';
 
 export interface GridProps {
   // When false, hides the built-in top search panel
@@ -106,15 +108,10 @@ export interface GridProps {
   onBackRequested?: () => void;
   disableViewSalesRecordAction?: boolean;
   rowInvokeEnabled?: boolean;
-}
-
-interface AssignUser {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  team: string;
-  role: string;
+  assignUsers?: AssignUser[];
+  assignUsersLoading?: boolean;
+  assignUsersError?: string;
+  onAssignPanelToggle?: (isOpen: boolean) => void;
 }
 
 const defaultTheme = createTheme({
@@ -367,6 +364,10 @@ export const Grid = React.memo((props: GridProps) => {
     onBackRequested,
     disableViewSalesRecordAction = false,
     rowInvokeEnabled = true,
+    assignUsers: assignUsersProp,
+    assignUsersLoading = false,
+    assignUsersError,
+    onAssignPanelToggle,
   } = props;
 
   const theme = useTheme(themeJSON);
@@ -427,6 +428,14 @@ export const Grid = React.memo((props: GridProps) => {
   const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState>(MANAGER_PREFILTER_DEFAULT);
   const [prefilterExpanded, setPrefilterExpanded] = React.useState(true);
   const [prefilterContainerWidth, setPrefilterContainerWidth] = React.useState<number | null>(null);
+  const openAssignPanel = React.useCallback(() => {
+    setAssignPanelOpen(true);
+    onAssignPanelToggle?.(true);
+  }, [onAssignPanelToggle]);
+  const closeAssignPanel = React.useCallback(() => {
+    setAssignPanelOpen(false);
+    onAssignPanelToggle?.(false);
+  }, [onAssignPanelToggle]);
 
   const screenName = (canvasScreenName ?? '').toLowerCase();
   const isAssignment = screenName.includes('assignment');
@@ -1713,24 +1722,7 @@ export const Grid = React.memo((props: GridProps) => {
     topRef.current?.focus?.();
   }, []);
 
-  const assignUsers = React.useMemo(() => {
-    if (isQcAssign) {
-      return [
-        { id: 'q1', firstName: 'Quinn', lastName: 'Adams', email: 'quinn.adams@example.com', team: 'QC Team A', role: 'QC Reviewer' },
-        { id: 'q2', firstName: 'Rita', lastName: 'Brown', email: 'rita.brown@example.com', team: 'QC Team A', role: 'QC Reviewer' },
-        { id: 'q3', firstName: 'Sam', lastName: 'Carter', email: 'sam.carter@example.com', team: 'QC Team B', role: 'QC Lead' },
-        { id: 'q4', firstName: 'Tina', lastName: 'Davis', email: 'tina.davis@example.com', team: 'QC Team B', role: 'QC Reviewer' },
-        { id: 'q5', firstName: 'Uma', lastName: 'Evans', email: 'uma.evans@example.com', team: 'QC Team C', role: 'QC Reviewer' },
-      ];
-    }
-    return [
-      { id: 'u1', firstName: 'Alice', lastName: 'Johnson', email: 'alice.johnson@example.com', team: 'Team A', role: 'Caseworker' },
-      { id: 'u2', firstName: 'Bob', lastName: 'Smith', email: 'bob.smith@example.com', team: 'Team A', role: 'Caseworker' },
-      { id: 'u3', firstName: 'Carol', lastName: 'Davis', email: 'carol.davis@example.com', team: 'Team B', role: 'Caseworker' },
-      { id: 'u4', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', team: 'Team B', role: 'Caseworker' },
-      { id: 'u5', firstName: 'Emma', lastName: 'Wilson', email: 'emma.wilson@example.com', team: 'Team C', role: 'Caseworker' },
-    ];
-  }, [isQcAssign]);
+  const assignUsers = React.useMemo(() => assignUsersProp ?? [], [assignUsersProp]);
 
   const assignFilteredUsers = React.useMemo(() => {
     const term = assignSearch.trim().toLowerCase();
@@ -1745,6 +1737,19 @@ export const Grid = React.memo((props: GridProps) => {
       );
     });
   }, [assignUsers, assignSearch, assignRole, assignTeam]);
+  const assignListItems = React.useMemo(() => {
+    if (assignUsersLoading) {
+      return [{
+        id: ASSIGN_LOADING_ROW_ID,
+        firstName: 'Loading users...',
+        lastName: '',
+        email: '',
+        team: '',
+        role: '',
+      }];
+    }
+    return assignFilteredUsers;
+  }, [assignFilteredUsers, assignUsersLoading]);
 
   const handleAssignClick = React.useCallback(async (user: AssignUser) => {
     if (!onAssignTasks || assignLoading) return;
@@ -1753,13 +1758,13 @@ export const Grid = React.memo((props: GridProps) => {
     try {
       const ok = await onAssignTasks(user);
       if (ok) {
-        setAssignPanelOpen(false);
+        closeAssignPanel();
       }
     } finally {
       setAssignLoading(false);
       setAssignSelectedUserId(undefined);
     }
-  }, [assignLoading, onAssignTasks]);
+  }, [assignLoading, closeAssignPanel, onAssignTasks]);
 
   const assignColumns = React.useMemo<IColumn[]>(
     () => [
@@ -1771,6 +1776,9 @@ export const Grid = React.memo((props: GridProps) => {
         name: 'Action',
         minWidth: 120,
         onRender: (item: AssignUser) => (
+          item.id === ASSIGN_LOADING_ROW_ID
+            ? null
+            : (
           <PrimaryButton
             text="Assign Task"
             ariaLabel={`Assign task to ${item.firstName} ${item.lastName}`}
@@ -1779,6 +1787,7 @@ export const Grid = React.memo((props: GridProps) => {
               void handleAssignClick(item);
             }}
           />
+            )
         ),
       },
     ],
@@ -2124,7 +2133,7 @@ export const Grid = React.memo((props: GridProps) => {
             </MessageBar>
           )}
           {pageHeaderText && useAssignmentLayout && (
-            <div className="voa-command-bar" role="heading" aria-level={2}>
+            <div className="voa-command-bar">
               <div className="voa-command-bar__left">
                 {onBackRequested && (
                   <IconButton
@@ -2134,9 +2143,9 @@ export const Grid = React.memo((props: GridProps) => {
                     title="Back"
                     onClick={onBackRequested}
                   />
-                )}
-                <div className="voa-command-bar__title-group">
-                  <Text variant="large" className="voa-command-bar__title">
+              )}
+              <div className="voa-command-bar__title-group">
+                  <Text as="h2" variant="large" className="voa-command-bar__title">
                     {pageHeaderText}
                   </Text>
                   <Text variant="small" className="voa-command-bar__meta" role="status" aria-live="polite">
@@ -2179,7 +2188,7 @@ export const Grid = React.memo((props: GridProps) => {
                   <PrimaryButton
                     text={assignActionText}
                     iconProps={{ iconName: 'AddFriend' }}
-                    onClick={() => setAssignPanelOpen(true)}
+                    onClick={openAssignPanel}
                     disabled={selectedCount === 0}
                     ariaLabel={assignActionText}
                   />
@@ -2188,7 +2197,7 @@ export const Grid = React.memo((props: GridProps) => {
             </div>
           )}
           {pageHeaderText && !useAssignmentLayout && (
-            <div className="voa-page-header" role="heading" aria-level={2}>
+            <div className="voa-page-header">
               {onBackRequested && (
                 <IconButton
                   className="voa-back-button"
@@ -2202,7 +2211,7 @@ export const Grid = React.memo((props: GridProps) => {
                 {pageHeaderIconName && (
                   <Icon iconName={pageHeaderIconName} className="voa-page-header__icon" aria-hidden="true" />
                 )}
-                <Text variant="xLarge" className="voa-page-header__title">
+                <Text as="h2" variant="xLarge" className="voa-page-header__title">
                   {pageHeaderText}
                 </Text>
               </div>
@@ -2451,7 +2460,7 @@ export const Grid = React.memo((props: GridProps) => {
                   <DefaultButton
                     text={assignActionText}
                     iconProps={{ iconName: 'AddFriend' }}
-                    onClick={() => setAssignPanelOpen(true)}
+                    onClick={openAssignPanel}
                     ariaLabel={assignActionText}
                   />
                 )}
@@ -2507,10 +2516,10 @@ export const Grid = React.memo((props: GridProps) => {
                     <Icon iconName="PageList" />
                   </div>
                   <Text variant="mediumPlus" className="voa-empty-state__title">
-                    We didn&apos;t find anything to show here
+                    {CONTROL_CONFIG.emptyStateTitle}
                   </Text>
                   <Text variant="small" className="voa-empty-state__text">
-                    Try adjusting your filters or search.
+                    {CONTROL_CONFIG.emptyStateMessage}
                   </Text>
                 </div>
               )}
@@ -2607,17 +2616,17 @@ export const Grid = React.memo((props: GridProps) => {
                   <DefaultButton
                     text="Back"
                     iconProps={{ iconName: 'Back' }}
-                    onClick={() => setAssignPanelOpen(false)}
+                    onClick={closeAssignPanel}
                     ariaLabel="Back to manager assignment"
                   />
-                  <Text id="assign-screen-title" variant="xLarge" styles={{ root: { marginLeft: 12, fontWeight: 600 } }}>
+                  <Text as="h2" id="assign-screen-title" variant="xLarge" styles={{ root: { marginLeft: 12, fontWeight: 600 } }}>
                     {assignHeaderText}
                   </Text>
                   <Stack.Item styles={{ root: { marginLeft: 'auto' } }}>
                     <IconButton
                       iconProps={{ iconName: 'Cancel' }}
                       ariaLabel="Close assign tasks screen"
-                      onClick={() => setAssignPanelOpen(false)}
+                      onClick={closeAssignPanel}
                     />
                   </Stack.Item>
                 </Stack>
@@ -2626,7 +2635,7 @@ export const Grid = React.memo((props: GridProps) => {
                   ariaLabel="Search user"
                   value={assignSearch}
                   onChange={(_, v) => setAssignSearch(v ?? '')}
-                  disabled={assignLoading}
+                  disabled={assignLoading || assignUsersLoading}
                 />
                 <Stack horizontal tokens={{ childrenGap: 12 }} wrap>
                   <Dropdown
@@ -2638,7 +2647,7 @@ export const Grid = React.memo((props: GridProps) => {
                       .filter((v, i, a) => a.indexOf(v) === i)
                       .map((team) => ({ key: team, text: team }))}
                     onChange={(_, opt) => setAssignTeam(opt?.key)}
-                    disabled={assignLoading}
+                    disabled={assignLoading || assignUsersLoading}
                     styles={{ root: { minWidth: 200 } }}
                   />
                   <Dropdown
@@ -2650,16 +2659,22 @@ export const Grid = React.memo((props: GridProps) => {
                       .filter((v, i, a) => a.indexOf(v) === i)
                       .map((role) => ({ key: role, text: role }))}
                     onChange={(_, opt) => setAssignRole(opt?.key)}
-                    disabled={assignLoading}
+                    disabled={assignLoading || assignUsersLoading}
                     styles={{ root: { minWidth: 200 } }}
                   />
                 </Stack>
+                {assignUsersLoading && <Spinner size={SpinnerSize.small} ariaLabel="Loading users" />}
                 {assignLoading && <Spinner size={SpinnerSize.small} ariaLabel="Assigning tasks" />}
+                {assignUsersError && (
+                  <MessageBar messageBarType={MessageBarType.error}>
+                    {assignUsersError}
+                  </MessageBar>
+                )}
                 <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
                   {assignUserListTitle}
                 </Text>
                 <DetailsList
-                  items={assignFilteredUsers}
+                  items={assignListItems}
                   columns={assignColumns}
                   selectionMode={SelectionMode.none}
                   isHeaderVisible

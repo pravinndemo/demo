@@ -60,3 +60,4 @@ The plugin sets the `Result` string for both success and failure cases.【F:VOA.
 ## Related docs
 - `docs/svtGetSaleRecords.md` (search + grid data retrieval).
 - `docs/svtGetViewSaleRecordById.md` (sale details retrieval).
+- `docs/svtManualTaskCreation.md` (manual task creation endpoint).

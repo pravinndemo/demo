@@ -229,3 +229,4 @@ If(
 ## Related Custom API docs
 - `docs/svtGetViewSaleRecordById.md` (sale details by Sale ID).
 - `docs/svtTaskAssignment.md` (task assignment endpoint).
+- `docs/svtManualTaskCreation.md` (manual task creation endpoint).
