@@ -1,7 +1,7 @@
 using Microsoft.Xrm.Sdk;
 using System;
 using VOA.Common;
-using VOA.SVT.Plugins.CustomAPI.Helpers;
+using VOA.SVT.Plugins.Helpers;
 
 namespace VOA.SVT.Plugins.CustomAPI
 {
@@ -35,20 +35,20 @@ namespace VOA.SVT.Plugins.CustomAPI
             trace.Trace("SvtGetUserContext: Start");
             trace.Trace($"SvtGetUserContext: InitiatingUserId={userId}");
 
-            var result = SvtUserContextResolver.Resolve(localPluginContext.SystemUserService, userId, trace);
+            var result = UserContextResolver.Resolve(localPluginContext.SystemUserService, userId, trace);
             WriteOutputs(context, result);
 
             trace.Trace($"SvtGetUserContext: Resolved {result.Persona} via {result.ResolutionSource}");
         }
 
-        private static void WriteOutputs(IPluginExecutionContext context, SvtUserContextResult result)
+        private static void WriteOutputs(IPluginExecutionContext context, UserContextResult result)
         {
-            var persona = result?.Persona ?? SvtPersona.None;
-            var source = result?.ResolutionSource ?? SvtUserContextConfig.SourceNone;
+            var persona = result?.Persona ?? UserPersona.None;
+            var source = result?.ResolutionSource ?? UserContextConfig.SourceNone;
 
             context.OutputParameters[OutputNames.Persona] = persona.ToString();
             context.OutputParameters[OutputNames.ResolutionSource] = source;
-            context.OutputParameters[OutputNames.HasAccess] = persona != SvtPersona.None;
+            context.OutputParameters[OutputNames.HasAccess] = persona != UserPersona.None;
             context.OutputParameters[OutputNames.MatchedTeam] = result?.MatchedTeamName ?? string.Empty;
             context.OutputParameters[OutputNames.MatchedRole] = result?.MatchedRoleName ?? string.Empty;
         }

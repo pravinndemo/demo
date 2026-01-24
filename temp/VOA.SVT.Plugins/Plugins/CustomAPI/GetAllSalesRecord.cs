@@ -7,7 +7,6 @@ using System.Text.Json;
 using System.Web;
 using VOA.Common;
 using VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model;
-using VOA.SVT.Plugins.CustomAPI.Helpers;
 using VOA.SVT.Plugins.Helpers;
 
 namespace VOA.SVT.Plugins.CustomAPI

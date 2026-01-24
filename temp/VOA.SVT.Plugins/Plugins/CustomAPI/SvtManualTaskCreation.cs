@@ -8,7 +8,6 @@ using System.Text;
 using System.Text.Json;
 using VOA.Common;
 using VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model;
-using VOA.SVT.Plugins.CustomAPI.Helpers;
 using VOA.SVT.Plugins.Helpers;
 
 namespace VOA.SVT.Plugins.CustomAPI
@@ -34,11 +33,11 @@ namespace VOA.SVT.Plugins.CustomAPI
             }
 
             var context = localPluginContext.PluginExecutionContext;
-            var userContext = SvtUserContextResolver.Resolve(
+            var userContext = UserContextResolver.Resolve(
                 localPluginContext.SystemUserService,
                 context.InitiatingUserId,
                 localPluginContext.TracingService);
-            if (userContext.Persona != SvtPersona.Manager)
+            if (userContext.Persona != UserPersona.Manager)
             {
                 localPluginContext.TracingService.Trace(
                     $"SVT ManualTaskCreation denied. User={context.InitiatingUserId}, Persona={userContext.Persona}");

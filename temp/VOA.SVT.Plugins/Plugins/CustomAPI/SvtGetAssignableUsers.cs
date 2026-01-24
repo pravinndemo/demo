@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using VOA.Common;
-using VOA.SVT.Plugins.CustomAPI.Helpers;
+using VOA.SVT.Plugins.Helpers;
 
 namespace VOA.SVT.Plugins.CustomAPI
 {
@@ -107,7 +107,7 @@ namespace VOA.SVT.Plugins.CustomAPI
             var teamLink = membershipLink.AddLink("team", "teamid", "teamid", JoinOperator.Inner);
             teamLink.EntityAlias = "team";
             teamLink.Columns = new ColumnSet("name");
-            teamLink.LinkCriteria.AddCondition("teamtype", ConditionOperator.Equal, SvtUserContextConfig.TeamTypeSecurityGroup);
+            teamLink.LinkCriteria.AddCondition("teamtype", ConditionOperator.Equal, UserContextConfig.TeamTypeSecurityGroup);
             teamLink.LinkCriteria.AddCondition("name", ConditionOperator.In, teamNames);
 
             var result = service.RetrieveMultiple(qe);
