@@ -27,9 +27,9 @@ namespace VOA.SVT.Plugins.Helpers
         public const string TeamNameSvtQa = "SVT QA Team";
         public const string TeamNameSvtUser = "SVT User Team";
 
-        public const string RoleNameSvtManager = "VOA SVT Manager";
-        public const string RoleNameSvtQa = "VOA SVT QA";
-        public const string RoleNameSvtUser = "VOA SVT User";
+        public const string RoleNameSvtManager = "VOA - SVT Manager";
+        public const string RoleNameSvtQa = "VOA - SVT QA";
+        public const string RoleNameSvtUser = "VOA - SVT User";
 
         public const int TeamTypeSecurityGroup = 2;
 

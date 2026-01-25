@@ -293,6 +293,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const [assignUsers, setAssignUsers] = React.useState<AssignUser[]>([]);
   const [assignUsersLoading, setAssignUsersLoading] = React.useState(false);
   const [assignUsersError, setAssignUsersError] = React.useState<string | undefined>(undefined);
+  const [assignUsersInfo, setAssignUsersInfo] = React.useState<string | undefined>(undefined);
   const [assignPanelOpen, setAssignPanelOpen] = React.useState(false);
   const [assignPendingRefresh, setAssignPendingRefresh] = React.useState(false);
   const assignRefreshResolve = React.useRef<null | ((ok: boolean) => void)>(null);
@@ -302,6 +303,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     if (isOpen) {
       setAssignUsers([]);
       setAssignUsersError(undefined);
+      setAssignUsersInfo(undefined);
       setAssignUsersLoading(true);
     }
   }, []);
@@ -609,6 +611,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       if (!assignPanelOpen) {
         setAssignUsers([]);
         setAssignUsersError(undefined);
+        setAssignUsersInfo(undefined);
       }
       return;
     }
@@ -617,6 +620,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     if (!apiName) {
       setAssignUsers([]);
       setAssignUsersError('Assignable users API name is not configured.');
+      setAssignUsersInfo(undefined);
       setAssignUsersLoading(false);
       return;
     }
@@ -631,6 +635,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     setAssignUsers([]);
     setAssignUsersLoading(true);
     setAssignUsersError(undefined);
+    setAssignUsersInfo(undefined);
 
     void (async () => {
       try {
@@ -646,28 +651,39 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
             ? response.result
             : '';
 
-        if (!rawResult) {
+        const normalizedRaw = rawResult.trim();
+        if (!normalizedRaw || normalizedRaw.toLowerCase() === 'null') {
           setAssignUsers([]);
-          setAssignUsersError('No response from assignable users API.');
+          setAssignUsersError(undefined);
+          setAssignUsersInfo('No users found.');
           return;
         }
 
         let parsed: AssignableUsersResult | undefined;
         try {
-          parsed = JSON.parse(rawResult) as AssignableUsersResult;
+          parsed = JSON.parse(normalizedRaw) as AssignableUsersResult;
         } catch {
           setAssignUsers([]);
           setAssignUsersError('Unable to parse assignable users response.');
+          setAssignUsersInfo(undefined);
           return;
         }
 
         if (!parsed?.success) {
           setAssignUsers([]);
           setAssignUsersError(parsed?.message ?? 'Unable to load assignable users.');
+          setAssignUsersInfo(undefined);
           return;
         }
 
         const users = Array.isArray(parsed.users) ? parsed.users : [];
+        if (users.length === 0) {
+          setAssignUsers([]);
+          const message = parsed?.message?.trim() ? parsed.message : 'No users found.';
+          setAssignUsersError(undefined);
+          setAssignUsersInfo(message);
+          return;
+        }
         const normalized = users
           .map((u) => ({
             id: String(u?.id ?? ''),
@@ -684,9 +700,11 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         }
 
         setAssignUsers(normalized);
+        setAssignUsersInfo(undefined);
       } catch (err) {
         setAssignUsers([]);
         setAssignUsersError(err instanceof Error ? err.message : 'Unable to load assignable users.');
+        setAssignUsersInfo(undefined);
       } finally {
         if (assignUsersLoadKeyRef.current === requestKey) {
           setAssignUsersLoading(false);
@@ -881,6 +899,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     assignUsers,
     assignUsersLoading,
     assignUsersError,
+    assignUsersInfo,
     onAssignPanelToggle: handleAssignPanelToggle,
     onAssignTasks: assignTasksToUser,
     onLoadFilterOptions: (field, query) => {

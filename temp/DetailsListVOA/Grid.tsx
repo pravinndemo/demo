@@ -111,6 +111,7 @@ export interface GridProps {
   assignUsers?: AssignUser[];
   assignUsersLoading?: boolean;
   assignUsersError?: string;
+  assignUsersInfo?: string;
   onAssignPanelToggle?: (isOpen: boolean) => void;
 }
 
@@ -367,6 +368,7 @@ export const Grid = React.memo((props: GridProps) => {
     assignUsers: assignUsersProp,
     assignUsersLoading = false,
     assignUsersError,
+    assignUsersInfo,
     onAssignPanelToggle,
   } = props;
 
@@ -2665,6 +2667,11 @@ export const Grid = React.memo((props: GridProps) => {
                 </Stack>
                 {assignUsersLoading && <Spinner size={SpinnerSize.small} ariaLabel="Loading users" />}
                 {assignLoading && <Spinner size={SpinnerSize.small} ariaLabel="Assigning tasks" />}
+                {assignUsersInfo && (
+                  <MessageBar messageBarType={MessageBarType.info}>
+                    {assignUsersInfo}
+                  </MessageBar>
+                )}
                 {assignUsersError && (
                   <MessageBar messageBarType={MessageBarType.error}>
                     {assignUsersError}

@@ -34,7 +34,7 @@ namespace VOA.SVT.Plugins.CustomAPI
 
             var context = localPluginContext.PluginExecutionContext;
             var userContext = UserContextResolver.Resolve(
-                5xt.SystemUserService,
+                localPluginContext.SystemUserService,
                 context.InitiatingUserId,
                 localPluginContext.TracingService);
             var screenName = GetInput(context, "screenName");

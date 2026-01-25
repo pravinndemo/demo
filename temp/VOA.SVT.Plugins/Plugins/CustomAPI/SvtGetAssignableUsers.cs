@@ -73,7 +73,10 @@ namespace VOA.SVT.Plugins.CustomAPI
                     .ThenBy(u => u.LastName ?? string.Empty)
                     .ToList();
 
-                context.OutputParameters["Result"] = BuildResult(true, "Assignable users retrieved.", ordered);
+                var message = ordered.Count == 0
+                    ? $"No users found for assignment context: {assignmentContext}."
+                    : "Assignable users retrieved.";
+                context.OutputParameters["Result"] = BuildResult(true, message, ordered);
             }
             catch (Exception ex)
             {
