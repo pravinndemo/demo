@@ -14,6 +14,7 @@ namespace VOA.SVT.Plugins.CustomAPI
             public const string HasAccess = "hasSvtAccess";
             public const string MatchedTeam = "matchedTeamName";
             public const string MatchedRole = "matchedRoleName";
+            public const string MatchedRoles = "matchedRoleNames";
         }
 
         public SvtGetUserContext(string unsecureConfiguration, string secureConfiguration)
@@ -45,12 +46,16 @@ namespace VOA.SVT.Plugins.CustomAPI
         {
             var persona = result?.Persona ?? UserPersona.None;
             var source = result?.ResolutionSource ?? UserContextConfig.SourceNone;
+            var matchedRoles = result?.MatchedRoleNames ?? Array.Empty<string>();
 
             context.OutputParameters[OutputNames.Persona] = persona.ToString();
             context.OutputParameters[OutputNames.ResolutionSource] = source;
             context.OutputParameters[OutputNames.HasAccess] = persona != UserPersona.None;
             context.OutputParameters[OutputNames.MatchedTeam] = result?.MatchedTeamName ?? string.Empty;
             context.OutputParameters[OutputNames.MatchedRole] = result?.MatchedRoleName ?? string.Empty;
+            context.OutputParameters[OutputNames.MatchedRoles] = matchedRoles.Count > 0
+                ? string.Join(";", matchedRoles)
+                : string.Empty;
         }
     }
 }

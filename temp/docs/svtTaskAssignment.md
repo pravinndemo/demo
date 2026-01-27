@@ -30,20 +30,25 @@ The Custom API is called with the following parameters (per selected task):
 | `taskId` | string | Task ID from the selected record. **Required** by plugin. |
 | `assignedByUserId` | string | Current user ID (from context). |
 | `date` | string (ISO) | Assignment timestamp in ISO format. |
+| `screenName` | string | Canvas screen name used to resolve assignment context (manager vs QA). |
 
-The PCF populates these values in `assignTasksToUser` prior to the API call.【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L650-L671】
+The PCF populates these values in `assignTasksToUser` prior to the API call (including the `screenName` derived from the Canvas screen input).【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L312-L319】【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L813-L834】
 
 ---
 
 ## Backend plugin flow (Dataverse → APIM)
 The plugin `SvtTaskAssignment`:
+0. Resolves the **user persona** (manager/QA/user) and assignment context from `screenName` / `canvasScreenName`.
 1. Reads the API configuration from `voa_CredentialProvider` (`SVTTaskAssignment`).
-2. Validates that `assignedToUserId` and `taskId` are present.
-3. Posts the assignment payload to APIM as JSON.
-4. Returns a `Result` JSON string indicating success or failure.
+2. Denies access if the user persona is not allowed for the assignment context.
+3. Validates that `assignedToUserId` and `taskId` are present.
+4. Posts the assignment payload to APIM as JSON.
+5. Returns a `Result` JSON string indicating success or failure.
 
 Relevant files:
-- `VOA.SVT.Plugins/Plugins/CustomAPI/SvtTaskAssignment.cs` (core flow, payload, error handling).【F:VOA.SVT.Plugins/Plugins/CustomAPI/SvtTaskAssignment.cs†L12-L172】
+- `VOA.SVT.Plugins/Plugins/CustomAPI/SvtTaskAssignment.cs` (context resolution, authorization, payload, error handling).【F:VOA.SVT.Plugins/Plugins/CustomAPI/SvtTaskAssignment.cs†L12-L172】
+- `VOA.SVT.Plugins/Helpers/UserContextResolver.cs` (persona resolution via teams/roles).【F:VOA.SVT.Plugins/Helpers/UserContextResolver.cs†L7-L200】
+- `VOA.SVT.Plugins/Helpers/AssignmentContextResolver.cs` (manager vs QA screen matching and authorization rules).【F:VOA.SVT.Plugins/Helpers/AssignmentContextResolver.cs†L7-L57】
 
 ---
 
@@ -57,7 +62,13 @@ The plugin sets the `Result` string for both success and failure cases.【F:VOA.
 
 ---
 
+## Authorization notes (roles + teams)
+`voa_SvtTaskAssignment` uses **assignment context** + **user persona** to protect assignment operations. The plugin resolves persona by checking SVT security-group team membership first and then falling back to SVT Dataverse roles if needed. Manager assignment is restricted to **SVT Managers**, while QA assignment allows **Managers or QA** personas.【F:VOA.SVT.Plugins/Helpers/UserContextResolver.cs†L45-L200】【F:VOA.SVT.Plugins/Helpers/AssignmentContextResolver.cs†L27-L57】【F:VOA.SVT.Plugins/Plugins/CustomAPI/SvtTaskAssignment.cs†L28-L51】
+
+---
+
 ## Related docs
 - `docs/svtGetSaleRecords.md` (search + grid data retrieval).
 - `docs/svtGetViewSaleRecordById.md` (sale details retrieval).
 - `docs/svtManualTaskCreation.md` (manual task creation endpoint).
+- `docs/svtGetUserContext.md` (user persona/roles context for Canvas apps).

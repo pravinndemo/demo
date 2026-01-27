@@ -2,6 +2,7 @@ using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace VOA.SVT.Plugins.Helpers
 {
@@ -19,6 +20,7 @@ namespace VOA.SVT.Plugins.Helpers
         public string ResolutionSource { get; set; }
         public string MatchedTeamName { get; set; }
         public string MatchedRoleName { get; set; }
+        public IReadOnlyList<string> MatchedRoleNames { get; set; }
     }
 
     internal static class UserContextConfig
@@ -61,7 +63,8 @@ namespace VOA.SVT.Plugins.Helpers
                 Persona = UserPersona.None,
                 ResolutionSource = UserContextConfig.SourceNone,
                 MatchedTeamName = string.Empty,
-                MatchedRoleName = string.Empty
+                MatchedRoleName = string.Empty,
+                MatchedRoleNames = Array.Empty<string>()
             };
         }
 
@@ -88,7 +91,11 @@ namespace VOA.SVT.Plugins.Helpers
             if (result?.Entities == null || result.Entities.Count == 0)
             {
                 trace?.Trace("ResolveFromTeams: no SVT security-group team memberships found");
-                return new UserContextResult { Persona = UserPersona.None };
+                return new UserContextResult
+                {
+                    Persona = UserPersona.None,
+                    MatchedRoleNames = Array.Empty<string>()
+                };
             }
 
             var teamNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -108,7 +115,8 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.Manager,
                     ResolutionSource = UserContextConfig.SourceTeam,
                     MatchedTeamName = UserContextConfig.TeamNameSvtManager,
-                    MatchedRoleName = string.Empty
+                    MatchedRoleName = string.Empty,
+                    MatchedRoleNames = Array.Empty<string>()
                 };
             }
 
@@ -119,7 +127,8 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.QA,
                     ResolutionSource = UserContextConfig.SourceTeam,
                     MatchedTeamName = UserContextConfig.TeamNameSvtQa,
-                    MatchedRoleName = string.Empty
+                    MatchedRoleName = string.Empty,
+                    MatchedRoleNames = Array.Empty<string>()
                 };
             }
 
@@ -130,11 +139,16 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.User,
                     ResolutionSource = UserContextConfig.SourceTeam,
                     MatchedTeamName = UserContextConfig.TeamNameSvtUser,
-                    MatchedRoleName = string.Empty
+                    MatchedRoleName = string.Empty,
+                    MatchedRoleNames = Array.Empty<string>()
                 };
             }
 
-            return new UserContextResult { Persona = UserPersona.None };
+            return new UserContextResult
+            {
+                Persona = UserPersona.None,
+                MatchedRoleNames = Array.Empty<string>()
+            };
         }
 
         private static UserContextResult ResolveFromRoles(IOrganizationService service, Guid userId, ITracingService trace)
@@ -158,7 +172,11 @@ namespace VOA.SVT.Plugins.Helpers
             if (result?.Entities == null || result.Entities.Count == 0)
             {
                 trace?.Trace("ResolveFromRoles: no SVT roles found");
-                return new UserContextResult { Persona = UserPersona.None };
+                return new UserContextResult
+                {
+                    Persona = UserPersona.None,
+                    MatchedRoleNames = Array.Empty<string>()
+                };
             }
 
             var roleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -171,6 +189,10 @@ namespace VOA.SVT.Plugins.Helpers
                 }
             }
 
+            var matchedRoles = roleNames
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
             if (roleNames.Contains(UserContextConfig.RoleNameSvtManager))
             {
                 return new UserContextResult
@@ -178,7 +200,8 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.Manager,
                     ResolutionSource = UserContextConfig.SourceRole,
                     MatchedTeamName = string.Empty,
-                    MatchedRoleName = UserContextConfig.RoleNameSvtManager
+                    MatchedRoleName = UserContextConfig.RoleNameSvtManager,
+                    MatchedRoleNames = matchedRoles
                 };
             }
 
@@ -189,7 +212,8 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.QA,
                     ResolutionSource = UserContextConfig.SourceRole,
                     MatchedTeamName = string.Empty,
-                    MatchedRoleName = UserContextConfig.RoleNameSvtQa
+                    MatchedRoleName = UserContextConfig.RoleNameSvtQa,
+                    MatchedRoleNames = matchedRoles
                 };
             }
 
@@ -200,11 +224,16 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.User,
                     ResolutionSource = UserContextConfig.SourceRole,
                     MatchedTeamName = string.Empty,
-                    MatchedRoleName = UserContextConfig.RoleNameSvtUser
+                    MatchedRoleName = UserContextConfig.RoleNameSvtUser,
+                    MatchedRoleNames = matchedRoles
                 };
             }
 
-            return new UserContextResult { Persona = UserPersona.None };
+            return new UserContextResult
+            {
+                Persona = UserPersona.None,
+                MatchedRoleNames = matchedRoles
+            };
         }
     }
 }
