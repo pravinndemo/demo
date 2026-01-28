@@ -20,6 +20,15 @@
 
     <property name="canvasScreenName" display-name-key="Canvas Screen Name" description-key="Name of the Canvas App screen to navigate to on row click (e.g., svt-sale-details)." of-type="SingleLine.Text" usage="input" required="false" default-value="" />
     <property
+      name="tableKey"
+      display-name-key="Table Key"
+      description-key="Optional override for table/profile selection (e.g., sales, manager, qaassign, qaview)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value=""
+    />
+    <property
       name="customApiName"
       display-name-key="Custom API Name"
       description-key="Name of the Dataverse Custom API used for search (e.g., voa_GetAllSalesRecord)."
@@ -32,6 +41,24 @@
       name="customApiType"
       display-name-key="Custom API Type"
       description-key="Custom API operation type: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="function"
+    />
+    <property
+      name="metadataApiName"
+      display-name-key="Metadata API Name"
+      description-key="Name of the Dataverse Custom API used to fetch metadata (e.g., voa_SvtGetSalesMetadata)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_SvtGetSalesMetadata"
+    />
+    <property
+      name="metadataApiType"
+      display-name-key="Metadata API Type"
+      description-key="Custom API operation type for metadata: function (GET) or action (POST)."
       of-type="SingleLine.Text"
       usage="input"
       required="false"
@@ -132,17 +159,8 @@
       <platform-library name="Fluent" version="9.46.2" />
       <css path="css/DetailsListVOA.css" order="1" />
     </resources>
-    <!-- UNCOMMENT TO ENABLE THE SPECIFIED API
     <feature-usage>
-      <uses-feature name="Device.captureAudio" required="true" />
-      <uses-feature name="Device.captureImage" required="true" />
-      <uses-feature name="Device.captureVideo" required="true" />
-      <uses-feature name="Device.getBarcodeValue" required="true" />
-      <uses-feature name="Device.getCurrentPosition" required="true" />
-      <uses-feature name="Device.pickFile" required="true" />
-      <uses-feature name="Utility" required="true" />
       <uses-feature name="WebAPI" required="true" />
     </feature-usage>
-    -->
   </control>
 </manifest>

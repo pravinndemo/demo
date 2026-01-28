@@ -87,6 +87,19 @@ export const executeUnboundCustomApi = async <T>(
   }
   const operationType = options?.operationType ?? 1;
   const request = buildUnboundCustomApiRequest(operationName, params, operationType);
-  const result = await executor.execute(request);
-  return (await result.json()) as T;
+  try {
+    const result = await executor.execute(request);
+    return (await result.json()) as T;
+  } catch (err) {
+    let message = '';
+    if (err instanceof Error) {
+      message = err.message;
+    } else if (typeof err === 'string') {
+      message = err;
+    }
+    if (message.includes('_getWebApiContext') || message.includes('execute is not a function')) {
+      throw new Error('Web API execute is not supported in the PCF test harness. Please test in a Dataverse environment.');
+    }
+    throw err;
+  }
 };

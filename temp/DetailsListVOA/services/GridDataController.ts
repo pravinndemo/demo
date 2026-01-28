@@ -48,14 +48,20 @@ export async function loadGridData(
   args: {
     tableKey: string;
     filters: unknown; // GridFilterState but keep loose to avoid circular deps
+    source?: string;
     currentPage: number;
     pageSize: number;
     clientSort?: ClientSortState;
     prefilters?: unknown;
+    searchQuery?: string;
   },
 ): Promise<LoadResult> {
   const pageSize = args.pageSize ?? (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 500;
-  const apiParamsBase = buildApiParamsFor(args.tableKey, args.filters as never, args.currentPage, pageSize, args.prefilters);
+  const source = typeof args.source === 'string' ? args.source.trim() : '';
+  const baseFilters = (args.filters ?? {}) as Record<string, unknown>;
+  const filtersWithSource = source ? { ...baseFilters, source } : baseFilters;
+  const apiParamsBase = buildApiParamsFor(args.tableKey, filtersWithSource as never, args.currentPage, pageSize, args.prefilters);
+  const searchQuery = typeof args.searchQuery === 'string' ? args.searchQuery.trim() : '';
   const customApiName = resolveCustomApiName(context);
   const customApiType = resolveCustomApiType(context);
 
@@ -69,6 +75,7 @@ export async function loadGridData(
     };
     if (sortBy) p.sortField = sortBy;
     if (typeof sortDirection === 'number') p.sortDirection = sortDirection === 1 ? 'desc' : 'asc';
+    if (searchQuery) p.SearchQuery = searchQuery;
     return p;
   };
 

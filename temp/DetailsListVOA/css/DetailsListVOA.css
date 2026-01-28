@@ -739,6 +739,53 @@
   font-size: 13px;
 }
 
+.voa-search-panel .ms-Label {
+  min-height: 18px;
+  line-height: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0b0c0c;
+  margin-bottom: 2px;
+}
+
+.voa-search-panel .ms-TextField-errorMessage,
+.voa-search-panel .ms-ComboBox-errorMessage,
+.voa-search-panel .ms-Dropdown-errorMessage {
+  min-height: 16px;
+}
+
+.voa-search-panel .ms-ComboBox,
+.voa-search-panel .ms-Dropdown,
+.voa-search-panel .ms-TextField {
+  min-width: 0;
+}
+
+.voa-search-panel__actions {
+  align-self: flex-start;
+  padding-top: 28px;
+  padding-left: 25px;
+  flex: 0 0 auto;
+}
+
+.voa-search-panel__actions .ms-Button {
+  height: 32px;
+  border-radius: 4px;
+}
+
+.voa-search-panel__actions .ms-Button-label {
+  font-weight: 600;
+}
+
+.voa-search-panel__actions .ms-Spinner {
+  align-self: center;
+}
+
+@media (max-width: 1200px) {
+  .voa-search-panel__actions {
+    padding-top: 0;
+  }
+}
+
 .voa-prefilter-bar--inline .ms-Dropdown-title {
   display: flex;
   align-items: center;
@@ -802,6 +849,7 @@
 }
 
 .voa-prefilter-actions .ms-Button--primary,
+.voa-search-panel__actions .ms-Button--primary,
 .voa-command-bar__actions .ms-Button--primary {
   background: #ffffff;
   border-color: #1d70b8;
@@ -810,12 +858,15 @@
 
 .voa-prefilter-actions .ms-Button--primary .ms-Button-icon,
 .voa-prefilter-actions .ms-Button--primary .ms-Button-label,
+.voa-search-panel__actions .ms-Button--primary .ms-Button-icon,
+.voa-search-panel__actions .ms-Button--primary .ms-Button-label,
 .voa-command-bar__actions .ms-Button--primary .ms-Button-icon,
 .voa-command-bar__actions .ms-Button--primary .ms-Button-label {
   color: #1d70b8;
 }
 
 .voa-prefilter-actions .ms-Button--primary:hover,
+.voa-search-panel__actions .ms-Button--primary:hover,
 .voa-command-bar__actions .ms-Button--primary:hover {
   background: #e8f1fb;
   border-color: #1d70b8;
@@ -824,6 +875,8 @@
 
 .voa-prefilter-actions .ms-Button--primary:hover .ms-Button-icon,
 .voa-prefilter-actions .ms-Button--primary:hover .ms-Button-label,
+.voa-search-panel__actions .ms-Button--primary:hover .ms-Button-icon,
+.voa-search-panel__actions .ms-Button--primary:hover .ms-Button-label,
 .voa-command-bar__actions .ms-Button--primary:hover .ms-Button-icon,
 .voa-command-bar__actions .ms-Button--primary:hover .ms-Button-label {
   color: #1d70b8;
@@ -832,6 +885,9 @@
 .voa-prefilter-actions .ms-Button--primary.is-disabled,
 .voa-prefilter-actions .ms-Button--primary.is-disabled:hover,
 .voa-prefilter-actions .ms-Button--primary:disabled,
+.voa-search-panel__actions .ms-Button--primary.is-disabled,
+.voa-search-panel__actions .ms-Button--primary.is-disabled:hover,
+.voa-search-panel__actions .ms-Button--primary:disabled,
 .voa-command-bar__actions .ms-Button--primary.is-disabled,
 .voa-command-bar__actions .ms-Button--primary.is-disabled:hover,
 .voa-command-bar__actions .ms-Button--primary:disabled {
@@ -846,6 +902,12 @@
 .voa-prefilter-actions .ms-Button--primary.is-disabled:hover .ms-Button-label,
 .voa-prefilter-actions .ms-Button--primary:disabled .ms-Button-icon,
 .voa-prefilter-actions .ms-Button--primary:disabled .ms-Button-label,
+.voa-search-panel__actions .ms-Button--primary.is-disabled .ms-Button-icon,
+.voa-search-panel__actions .ms-Button--primary.is-disabled .ms-Button-label,
+.voa-search-panel__actions .ms-Button--primary.is-disabled:hover .ms-Button-icon,
+.voa-search-panel__actions .ms-Button--primary.is-disabled:hover .ms-Button-label,
+.voa-search-panel__actions .ms-Button--primary:disabled .ms-Button-icon,
+.voa-search-panel__actions .ms-Button--primary:disabled .ms-Button-label,
 .voa-command-bar__actions .ms-Button--primary.is-disabled .ms-Button-icon,
 .voa-command-bar__actions .ms-Button--primary.is-disabled .ms-Button-label,
 .voa-command-bar__actions .ms-Button--primary.is-disabled:hover .ms-Button-icon,

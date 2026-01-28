@@ -53,15 +53,17 @@ import { GridCell } from '../DetailsListVOA/grid/GridCell';
 import { ClassNames } from '../DetailsListVOA/grid/Grid.styles';
 import { GridFilterState, NumericFilter, NumericFilterMode, createDefaultGridFilters, sanitizeFilters, SearchByOption, DateRangeFilter, isValidUkPostcode, normalizeUkPostcode } from './Filters';
 import { getSearchByOptionsFor, getColumnFilterConfigFor, isLookupFieldFor, isViewSalesRecordEnabledFor, ColumnFilterConfig } from '../DetailsListVOA/config/TableConfigs';
-import { MANAGER_PREFILTER_DEFAULT, MANAGER_SEARCH_BY_OPTIONS, MANAGER_BILLING_AUTHORITY_OPTIONS, MANAGER_CASEWORKER_OPTIONS, getManagerWorkThatOptions, isManagerCompletedWorkThat, type ManagerPrefilterState, type ManagerSearchBy, type ManagerWorkThat } from './config/PrefilterConfigs';
+import { MANAGER_PREFILTER_DEFAULT, MANAGER_SEARCH_BY_OPTIONS, getManagerWorkThatOptions, isManagerCompletedWorkThat, type ManagerPrefilterState, type ManagerSearchBy, type ManagerWorkThat } from './config/PrefilterConfigs';
 
 type DataSet = ComponentFramework.PropertyHelper.DataSetApi.EntityRecord & IObjectWithKey;
 type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFilter;
 const ASSIGN_LOADING_ROW_ID = '__loading__';
+export type GridScreenKind = 'salesSearch' | 'managerAssign' | 'caseworkerView' | 'qcAssign' | 'qcView' | 'unknown';
 
 export interface GridProps {
   // When false, hides the built-in top search panel
   showSearchPanel?: boolean;
+  screenKind?: GridScreenKind;
   tableKey?: string;
   height?: number;
   taskCount?: number;
@@ -93,6 +95,12 @@ export interface GridProps {
   canPrev: boolean;
   overlayOnSort?: boolean;
   searchFilters: GridFilterState;
+  billingAuthorityOptions?: string[];
+  billingAuthorityOptionsLoading?: boolean;
+  billingAuthorityOptionsError?: string;
+  caseworkerOptions?: string[];
+  caseworkerOptionsLoading?: boolean;
+  caseworkerOptionsError?: string;
   errorMessage?: string;
   showResults?: boolean;
   onLoadFilterOptions?: (field: string, query: string) => Promise<string[]>;
@@ -168,6 +176,27 @@ interface SearchFieldConfig {
   multiLimit?: number;
 }
 
+const SALES_SEARCH_OPTIONS: SearchByOption[] = ['address', 'saleId', 'taskId', 'uprn', 'billingAuthority'];
+const ID_FIELD_MAX_LENGTH = 15;
+const UPRN_MAX_LENGTH = 12;
+const ADDRESS_FIELD_MAX_LENGTH = 150;
+const MIN_ADDRESS_TEXT_LENGTH = 3;
+const SALE_ID_REGEX = /^S-\d+$/i;
+const TASK_ID_REGEX = /^\d+$/i;
+const BILLING_AUTHORITY_ALL_KEY = '__all__';
+const CASEWORKER_ALL_KEY = '__all__';
+
+const sanitizeAlphaNumHyphen = (value?: string, maxLength = ID_FIELD_MAX_LENGTH): string =>
+  (value ?? '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '')
+    .slice(0, maxLength);
+
+const sanitizeDigits = (value?: string, maxLength = UPRN_MAX_LENGTH): string =>
+  (value ?? '')
+    .replace(/\D/g, '')
+    .slice(0, maxLength);
+
 const SEARCH_FIELD_CONFIGS: Record<SearchByOption, SearchFieldConfig> = {
   manualCheck: {
     key: 'manualCheck',
@@ -196,7 +225,15 @@ const SEARCH_FIELD_CONFIGS: Record<SearchByOption, SearchFieldConfig> = {
     selectAllValues: ['Outlier', 'Key sale'],
   },
   saleId: { key: 'saleId', label: 'Sale ID', control: 'text', stateKey: 'saleId', placeholder: 'S-1000001' },
-  taskId: { key: 'taskId', label: 'Task ID', control: 'text', stateKey: 'taskId', placeholder: 'A-1000001 / M-1000001' },
+  taskId: {
+    key: 'taskId',
+    label: 'Task ID',
+    control: 'text',
+    stateKey: 'taskId',
+    placeholder: '1000001',
+    inputMode: 'numeric',
+    transform: (v) => (v ?? '').replace(/\D/g, ''),
+  },
   uprn: {
     key: 'uprn',
     label: 'UPRN',
@@ -320,6 +357,7 @@ export function getRecordKey(record: ComponentFramework.PropertyHelper.DataSetAp
 export const Grid = React.memo((props: GridProps) => {
   const {
     showSearchPanel = true,
+    screenKind: screenKindProp,
     tableKey = 'sales',
     taskCount,
     selectedCount = 0,
@@ -351,6 +389,12 @@ export const Grid = React.memo((props: GridProps) => {
     canPrev,
     overlayOnSort,
     searchFilters,
+    billingAuthorityOptions = [],
+    billingAuthorityOptionsLoading = false,
+    billingAuthorityOptionsError,
+    caseworkerOptions = [],
+    caseworkerOptionsLoading = false,
+    caseworkerOptionsError,
     errorMessage,
     statusMessage,
     showResults,
@@ -440,28 +484,43 @@ export const Grid = React.memo((props: GridProps) => {
   }, [onAssignPanelToggle]);
 
   const screenName = (canvasScreenName ?? '').toLowerCase();
-  const isAssignment = screenName.includes('assignment');
-  const isManagerAssign = isAssignment && screenName.includes('manager');
-  const isQcAssign = isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
-  const isCaseworkerView = screenName.includes('caseworker');
-  const isQcView = !isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
-  const isSalesSearch = screenName.includes('sales') || screenName.includes('record search');
+  const normalizedScreenId = React.useMemo(() => screenName.replace(/[^a-z0-9]/g, ''), [screenName]);
+  const derivedScreenKind = React.useMemo<GridScreenKind>(() => {
+    if (screenKindProp) return screenKindProp;
+    switch (normalizedScreenId) {
+      case 'salesrecordsearch':
+        return 'salesSearch';
+      case 'managerassignment':
+        return 'managerAssign';
+      case 'caseworkerview':
+        return 'caseworkerView';
+      case 'qualitycontrolassignment':
+        return 'qcAssign';
+      case 'qualitycontrolview':
+        return 'qcView';
+      default:
+        break;
+    }
+    const hasAssignment = screenName.includes('assignment');
+    if (hasAssignment && screenName.includes('manager')) return 'managerAssign';
+    if (hasAssignment && (screenName.includes('qc') || screenName.includes('quality'))) return 'qcAssign';
+    if (screenName.includes('caseworker')) return 'caseworkerView';
+    if (!hasAssignment && (screenName.includes('qc') || screenName.includes('quality'))) return 'qcView';
+    if (screenName.includes('sales') || screenName.includes('record search') || screenName.includes('recordsearch')) return 'salesSearch';
+    return 'unknown';
+  }, [normalizedScreenId, screenKindProp, screenName]);
+
+  const isManagerAssign = derivedScreenKind === 'managerAssign';
+  const isQcAssign = derivedScreenKind === 'qcAssign';
+  const isCaseworkerView = derivedScreenKind === 'caseworkerView';
+  const isQcView = derivedScreenKind === 'qcView';
+  const isSalesSearch = derivedScreenKind === 'salesSearch';
+  const isAssignment = isManagerAssign || isQcAssign;
   const showAssign = isManagerAssign || isQcAssign;
   const useAssignmentLayout = isManagerAssign;
   const assignActionText = isQcAssign ? 'Assign QC Tasks' : 'Assign Tasks';
   const assignHeaderText = isQcAssign ? 'QC Assignment' : 'Manager Assignment';
   const assignUserListTitle = isQcAssign ? 'QC Users' : 'SVT Users';
-  const pageHeaderIconName = isManagerAssign
-      ? 'People'
-      : isQcAssign
-        ? 'Shield'
-        : isCaseworkerView
-          ? 'Contact'
-          : isQcView
-            ? 'ClipboardList'
-            : isSalesSearch
-              ? 'Search'
-              : undefined;
   const pageHeaderText = isManagerAssign
       ? 'Manager Assignment'
       : isQcAssign
@@ -492,6 +551,26 @@ export const Grid = React.memo((props: GridProps) => {
       && !state.completedFrom
       && !state.completedTo;
   }, []);
+
+  const lastScreenKindRef = React.useRef<GridScreenKind | undefined>(undefined);
+  React.useEffect(() => {
+    const prev = lastScreenKindRef.current;
+    const next = derivedScreenKind;
+
+    // When moving from Sales Search into Manager Assignment, force a clean prefilter slate.
+    if (prev === 'salesSearch' && next === 'managerAssign') {
+      setPrefilters(MANAGER_PREFILTER_DEFAULT);
+      setPrefilterExpanded(true);
+      try {
+        localStorage.removeItem(prefilterStorageKey);
+      } catch {
+        // ignore storage failures
+      }
+      onPrefilterClear?.();
+    }
+
+    lastScreenKindRef.current = next;
+  }, [derivedScreenKind, onPrefilterClear, prefilterStorageKey]);
 
   React.useEffect(() => {
     if (!isManagerAssign) return;
@@ -653,30 +732,66 @@ export const Grid = React.memo((props: GridProps) => {
     [],
   );
 
-  const onPrefilterBillingChange = React.useCallback(
-    (_: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
-      if (!option) return;
-      const key = String(option.key);
-      setPrefilters((prev) => {
-        const current = prev.billingAuthorities;
-        const next = option.selected ? [...current, key] : current.filter((v) => v !== key);
-        return { ...prev, billingAuthorities: next };
-      });
-    },
-    [],
-  );
+  const normalizedCaseworkerOptions = React.useMemo<IDropdownOption[]>(() => {
+    const seen = new Set<string>();
+    return (Array.isArray(caseworkerOptions) ? caseworkerOptions : [])
+      .filter((value) => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
+      .filter((value) => {
+        if (seen.has(value)) return false;
+        seen.add(value);
+        return true;
+      })
+      .map((value) => ({ key: value, text: value }));
+  }, [caseworkerOptions]);
+
+  const caseworkerOptionsList = React.useMemo<IDropdownOption[]>(() => {
+    if (caseworkerOptionsLoading) {
+      return [{ key: '__loading__', text: 'Loading caseworkers...', disabled: true }];
+    }
+    if (caseworkerOptionsError) {
+      return [{ key: '__error__', text: caseworkerOptionsError, disabled: true }];
+    }
+    if (normalizedCaseworkerOptions.length === 0) {
+      return [{ key: '__empty__', text: 'No caseworkers found', disabled: true }];
+    }
+    return [{ key: CASEWORKER_ALL_KEY, text: 'All' }, ...normalizedCaseworkerOptions];
+  }, [caseworkerOptionsError, caseworkerOptionsLoading, normalizedCaseworkerOptions]);
+
+  const caseworkerOptionKeys = React.useMemo<string[]>(() => {
+    return normalizedCaseworkerOptions
+      .map((opt) => String(opt.key))
+      .filter((key) => key !== CASEWORKER_ALL_KEY && !key.startsWith('__'));
+  }, [normalizedCaseworkerOptions]);
+
+  const caseworkerSelectedKeys = React.useMemo<string[]>(() => {
+    const selected = prefilters.caseworkers ?? [];
+    if (selected.length === 0) return [];
+    const allSelected = caseworkerOptionKeys.length > 0
+      && caseworkerOptionKeys.every((key) => selected.includes(key));
+    return allSelected ? [CASEWORKER_ALL_KEY, ...selected] : selected;
+  }, [caseworkerOptionKeys, prefilters.caseworkers]);
 
   const onPrefilterCaseworkerChange = React.useCallback(
     (_: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
-      if (!option) return;
+      if (!option || option.disabled) return;
       const key = String(option.key);
+      if (key.startsWith('__')) return;
+      if (key === CASEWORKER_ALL_KEY) {
+        setPrefilters((prev) => ({
+          ...prev,
+          caseworkers: option.selected ? caseworkerOptionKeys : [],
+        }));
+        return;
+      }
       setPrefilters((prev) => {
         const current = prev.caseworkers;
         const next = option.selected ? [...current, key] : current.filter((v) => v !== key);
         return { ...prev, caseworkers: next };
       });
     },
-    [],
+    [caseworkerOptionKeys],
   );
 
   const onPrefilterWorkThatChange = React.useCallback(
@@ -725,6 +840,84 @@ export const Grid = React.memo((props: GridProps) => {
 
   const getLengthErrors = React.useCallback(
     (fs: GridFilterState) => {
+      if (isSalesSearch) {
+        const saleId = sanitizeAlphaNumHyphen(fs.saleId, ID_FIELD_MAX_LENGTH).trim();
+        const taskId = sanitizeDigits(fs.taskId, ID_FIELD_MAX_LENGTH).trim();
+        const uprn = sanitizeDigits(fs.uprn, UPRN_MAX_LENGTH).trim();
+        const building = (fs.buildingNameNumber ?? '').trim();
+        const street = (fs.street ?? '').trim();
+        const town = (fs.townCity ?? '').trim();
+        const postcode = normalizeUkPostcode(fs.postcode ?? '').trim();
+        const billingAuthority = (fs.billingAuthority?.[0] ?? '').trim();
+        const billingAuthorityReference = (fs.bacode ?? '').trim();
+
+        const saleIdError =
+          fs.searchBy === 'saleId' && saleId.length > 0 && (!SALE_ID_REGEX.test(saleId) || saleId.length < 3)
+            ? 'Please enter a valid Sale ID'
+            : undefined;
+        const taskIdError =
+          fs.searchBy === 'taskId' && taskId.length > 0 && !TASK_ID_REGEX.test(taskId)
+            ? 'Please enter a valid Task ID'
+            : undefined;
+        const uprnError =
+          fs.searchBy === 'uprn' && (fs.uprn ?? '').trim().length > 0 && uprn.length === 0
+            ? 'Please enter a valid UPRN'
+            : undefined;
+
+        let billingAuthorityError: string | undefined;
+        let billingAuthorityRefError: string | undefined;
+        if (fs.searchBy === 'billingAuthority') {
+          const hasAuthority = billingAuthority.length > 0;
+          const hasReference = billingAuthorityReference.length > 0;
+          if (hasAuthority !== hasReference) {
+            billingAuthorityError = hasAuthority ? undefined : 'Billing Authority is required';
+            billingAuthorityRefError = hasReference ? undefined : 'Billing Authority Reference is required';
+          }
+        }
+
+        let postcodeError: string | undefined;
+        let streetError: string | undefined;
+        let townError: string | undefined;
+        let addressCriteriaError: string | undefined;
+        if (fs.searchBy === 'address') {
+          const hasPostcode = postcode.length > 0;
+          const postcodeValid = hasPostcode ? isValidUkPostcode(postcode, false) : false;
+          if (hasPostcode && !postcodeValid) {
+            postcodeError = 'Please enter a valid postcode';
+          }
+          const requiresOtherCriteria = !postcodeValid;
+          if (requiresOtherCriteria) {
+            if (street.length > 0 && street.length < MIN_ADDRESS_TEXT_LENGTH) {
+              streetError = `Enter at least ${MIN_ADDRESS_TEXT_LENGTH} characters`;
+            }
+            if (town.length > 0 && town.length < MIN_ADDRESS_TEXT_LENGTH) {
+              townError = `Enter at least ${MIN_ADDRESS_TEXT_LENGTH} characters`;
+            }
+            const buildingValid = building.length > 0;
+            const streetValid = street.length >= MIN_ADDRESS_TEXT_LENGTH;
+            const townValid = town.length >= MIN_ADDRESS_TEXT_LENGTH;
+            const criteriaCount = (buildingValid ? 1 : 0) + (streetValid ? 1 : 0) + (townValid ? 1 : 0);
+            if (!hasPostcode && criteriaCount === 1) {
+              addressCriteriaError = 'Please provide at least two search criteria.';
+            }
+          }
+        }
+
+        return {
+          address: addressCriteriaError,
+          postcode: postcodeError,
+          street: streetError,
+          townCity: townError,
+          saleId: saleIdError,
+          taskId: taskIdError,
+          uprn: uprnError,
+          billingAuthority: billingAuthorityError,
+          bacode: billingAuthorityRefError,
+          summaryFlag: undefined,
+          searchField: undefined,
+        };
+      }
+
       const cfg = SEARCH_FIELD_CONFIGS[fs.searchBy];
       let searchField: string | undefined;
       if (cfg?.minLength && typeof cfg.stateKey === 'string') {
@@ -751,7 +944,7 @@ export const Grid = React.memo((props: GridProps) => {
         searchField,
       };
     },
-    [isValidUkPostcode, normalizeUkPostcode],
+    [isSalesSearch, isValidUkPostcode, normalizeUkPostcode],
   );
 
   // Debounced search when typing in non-UPRN text fields
@@ -770,6 +963,7 @@ export const Grid = React.memo((props: GridProps) => {
       }
       const sanitized = sanitizeFilters(filters);
       if (
+        !isSalesSearch &&
         sanitized.searchBy === 'uprn' &&
         sanitized.uprn &&
         (sanitized.uprn.length < 8 || sanitized.uprn.length > 10)
@@ -779,7 +973,7 @@ export const Grid = React.memo((props: GridProps) => {
       setFilters(sanitized);
       onSearch(sanitized);
     }, 350);
-  }, [autoSearchEnabled, filters, getLengthErrors, onSearch]);
+  }, [autoSearchEnabled, filters, getLengthErrors, isSalesSearch, onSearch]);
 
   React.useEffect(() => () => {
     if (searchTimer.current) {
@@ -792,17 +986,92 @@ export const Grid = React.memo((props: GridProps) => {
   }, [searchFilters]);
 
   const searchByOptions = React.useMemo<IDropdownOption[]>(() => {
-    const keys = getSearchByOptionsFor(tableKey);
+    const keys = isSalesSearch ? SALES_SEARCH_OPTIONS : getSearchByOptionsFor(tableKey);
     return keys.map((k) => {
       const cfg = SEARCH_FIELD_CONFIGS[k];
       const label = cfg?.label ?? k.charAt(0).toUpperCase() + k.slice(1);
       return { key: k, text: label };
     });
-  }, [tableKey]);
+  }, [isSalesSearch, tableKey]);
 
   const lengthErrors = React.useMemo(() => getLengthErrors(filters), [filters, getLengthErrors]);
   const addressError = lengthErrors.address;
   const postcodeError = lengthErrors.postcode;
+  const streetError = lengthErrors.street;
+  const townError = lengthErrors.townCity;
+  const saleIdError = lengthErrors.saleId;
+  const taskIdError = lengthErrors.taskId;
+  const billingAuthorityError = lengthErrors.billingAuthority;
+  const billingAuthorityRefError = lengthErrors.bacode;
+  const normalizedBillingAuthorityOptions = React.useMemo<IComboBoxOption[]>(() => {
+    const seen = new Set<string>();
+    return (Array.isArray(billingAuthorityOptions) ? billingAuthorityOptions : [])
+      .filter((value) => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
+      .filter((value) => {
+        if (seen.has(value)) return false;
+        seen.add(value);
+        return true;
+      })
+      .map((value) => ({ key: value, text: value }));
+  }, [billingAuthorityOptions]);
+
+  const billingAuthorityOptionsList = React.useMemo<IComboBoxOption[]>(() => {
+    if (billingAuthorityOptionsLoading) {
+      return [{ key: '__loading__', text: 'Loading...', disabled: true }];
+    }
+    if (billingAuthorityOptionsError) {
+      return [{ key: '__error__', text: billingAuthorityOptionsError, disabled: true }];
+    }
+    return normalizedBillingAuthorityOptions;
+  }, [billingAuthorityOptionsError, billingAuthorityOptionsLoading, normalizedBillingAuthorityOptions]);
+
+  const managerBillingAuthorityOptions = React.useMemo<IDropdownOption[]>(() => {
+    if (billingAuthorityOptionsLoading) {
+      return [{ key: '__loading__', text: 'Loading...', disabled: true }];
+    }
+    if (billingAuthorityOptionsError) {
+      return [{ key: '__error__', text: billingAuthorityOptionsError, disabled: true }];
+    }
+    const base = normalizedBillingAuthorityOptions;
+    return base.length > 0 ? [{ key: BILLING_AUTHORITY_ALL_KEY, text: 'All' }, ...base] : base;
+  }, [billingAuthorityOptionsError, billingAuthorityOptionsLoading, normalizedBillingAuthorityOptions]);
+
+  const managerBillingAuthorityKeys = React.useMemo<string[]>(() => {
+    return normalizedBillingAuthorityOptions
+      .map((opt) => String(opt.key))
+      .filter((key) => key !== BILLING_AUTHORITY_ALL_KEY && key !== '__loading__' && key !== '__error__');
+  }, [normalizedBillingAuthorityOptions]);
+
+  const managerBillingSelectedKeys = React.useMemo<string[]>(() => {
+    const selected = prefilters.billingAuthorities ?? [];
+    if (selected.length === 0) return [];
+    const allSelected = managerBillingAuthorityKeys.length > 0
+      && managerBillingAuthorityKeys.every((key) => selected.includes(key));
+    return allSelected ? [BILLING_AUTHORITY_ALL_KEY, ...selected] : selected;
+  }, [managerBillingAuthorityKeys, prefilters.billingAuthorities]);
+
+  const onPrefilterBillingChange = React.useCallback(
+    (_: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
+      if (!option) return;
+      const key = String(option.key);
+      if (key === '__loading__' || key === '__error__') return;
+      if (key === BILLING_AUTHORITY_ALL_KEY) {
+        setPrefilters((prev) => ({
+          ...prev,
+          billingAuthorities: option.selected ? managerBillingAuthorityKeys : [],
+        }));
+        return;
+      }
+      setPrefilters((prev) => {
+        const current = prev.billingAuthorities;
+        const next = option.selected ? [...current, key] : current.filter((v) => v !== key);
+        return { ...prev, billingAuthorities: next };
+      });
+    },
+    [managerBillingAuthorityKeys],
+  );
   const summaryFlagError = lengthErrors.summaryFlag;
   const searchFieldError = lengthErrors.searchField;
 
@@ -819,12 +1088,19 @@ export const Grid = React.memo((props: GridProps) => {
         return;
       }
       const selected = option.key as SearchByOption;
+      if (isSalesSearch) {
+        setFilters({
+          ...createDefaultGridFilters(),
+          searchBy: selected,
+        });
+        return;
+      }
       setFilters((prev) => ({
         ...prev,
         searchBy: selected,
       }));
     },
-    [],
+    [isSalesSearch],
   );
 
   type NumericFilterKey = 'salePrice' | 'ratio' | 'outlierRatio';
@@ -888,6 +1164,9 @@ export const Grid = React.memo((props: GridProps) => {
   );
 
   const uprnError = React.useMemo(() => {
+    if (isSalesSearch) {
+      return lengthErrors.uprn;
+    }
     if (filters.searchBy !== 'uprn' || !filters.uprn || filters.uprn.length === 0) {
       return undefined;
     }
@@ -895,14 +1174,126 @@ export const Grid = React.memo((props: GridProps) => {
       return undefined;
     }
     return 'UPRN must be 8 to 10 digits';
-  }, [filters.searchBy, filters.uprn]);
+  }, [filters.searchBy, filters.uprn, isSalesSearch, lengthErrors.uprn]);
+
+  const salesSearchCanSearch = React.useMemo(() => {
+    if (!isSalesSearch) return true;
+    const saleId = sanitizeAlphaNumHyphen(filters.saleId, ID_FIELD_MAX_LENGTH).trim();
+    const taskId = sanitizeDigits(filters.taskId, ID_FIELD_MAX_LENGTH).trim();
+    const uprn = sanitizeDigits(filters.uprn, UPRN_MAX_LENGTH).trim();
+    const billingAuthority = (filters.billingAuthority?.[0] ?? '').trim();
+    const billingAuthorityReference = (filters.bacode ?? '').trim();
+    const building = (filters.buildingNameNumber ?? '').trim();
+    const street = (filters.street ?? '').trim();
+    const town = (filters.townCity ?? '').trim();
+    const postcode = normalizeUkPostcode(filters.postcode ?? '').trim();
+
+    switch (filters.searchBy) {
+      case 'saleId':
+        return saleId.length >= 3 && SALE_ID_REGEX.test(saleId);
+      case 'taskId':
+        return taskId.length > 0 && TASK_ID_REGEX.test(taskId);
+      case 'uprn':
+        return uprn.length > 0 && uprn.length <= UPRN_MAX_LENGTH;
+      case 'billingAuthority':
+        return billingAuthority.length > 0 && billingAuthorityReference.length > 0;
+      case 'address': {
+        const hasPostcode = postcode.length > 0;
+        const postcodeValid = hasPostcode ? isValidUkPostcode(postcode, false) : false;
+        if (hasPostcode) {
+          return postcodeValid;
+        }
+        const buildingValid = building.length > 0;
+        const streetValid = street.length >= MIN_ADDRESS_TEXT_LENGTH;
+        const townValid = town.length >= MIN_ADDRESS_TEXT_LENGTH;
+        const criteriaCount = (buildingValid ? 1 : 0) + (streetValid ? 1 : 0) + (townValid ? 1 : 0);
+        return criteriaCount >= 2;
+      }
+      default:
+        return false;
+    }
+  }, [filters, isSalesSearch, isValidUkPostcode, normalizeUkPostcode]);
+
+  const salesSearchHasErrors = React.useMemo(() => {
+    if (!isSalesSearch) return false;
+    return [
+      saleIdError,
+      taskIdError,
+      uprnError,
+      addressError,
+      postcodeError,
+      streetError,
+      townError,
+      billingAuthorityError,
+      billingAuthorityRefError,
+    ].some((err) => Boolean(err));
+  }, [
+    addressError,
+    billingAuthorityError,
+    billingAuthorityRefError,
+    isSalesSearch,
+    postcodeError,
+    saleIdError,
+    streetError,
+    taskIdError,
+    townError,
+    uprnError,
+  ]);
 
   const isSearchDisabled = React.useMemo(
-    () => !!uprnError || !!addressError || !!postcodeError || !!summaryFlagError || !!searchFieldError,
-    [uprnError, addressError, postcodeError, summaryFlagError, searchFieldError],
+    () => {
+      if (isSalesSearch) {
+        return salesSearchHasErrors || !salesSearchCanSearch;
+      }
+      return !!uprnError || !!addressError || !!postcodeError || !!summaryFlagError || !!searchFieldError;
+    },
+    [
+      addressError,
+      isSalesSearch,
+      postcodeError,
+      salesSearchCanSearch,
+      salesSearchHasErrors,
+      searchFieldError,
+      summaryFlagError,
+      uprnError,
+    ],
   );
 
   const handleSearch = React.useCallback(() => {
+    if (isSalesSearch) {
+      if (salesSearchHasErrors || !salesSearchCanSearch) {
+        return;
+      }
+      const sanitized = sanitizeFilters(filters);
+      const next: GridFilterState = {
+        ...sanitized,
+        searchBy: filters.searchBy,
+      };
+      if (filters.searchBy === 'saleId') {
+        next.saleId = sanitizeAlphaNumHyphen(filters.saleId, ID_FIELD_MAX_LENGTH).trim() || undefined;
+      }
+      if (filters.searchBy === 'taskId') {
+        next.taskId = sanitizeDigits(filters.taskId, ID_FIELD_MAX_LENGTH).trim() || undefined;
+      }
+      if (filters.searchBy === 'uprn') {
+        next.uprn = sanitizeDigits(filters.uprn, UPRN_MAX_LENGTH).trim() || undefined;
+      }
+      if (filters.searchBy === 'billingAuthority') {
+        const authority = (filters.billingAuthority?.[0] ?? '').trim();
+        next.billingAuthority = authority ? [authority] : undefined;
+        next.bacode = (filters.bacode ?? '').trim() || undefined;
+      }
+      if (filters.searchBy === 'address') {
+        next.buildingNameNumber = (filters.buildingNameNumber ?? '').trim() || undefined;
+        next.street = (filters.street ?? '').trim() || undefined;
+        next.townCity = (filters.townCity ?? '').trim() || undefined;
+        next.postcode = normalizeUkPostcode(filters.postcode ?? '').trim() || undefined;
+      }
+      setFilters(next);
+      onSearch(next);
+      return;
+    }
+
     if (uprnError || addressError || postcodeError || summaryFlagError || searchFieldError) {
       return;
     }
@@ -912,20 +1303,37 @@ export const Grid = React.memo((props: GridProps) => {
     }
     setFilters(sanitized);
     onSearch(sanitized);
-  }, [addressError, filters, onSearch, postcodeError, summaryFlagError, uprnError, searchFieldError]);
+  }, [
+    addressError,
+    filters,
+    isSalesSearch,
+    normalizeUkPostcode,
+    onSearch,
+    postcodeError,
+    salesSearchCanSearch,
+    salesSearchHasErrors,
+    searchFieldError,
+    summaryFlagError,
+    uprnError,
+  ]);
 
   const handleClear = React.useCallback(() => {
-    const defaults = createDefaultGridFilters();
+    const defaults = isSalesSearch
+      ? { ...createDefaultGridFilters(), searchBy: 'address' as SearchByOption }
+      : createDefaultGridFilters();
     setFilters(defaults);
     onSearch(defaults);
-  }, [onSearch]);
+  }, [isSalesSearch, onSearch]);
 
   const showPostcodeHint = React.useMemo(() => {
+    if (isSalesSearch) {
+      return false;
+    }
     if (!filters.postcode || filters.postcode.length === 0) {
       return false;
     }
     return filters.searchBy === 'postcode' || filters.searchBy === 'address';
-  }, [filters.postcode, filters.searchBy]);
+  }, [filters.postcode, filters.searchBy, isSalesSearch]);
 
   React.useEffect(() => {
     setColumns(
@@ -1269,6 +1677,136 @@ export const Grid = React.memo((props: GridProps) => {
     const cfg = SEARCH_FIELD_CONFIGS[filters.searchBy];
     if (!cfg) return null;
 
+    if (isSalesSearch) {
+      if (filters.searchBy === 'address') {
+        return (
+          <>
+            <Stack.Item styles={{ root: { minWidth: 220 } }}>
+              <TextField
+                label="Building Name/Number"
+                value={filters.buildingNameNumber ?? ''}
+                onChange={(_, v) => updateFilters('buildingNameNumber', (v ?? '').slice(0, ADDRESS_FIELD_MAX_LENGTH))}
+                errorMessage={addressError}
+                maxLength={ADDRESS_FIELD_MAX_LENGTH}
+              />
+            </Stack.Item>
+            <Stack.Item styles={{ root: { minWidth: 220 } }}>
+              <TextField
+                label="Street"
+                value={filters.street ?? ''}
+                onChange={(_, v) => updateFilters('street', (v ?? '').slice(0, ADDRESS_FIELD_MAX_LENGTH))}
+                errorMessage={streetError}
+                maxLength={ADDRESS_FIELD_MAX_LENGTH}
+              />
+            </Stack.Item>
+            <Stack.Item styles={{ root: { minWidth: 220 } }}>
+              <TextField
+                label="Town/City"
+                value={filters.townCity ?? ''}
+                onChange={(_, v) => updateFilters('townCity', (v ?? '').slice(0, ADDRESS_FIELD_MAX_LENGTH))}
+                errorMessage={townError}
+                maxLength={ADDRESS_FIELD_MAX_LENGTH}
+              />
+            </Stack.Item>
+            <Stack.Item styles={{ root: { minWidth: 200 } }}>
+              <TextField
+                label="Postcode"
+                value={filters.postcode ?? ''}
+                onChange={(_, v) => updateFilters('postcode', normalizeUkPostcode((v ?? '').slice(0, 12)))}
+                errorMessage={postcodeError}
+                maxLength={12}
+              />
+            </Stack.Item>
+          </>
+        );
+      }
+
+      if (filters.searchBy === 'billingAuthority') {
+        const authority = filters.billingAuthority?.[0] ?? '';
+        return (
+          <>
+            <Stack.Item styles={{ root: { minWidth: 240 } }}>
+              <ComboBox
+                label="Billing Authority"
+                placeholder="Select Billing Authority"
+                options={billingAuthorityOptionsList}
+                selectedKey={authority}
+                allowFreeform={false}
+                autoComplete="on"
+                disabled={billingAuthorityOptionsLoading}
+                onChange={(_, opt) => {
+                  if (!opt || opt.key === '__loading__' || opt.key === '__error__') return;
+                  const next = String(opt.key ?? '');
+                  updateFilters('billingAuthority', next ? [next] : undefined);
+                }}
+                errorMessage={billingAuthorityError ?? billingAuthorityOptionsError}
+                styles={{
+                  root: { width: '100%' },
+                  callout: { minWidth: 240 },
+                  optionsContainer: { minWidth: 240 },
+                }}
+              />
+            </Stack.Item>
+            <Stack.Item styles={{ root: { minWidth: 240 } }}>
+              <TextField
+                label="Billing Authority Reference"
+                value={filters.bacode ?? ''}
+                onChange={(_, v) => updateFilters('bacode', (v ?? '').slice(0, ADDRESS_FIELD_MAX_LENGTH))}
+                errorMessage={billingAuthorityRefError}
+                maxLength={ADDRESS_FIELD_MAX_LENGTH}
+              />
+            </Stack.Item>
+          </>
+        );
+      }
+
+      if (filters.searchBy === 'saleId') {
+        return (
+          <Stack.Item styles={{ root: { minWidth: 260 } }}>
+            <TextField
+              label="Sale ID"
+              value={filters.saleId ?? ''}
+              onChange={(_, v) => updateFilters('saleId', sanitizeAlphaNumHyphen(v, ID_FIELD_MAX_LENGTH))}
+              errorMessage={saleIdError}
+              maxLength={ID_FIELD_MAX_LENGTH}
+            />
+          </Stack.Item>
+        );
+      }
+
+      if (filters.searchBy === 'taskId') {
+        return (
+          <Stack.Item styles={{ root: { minWidth: 260 } }}>
+            <TextField
+              label="Task ID"
+              value={filters.taskId ?? ''}
+              onChange={(_, v) => updateFilters('taskId', sanitizeDigits(v, ID_FIELD_MAX_LENGTH))}
+              errorMessage={taskIdError}
+              maxLength={ID_FIELD_MAX_LENGTH}
+              inputMode="numeric"
+            />
+          </Stack.Item>
+        );
+      }
+
+      if (filters.searchBy === 'uprn') {
+        return (
+          <Stack.Item styles={{ root: { minWidth: 260 } }}>
+            <TextField
+              label="UPRN"
+              value={filters.uprn ?? ''}
+              onChange={(_, v) => updateFilters('uprn', sanitizeDigits(v, UPRN_MAX_LENGTH))}
+              errorMessage={uprnError}
+              inputMode="numeric"
+              maxLength={UPRN_MAX_LENGTH}
+            />
+          </Stack.Item>
+        );
+      }
+
+      return null;
+    }
+
     const textError =
       cfg.key === 'address'
         ? addressError
@@ -1276,6 +1814,10 @@ export const Grid = React.memo((props: GridProps) => {
         ? postcodeError
         : cfg.key === 'summaryFlag'
         ? summaryFlagError
+        : cfg.key === 'saleId'
+        ? saleIdError
+        : cfg.key === 'taskId'
+        ? taskIdError
         : cfg.key === 'uprn'
         ? uprnError
         : filters.searchBy === cfg.key
@@ -1444,9 +1986,18 @@ export const Grid = React.memo((props: GridProps) => {
   }, [
     filters,
     addressError,
+    billingAuthorityError,
+    billingAuthorityOptionsError,
+    billingAuthorityOptionsList,
+    billingAuthorityOptionsLoading,
+    billingAuthorityRefError,
     postcodeError,
+    saleIdError,
     summaryFlagError,
     searchFieldError,
+    streetError,
+    taskIdError,
+    townError,
     uprnError,
     updateFilters,
     scheduleSearch,
@@ -1457,6 +2008,8 @@ export const Grid = React.memo((props: GridProps) => {
     formatDisplayDate,
     updateDateRange,
     buildDropdownOptions,
+    isSalesSearch,
+    normalizeUkPostcode,
     updateSingleSelect,
     updateMultiSelect,
   ]);
@@ -1800,6 +2353,9 @@ export const Grid = React.memo((props: GridProps) => {
     () => getManagerWorkThatOptions(prefilters.searchBy),
     [prefilters.searchBy],
   );
+  const caseworkerOptionsDisabled = caseworkerOptionsLoading
+    || !!caseworkerOptionsError
+    || normalizedCaseworkerOptions.length === 0;
   const renderPrefilterTitle = React.useCallback((options?: IDropdownOption[]) => {
     const text = (options ?? [])
       .map((opt) => String(opt.text ?? opt.key ?? '').trim())
@@ -2134,7 +2690,7 @@ export const Grid = React.memo((props: GridProps) => {
               {statusMessage.text}
             </MessageBar>
           )}
-          {pageHeaderText && useAssignmentLayout && (
+          {pageHeaderText && (
             <div className="voa-command-bar">
               <div className="voa-command-bar__left">
                 {onBackRequested && (
@@ -2145,8 +2701,8 @@ export const Grid = React.memo((props: GridProps) => {
                     title="Back"
                     onClick={onBackRequested}
                   />
-              )}
-              <div className="voa-command-bar__title-group">
+                )}
+                <div className="voa-command-bar__title-group">
                   <Text as="h2" variant="large" className="voa-command-bar__title">
                     {pageHeaderText}
                   </Text>
@@ -2156,18 +2712,6 @@ export const Grid = React.memo((props: GridProps) => {
                 </div>
               </div>
               <div className="voa-command-bar__actions">
-                {showPrefilterToggle && (
-                  <DefaultButton
-                    className="voa-prefilter-toggle"
-                    text={prefilterToggleText}
-                    iconProps={{ iconName: prefilterExpanded ? 'FilterSolid' : 'Filter' }}
-                    ariaLabel={prefilterToggleText}
-                    title={prefilterToggleText}
-                    aria-expanded={prefilterExpanded}
-                    aria-controls="voa-prefilter-panel"
-                    onClick={togglePrefilters}
-                  />
-                )}
                 {showResults && showViewSalesRecord && (
                   <DefaultButton
                     text="View Sales Record"
@@ -2175,15 +2719,6 @@ export const Grid = React.memo((props: GridProps) => {
                     onClick={onViewSelected}
                     disabled={disableViewSalesRecordAction || selectedCount !== 1}
                     ariaLabel="View selected sales record"
-                  />
-                )}
-                {hasColumnFilters && (
-                  <DefaultButton
-                    text="Clear filters"
-                    iconProps={{ iconName: 'ClearFilter' }}
-                    onClick={() => clearAllColumnFilters()}
-                    disabled={!hasColumnFilters}
-                    ariaLabel="Clear column filters"
                   />
                 )}
                 {showAssign && (
@@ -2195,27 +2730,6 @@ export const Grid = React.memo((props: GridProps) => {
                     ariaLabel={assignActionText}
                   />
                 )}
-              </div>
-            </div>
-          )}
-          {pageHeaderText && !useAssignmentLayout && (
-            <div className="voa-page-header">
-              {onBackRequested && (
-                <IconButton
-                  className="voa-back-button"
-                  iconProps={{ iconName: 'Back' }}
-                  ariaLabel="Back"
-                  title="Back"
-                  onClick={onBackRequested}
-                />
-              )}
-              <div className="voa-page-header__center">
-                {pageHeaderIconName && (
-                  <Icon iconName={pageHeaderIconName} className="voa-page-header__icon" aria-hidden="true" />
-                )}
-                <Text as="h2" variant="xLarge" className="voa-page-header__title">
-                  {pageHeaderText}
-                </Text>
               </div>
             </div>
           )}
@@ -2260,10 +2774,11 @@ export const Grid = React.memo((props: GridProps) => {
                     ariaLabel="Billing Authority"
                     placeholder="Select Billing Authorities"
                     multiSelect
-                    options={MANAGER_BILLING_AUTHORITY_OPTIONS}
-                    selectedKeys={prefilters.billingAuthorities}
+                    options={managerBillingAuthorityOptions}
+                    selectedKeys={managerBillingSelectedKeys}
                     onChange={onPrefilterBillingChange}
                     onRenderTitle={renderPrefilterTitle}
+                    disabled={billingAuthorityOptionsLoading}
                     styles={{ dropdown: { width: '100%' } }}
                   />
                 </div>
@@ -2283,12 +2798,18 @@ export const Grid = React.memo((props: GridProps) => {
                     ariaLabel="Caseworker"
                     placeholder="Select User"
                     multiSelect
-                    options={MANAGER_CASEWORKER_OPTIONS}
-                    selectedKeys={prefilters.caseworkers}
+                    options={caseworkerOptionsList}
+                    selectedKeys={caseworkerSelectedKeys}
                     onChange={onPrefilterCaseworkerChange}
                     onRenderTitle={renderPrefilterTitle}
+                    disabled={caseworkerOptionsDisabled}
                     styles={{ dropdown: { width: '100%' } }}
                   />
+                  {caseworkerOptionsError && (
+                    <Text variant="small" styles={{ root: { color: theme.palette.redDark, marginTop: 2 } }}>
+                      {caseworkerOptionsError}
+                    </Text>
+                  )}
                 </div>
               </Stack.Item>
             </>
@@ -2384,87 +2905,72 @@ export const Grid = React.memo((props: GridProps) => {
         )}
         {showSearchPanel && (
         <Stack
+          className="voa-search-panel"
           horizontal
           wrap
-          verticalAlign="end"
+          horizontalAlign="start"
+          verticalAlign="start"
           tokens={{ childrenGap: 16 }}
-          style={{ marginBottom: 16 }}
+          styles={{ root: { marginBottom: 16 } }}
         >
-          <Stack.Item grow styles={{ root: { minWidth: 0 } }}>
-            <Stack
-              horizontal
-              wrap
-              verticalAlign="end"
-              tokens={{ childrenGap: 16 }}
-              styles={{ root: { rowGap: 12 } }}
-            >
-              <Stack.Item styles={{ root: { minWidth: 200 } }}>
-                <Dropdown
-                  label="Search by"
+          <Stack.Item styles={{ root: { minWidth: 200 } }}>
+            <Dropdown
+              label="Search by"
               options={searchByOptions}
               selectedKey={filters.searchBy}
               onChange={onSearchByChange}
               styles={{ dropdown: { width: '100%' } }}
             />
           </Stack.Item>
-              {renderSearchControl()}
-            </Stack>
-          </Stack.Item>
-          <Stack.Item styles={{ root: { display: 'flex', alignItems: 'flex-end' } }}>
+          {renderSearchControl()}
+          <Stack.Item className="voa-search-panel__actions">
             <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
               {(shimmer || itemsLoading || isComponentLoading) && (
                 <Spinner size={SpinnerSize.small} ariaLabel="Loading filter results" />
               )}
-              <PrimaryButton text="Search" onClick={handleSearch} disabled={isSearchDisabled} />
-              <Link
-                onClick={(ev) => {
-                  ev.preventDefault();
-                  handleClear();
-                }}
-                aria-label="Clear all filters"
-                styles={{ root: { fontSize: 14 } }}
-              >
-                Clear all
-              </Link>
+              <PrimaryButton
+                text="Search"
+                iconProps={{ iconName: 'Search' }}
+                onClick={handleSearch}
+                disabled={isSearchDisabled}
+              />
+              <DefaultButton
+                text="Clear all"
+                iconProps={{ iconName: 'ClearFilter' }}
+                onClick={handleClear}
+                ariaLabel="Clear all filters"
+                className="voa-prefilter-clear"
+              />
             </Stack>
           </Stack.Item>
         </Stack>
         )}
-          {showResults && !useAssignmentLayout && (
+          {showResults && ((useAssignmentLayout && showPrefilterToggle) || (!useAssignmentLayout && hasColumnFilters)) && (
             <div className="voa-grid-toolbar" role="toolbar" aria-label="Table actions">
               <div className="voa-grid-toolbar__left">
-                {hasColumnFilters && (
-                  <DefaultButton
-                    text="Clear filters"
-                    iconProps={{ iconName: 'ClearFilter' }}
-                    onClick={() => clearAllColumnFilters()}
-                    disabled={!hasColumnFilters}
-                    ariaLabel="Clear column filters"
-                  />
-                )}
-              </div>
-              <div className="voa-grid-toolbar__center" role="status" aria-live="polite">
-                <Text variant="medium" className="voa-grid-toolbar__count">
-                  Selected: {selectedCount} of {typeof taskCount === 'number' ? taskCount : filteredItems.length}
-                </Text>
-              </div>
-              <div className="voa-grid-toolbar__right">
-                {showViewSalesRecord && (
-                  <DefaultButton
-                    text="View Sales Record"
-                    iconProps={{ iconName: 'View' }}
-                    onClick={onViewSelected}
-                    disabled={disableViewSalesRecordAction || selectedCount !== 1}
-                    ariaLabel="View selected sales record"
-                  />
-                )}
-                {showAssign && (
-                  <DefaultButton
-                    text={assignActionText}
-                    iconProps={{ iconName: 'AddFriend' }}
-                    onClick={openAssignPanel}
-                    ariaLabel={assignActionText}
-                  />
+                {useAssignmentLayout ? (
+                  showPrefilterToggle && (
+                    <DefaultButton
+                      className="voa-prefilter-toggle"
+                      text={prefilterToggleText}
+                      iconProps={{ iconName: prefilterExpanded ? 'FilterSolid' : 'Filter' }}
+                      ariaLabel={prefilterToggleText}
+                      title={prefilterToggleText}
+                      aria-expanded={prefilterExpanded}
+                      aria-controls="voa-prefilter-panel"
+                      onClick={togglePrefilters}
+                    />
+                  )
+                ) : (
+                  hasColumnFilters && (
+                    <DefaultButton
+                      text="Clear filters"
+                      iconProps={{ iconName: 'ClearFilter' }}
+                      onClick={() => clearAllColumnFilters()}
+                      disabled={!hasColumnFilters}
+                      ariaLabel="Clear column filters"
+                    />
+                  )
                 )}
               </div>
             </div>

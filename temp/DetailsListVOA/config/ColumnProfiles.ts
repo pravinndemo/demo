@@ -37,6 +37,8 @@ export const COLUMN_PROFILES: Record<string, ColumnConfig[]> = {
   myassignment: [],
   manager: SALES_COLUMNS,
   qa: SALES_COLUMNS,
+  qaassign: SALES_COLUMNS,
+  qaview: SALES_COLUMNS,
 };
 
 export function getProfileConfigs(key?: string): ColumnConfig[] {

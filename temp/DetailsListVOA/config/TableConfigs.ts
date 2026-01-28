@@ -1,7 +1,7 @@
 import { GridFilterState, SearchByOption } from '../Filters';
 import { mapManagerPrefiltersToApi, type ManagerPrefilterState } from './PrefilterConfigs';
 
-export type TableKey = 'sales' | 'allsales' | 'myassignment' | 'manager' | 'qa';
+export type TableKey = 'sales' | 'allsales' | 'myassignment' | 'manager' | 'qa' | 'qaassign' | 'qaview';
 
 export type ColumnFilterControl =
   | 'textEq'
@@ -308,6 +308,66 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
   },
   // QA dashboard
   qa: {
+    lookupFields: new Set<string>([...salesLookupFields]),
+    buildApiParams: buildSalesParams,
+    columnFilterConfig: SALES_COLUMN_FILTERS,
+    showViewSalesRecord: true,
+    searchByOptions: [
+      'saleId',
+      'taskId',
+      'uprn',
+      'address',
+      'postcode',
+      'billingAuthority',
+      'transactionDate',
+      'salePrice',
+      'ratio',
+      'dwellingType',
+      'flaggedForReview',
+      'reviewFlags',
+      'outlierRatio',
+      'overallFlag',
+      'summaryFlag',
+      'taskStatus',
+      'assignedTo',
+      'assignedDate',
+      'qcAssignedTo',
+      'qcAssignedDate',
+      'qcCompletedDate',
+    ],
+  },
+  // QA assignment screen (alias of QA for now)
+  qaassign: {
+    lookupFields: new Set<string>([...salesLookupFields]),
+    buildApiParams: buildSalesParams,
+    columnFilterConfig: SALES_COLUMN_FILTERS,
+    showViewSalesRecord: true,
+    searchByOptions: [
+      'saleId',
+      'taskId',
+      'uprn',
+      'address',
+      'postcode',
+      'billingAuthority',
+      'transactionDate',
+      'salePrice',
+      'ratio',
+      'dwellingType',
+      'flaggedForReview',
+      'reviewFlags',
+      'outlierRatio',
+      'overallFlag',
+      'summaryFlag',
+      'taskStatus',
+      'assignedTo',
+      'assignedDate',
+      'qcAssignedTo',
+      'qcAssignedDate',
+      'qcCompletedDate',
+    ],
+  },
+  // QA view screen (alias of QA for now)
+  qaview: {
     lookupFields: new Set<string>([...salesLookupFields]),
     buildApiParams: buildSalesParams,
     columnFilterConfig: SALES_COLUMN_FILTERS,

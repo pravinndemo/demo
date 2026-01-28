@@ -2,6 +2,8 @@ export const CONTROL_CONFIG = {
   apiBaseUrl: '',
   customApiName: 'voa_GetAllSalesRecord',
   customApiType: 'function',
+  metadataApiName: 'voa_SvtGetSalesMetadata',
+  metadataApiType: 'function',
   viewSaleRecordApiName: 'voa_GetViewSaleRecordById',
   tableKey: 'sales',
   serverDrivenThreshold: 2000,
