@@ -873,14 +873,9 @@ export const Grid = React.memo((props: GridProps) => {
             : undefined;
 
         let billingAuthorityError: string | undefined;
-        let billingAuthorityRefError: string | undefined;
-        if (fs.searchBy === 'billingAuthority') {
-          const hasAuthority = billingAuthority.length > 0;
-          const hasReference = billingAuthorityReference.length > 0;
-          if (hasAuthority !== hasReference) {
-            billingAuthorityError = hasAuthority ? undefined : 'Billing Authority is required';
-            billingAuthorityRefError = hasReference ? undefined : 'Billing Authority Reference is required';
-          }
+        const billingAuthorityRefError: string | undefined = undefined;
+        if (fs.searchBy === 'billingAuthority' && billingAuthority.length === 0) {
+          billingAuthorityError = 'Billing Authority is required';
         }
 
         let postcodeError: string | undefined;
@@ -1204,7 +1199,7 @@ export const Grid = React.memo((props: GridProps) => {
       case 'uprn':
         return uprn.length > 0 && uprn.length <= UPRN_MAX_LENGTH;
       case 'billingAuthority':
-        return billingAuthority.length > 0 && billingAuthorityReference.length > 0;
+        return billingAuthority.length > 0;
       case 'address': {
         const hasPostcode = postcode.length > 0;
         const postcodeValid = hasPostcode ? isValidUkPostcode(postcode, false) : false;
@@ -2957,7 +2952,7 @@ export const Grid = React.memo((props: GridProps) => {
           </Stack.Item>
           {renderSearchControl()}
           <Stack.Item className="voa-search-panel__actions">
-            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
+            <Stack horizontal wrap verticalAlign="center" tokens={{ childrenGap: 12 }}>
               {(shimmer || itemsLoading || isComponentLoading) && (
                 <Spinner size={SpinnerSize.small} ariaLabel="Loading filter results" />
               )}
