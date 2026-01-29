@@ -94,7 +94,7 @@
   height: 100%;
   max-height: 100vh;
   width: 100%;
-  min-width: 100%;
+  min-width: 0;
   max-width: 100%;
   flex: 1 1 auto;
   overflow-x: hidden;
@@ -109,8 +109,23 @@
 [id^="VoaSvtDetailsList"] {
   width: 100% !important;
   min-width: 0 !important;
+  max-width: 100% !important;
   flex: 1 1 auto !important;
+  overflow-x: hidden !important;
   background: #ffffff;
+}
+
+[data-control-name^="VoaSvtDetailsList"] .ms-Fabric,
+[id^="VoaSvtDetailsList"] .ms-Fabric {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  background: #ffffff;
+}
+
+.voa-grid-shell > * {
+  min-width: 0;
 }
 
 .voa-search-panel,
