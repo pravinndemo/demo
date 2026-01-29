@@ -807,7 +807,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return { records: recs, ids: all };
   }, [apimItems, clientUrl, columnDisplayNames, datasetColumns, hasLoadedApim]);
 
+  const disableClientFiltering = hasLoadedApim;
+
   const filteredIds = React.useMemo(() => {
+    if (disableClientFiltering) {
+      return ids;
+    }
     const t0 = performance.now();
     const ds = datasetColumns;
     const toText = (val: unknown): string => (typeof val === 'string' ? val : typeof val === 'number' || typeof val === 'boolean' ? String(val) : '');
@@ -837,7 +842,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     const t1 = performance.now();
     logPerf('[Grid Perf] Host filter ids (ms):', Math.round(t1 - t0), 'ids:', ids.length, 'filters:', entries.length, 'result:', out.length);
     return out;
-  }, [headerFilters, ids, records, datasetColumns]);
+  }, [disableClientFiltering, headerFilters, ids, records, datasetColumns]);
 
   const sortedIds = React.useMemo(() => {
     if (!clientSort || serverDriven) return filteredIds;
@@ -1509,6 +1514,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       }
     },
     columnFilters: headerFilters,
+    disableClientFiltering,
     taskCount: serverDriven ? totalCount : filteredIds.length,
     canvasScreenName,
     prefilterApplied,

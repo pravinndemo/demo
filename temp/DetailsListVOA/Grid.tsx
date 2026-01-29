@@ -107,6 +107,7 @@ export interface GridProps {
   onColumnFiltersChange?: (filters: Record<string, ColumnFilterValue | string | string[]>) => void;
   allowColumnReorder?: boolean;
   columnFilters?: Record<string, ColumnFilterValue>;
+  disableClientFiltering?: boolean;
   canvasScreenName?: string;
   onAssignTasks?: (user: AssignUser) => Promise<boolean>;
   statusMessage?: { text: string; type: MessageBarType };
@@ -400,7 +401,8 @@ export const Grid = React.memo((props: GridProps) => {
     showResults,
     onLoadFilterOptions,
     onColumnFiltersChange,
-    columnFilters,
+  columnFilters,
+  disableClientFiltering,
     canvasScreenName,
     onAssignTasks,
     onPrefilterApply,
@@ -1498,6 +1500,9 @@ export const Grid = React.memo((props: GridProps) => {
   }, [columns, columnFiltersState, sorting]);
 
   const filteredItems = React.useMemo(() => {
+    if (disableClientFiltering) {
+      return items;
+    }
     const t0 = performance.now();
     const filterEntries = Object.entries(columnFiltersState).filter(([, value]) => {
       if (value === undefined) return false;
@@ -1608,7 +1613,7 @@ export const Grid = React.memo((props: GridProps) => {
     const t1 = performance.now();
     console.log('[Grid Perf] Client filteredItems (ms):', Math.round(t1 - t0), 'items:', items.length, 'filters:', filterEntries.length, 'result:', out.length);
     return out;
-  }, [columnFiltersState, getFilterableText, items, tableKey]);
+  }, [columnFiltersState, disableClientFiltering, getFilterableText, items, tableKey]);
 
   const clearAllColumnFilters = React.useCallback(() => {
     setColumnFilters(() => {
