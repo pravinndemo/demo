@@ -20,6 +20,16 @@ export interface LoadResult {
   errorMessage?: string;
 }
 
+const normalizeSortField = (value?: string): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const normalized = trimmed.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  if (normalized === 'saleid') return 'saleId';
+  if (normalized === 'taskid') return 'taskId';
+  return trimmed;
+};
+
 const resolveCustomApiName = (context: ComponentFramework.Context<IInputs>): string => {
   const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiName?.raw;
   const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
@@ -67,13 +77,14 @@ export async function loadGridData(
 
   const sortBy = args.clientSort?.name;
   const sortDirection = args.clientSort?.sortDirection;
+  const normalizedSortField = normalizeSortField(sortBy);
   const buildParams = (page: number) => {
     const p: Record<string, string> = {
       ...apiParamsBase,
       pageNumber: String(page + 1),
       pageSize: String(pageSize),
     };
-    if (sortBy) p.sortField = sortBy;
+    if (normalizedSortField) p.sortField = normalizedSortField;
     if (typeof sortDirection === 'number') p.sortDirection = sortDirection === 1 ? 'desc' : 'asc';
     if (searchQuery) p.SearchQuery = searchQuery;
     return p;
