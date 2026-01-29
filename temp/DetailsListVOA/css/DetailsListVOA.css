@@ -148,7 +148,6 @@
   max-width: 100%;
   background: #ffffff;
   box-sizing: border-box;
-  overflow-x: hidden;
 }
 
 .voa-grid-shell > :not(.voa-grid-results) {
@@ -365,11 +364,6 @@
 }
 
 @media (max-width: 1400px) {
-  .voa-command-bar__left,
-  .voa-command-bar__actions {
-    width: 100%;
-  }
-
   .voa-command-bar__actions {
     justify-content: flex-start;
     padding-right: 0;
@@ -442,6 +436,13 @@
   min-width: max-content;
   padding-left: 8px;
   padding-right: var(--voa-list-right-pad);
+}
+
+.PowerCATFluentDetailsList .ms-DetailsList-headerWrapper {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f7f7f7;
 }
 
 .PowerCATFluentDetailsList .ms-DetailsHeader-cell {
