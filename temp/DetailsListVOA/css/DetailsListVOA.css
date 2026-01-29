@@ -96,11 +96,29 @@
   width: 100%;
   min-width: 100%;
   max-width: 100%;
+  flex: 1 1 auto;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
   position: relative;
   --voa-pagination-height: 48px;
+  background: #ffffff;
+}
+
+[data-control-name^="VoaSvtDetailsList"],
+[id^="VoaSvtDetailsList"] {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  background: #ffffff;
+}
+
+.voa-search-panel,
+.voa-prefilter-bar,
+.voa-command-bar,
+.voa-grid-toolbar {
+  width: 100%;
+  max-width: 100%;
   background: #ffffff;
 }
 
