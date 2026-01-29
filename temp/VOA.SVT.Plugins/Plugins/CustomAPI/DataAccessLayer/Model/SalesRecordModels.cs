@@ -104,16 +104,16 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
                 return null;
             }
 
-            var normalized = sortField.Trim().ToLowerInvariant();
-            if (normalized == "taskid" || normalized == "task_id")
+            var normalized = new string(sortField.Trim().ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+            if (normalized == "taskid")
             {
-                return "task_id";
+                return "taskId";
             }
-            if (normalized == "saleid" || normalized == "sale_id")
+            if (normalized == "saleid")
             {
-                return "sale_id";
+                return "saleId";
             }
-            return normalized;
+            return sortField.Trim();
         }
 
         private static string NormalizeSortDirection(string sortDirection)
