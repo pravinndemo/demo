@@ -81,8 +81,8 @@
 }
 
 .PowerCATFluentDetailsList {
-  display: inline-block;
-  width: max-content;
+  display: block;
+  width: 100%;
   min-width: max-content;
   --voa-list-right-pad: 24px;
 }
@@ -103,6 +103,7 @@
   position: relative;
   --voa-pagination-height: 48px;
   background: #ffffff;
+  box-sizing: border-box;
 }
 
 [data-control-name^="VoaSvtDetailsList"],
@@ -124,6 +125,17 @@
   background: #ffffff;
 }
 
+[data-control-name^="VoaSvtDetailsList"] > *,
+[id^="VoaSvtDetailsList"] > *,
+[data-control-name^="VoaSvtDetailsList"] [role="presentation"],
+[id^="VoaSvtDetailsList"] [role="presentation"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  background: #ffffff;
+}
+
 .voa-grid-shell > * {
   min-width: 0;
 }
@@ -135,6 +147,12 @@
   width: 100%;
   max-width: 100%;
   background: #ffffff;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.voa-grid-shell > :not(.voa-grid-results) {
+  overflow-x: hidden;
 }
 
 .voa-grid-shell--assignment {
