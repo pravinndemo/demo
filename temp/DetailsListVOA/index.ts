@@ -19,7 +19,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private backRequestId?: string;
   private actionType?: string;
   private actionRequestId?: string;
-  private notifyScheduled = false;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
@@ -150,20 +149,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       actionRequestId: this.actionRequestId,
       backRequestId: this.backRequestId,
     });
-    if (type === 'viewSale') {
-      this.notifyOutputChangedAsync();
-      return;
-    }
     this._notifyOutputChanged();
-  }
-
-  private notifyOutputChangedAsync(): void {
-    if (this.notifyScheduled) return;
-    this.notifyScheduled = true;
-    setTimeout(() => {
-      this.notifyScheduled = false;
-      this._notifyOutputChanged();
-    }, 0);
   }
 
   private resolveViewSaleRecordApiName(): string {

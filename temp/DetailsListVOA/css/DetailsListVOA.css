@@ -150,9 +150,6 @@
   box-sizing: border-box;
 }
 
-.voa-grid-shell > :not(.voa-grid-results) {
-  overflow-x: hidden;
-}
 
 .voa-grid-shell--assignment {
   --voa-pagination-height: 0px;
