@@ -38,6 +38,8 @@ const CASEWORKER_WORKTHAT_OPTIONS: IDropdownOption[] = MANAGER_WORKTHAT_CASEWORK
 export const MANAGER_BILLING_AUTHORITY_OPTIONS: IDropdownOption[] = MANAGER_BILLING_AUTHORITY_OPTIONS_CONST;
 export const MANAGER_CASEWORKER_OPTIONS: IDropdownOption[] = MANAGER_CASEWORKER_OPTIONS_CONST;
 
+export const MANAGER_PREFILTER_VALUE_SEPARATOR = '~';
+
 export const getManagerWorkThatOptions = (searchBy: ManagerSearchBy): IDropdownOption[] =>
   (searchBy === 'caseworker' ? CASEWORKER_WORKTHAT_OPTIONS : BILLING_WORKTHAT_OPTIONS);
 
@@ -67,15 +69,35 @@ const mapWorkThatToStatuses = (workThat?: ManagerWorkThat): string[] => {
 export const mapManagerPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record<string, string> => {
   if (!prefilters) return {};
   const params: Record<string, string> = {};
-  if (prefilters.searchBy === 'billingAuthority' && prefilters.billingAuthorities.length > 0) {
-    params.billingAuthority = prefilters.billingAuthorities.join(',');
+  const separator = MANAGER_PREFILTER_VALUE_SEPARATOR;
+  const trimList = (values: string[]): string[] =>
+    values.map((v) => (typeof v === 'string' ? v.trim() : '')).filter((v) => v.length > 0);
+  const joinValues = (values: string[]): string | undefined => {
+    const trimmed = trimList(values);
+    return trimmed.length > 0 ? trimmed.join(separator) : undefined;
+  };
+  const formatIsoToDdMmYyyy = (value?: string): string | undefined => {
+    if (!value) return undefined;
+    const [year, month, day] = value.split('-');
+    if (!year || !month || !day) return undefined;
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+  };
+
+  params.searchBy = prefilters.searchBy === 'caseworker' ? 'CW' : 'BA';
+
+  if (prefilters.searchBy === 'billingAuthority') {
+    const joined = joinValues(prefilters.billingAuthorities ?? []);
+    if (joined) params.preFilter = joined;
   }
-  if (prefilters.searchBy === 'caseworker' && prefilters.caseworkers.length > 0) {
-    params.assignedTo = prefilters.caseworkers.join(',');
+  if (prefilters.searchBy === 'caseworker') {
+    const joined = joinValues(prefilters.caseworkers ?? []);
+    if (joined) params.preFilter = joined;
   }
   const statuses = mapWorkThatToStatuses(prefilters.workThat);
-  if (statuses.length > 0) params.taskStatus = statuses.join(',');
-  if (prefilters.completedFrom) params.completedFromDate = prefilters.completedFrom;
-  if (prefilters.completedTo) params.completedToDate = prefilters.completedTo;
+  if (statuses.length > 0) params.taskStatus = statuses.join(separator);
+  const fromDate = formatIsoToDdMmYyyy(prefilters.completedFrom);
+  const toDate = formatIsoToDdMmYyyy(prefilters.completedTo);
+  if (fromDate) params.fromDate = fromDate;
+  if (toDate) params.toDate = toDate;
   return params;
 };

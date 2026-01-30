@@ -302,7 +302,7 @@ const buildColumnFilterQuery = (tableKey: TableKey, filters: Record<string, Colu
     .filter((tokens): tokens is string[] => !!tokens && tokens.length > 0)
     .map((tokens) => {
       const encoded = tokens.map((token) => encodeURIComponent(token));
-      return `ColumnFilter=${encoded.join('+')}`;
+      return `columnFilter=${encoded.join('~')}`;
     });
 
   return expressions.join('&');

@@ -9,6 +9,10 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
         public string PageNumber { get; set; }
         public string PageSize { get; set; }
         public string Source { get; set; }
+        public string SearchBy { get; set; }
+        public string PreFilter { get; set; }
+        public string FromDate { get; set; }
+        public string ToDate { get; set; }
         public string SaleId { get; set; }
         public string TaskId { get; set; }
         public string UPRN { get; set; }
@@ -51,6 +55,10 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
                 ["page-number"] = PageNumber,
                 ["page-size"] = PageSize,
                 ["source"] = Source,
+                ["searchBy"] = SearchBy,
+                ["preFilter"] = PreFilter,
+                ["fromDate"] = FromDate,
+                ["toDate"] = ToDate,
                 ["saleId"] = SaleId,
                 ["taskId"] = TaskId,
                 ["uprn"] = UPRN,
