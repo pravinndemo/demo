@@ -828,7 +828,6 @@ export const Grid = React.memo((props: GridProps) => {
     (_: React.FormEvent<IComboBox>, option?: IComboBoxOption) => {
       if (!option || option.disabled) return;
       const key = String(option.key);
-      if (key.startsWith('__')) return;
       if (key === CASEWORKER_ALL_KEY) {
         setPrefilters((prev) => ({
           ...prev,
@@ -836,6 +835,7 @@ export const Grid = React.memo((props: GridProps) => {
         }));
         return;
       }
+      if (key.startsWith('__')) return;
       setPrefilters((prev) => {
         const current = prev.caseworkers.filter((v) => v !== CASEWORKER_ALL_KEY);
         const next = option.selected ? [...current, key] : current.filter((v) => v !== key);

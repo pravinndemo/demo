@@ -19,6 +19,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private backRequestId?: string;
   private actionType?: string;
   private actionRequestId?: string;
+  private actionSequence = 0;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
@@ -142,8 +143,11 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
 
   private emitAction(type: 'back' | 'viewSale'): void {
     this.actionType = type;
-    this.actionRequestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    this.backRequestId = this.actionRequestId;
+    this.actionSequence += 1;
+    this.actionRequestId = `${this.actionSequence}-${Date.now()}`;
+    if (type === 'back') {
+      this.backRequestId = this.actionRequestId;
+    }
     console.log('[DetailsListVOA] Action emitted:', {
       actionType: this.actionType,
       actionRequestId: this.actionRequestId,
