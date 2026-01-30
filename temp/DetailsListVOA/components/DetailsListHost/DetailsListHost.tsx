@@ -235,6 +235,21 @@ const isNumericFilterValue = (val: ColumnFilterValue): val is NumericFilter =>
 const isDateRangeFilterValue = (val: ColumnFilterValue): val is DateRangeFilter =>
   !!val && typeof val === 'object' && ('from' in (val as DateRangeFilter) || 'to' in (val as DateRangeFilter));
 
+const formatApiDate = (value?: string): string | undefined => {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  }
+  const ukMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (ukMatch) {
+    return trimmed;
+  }
+  return trimmed;
+};
+
 const buildColumnFilterTokens = (
   tableKey: TableKey,
   field: string,
@@ -286,7 +301,10 @@ const buildColumnFilterTokens = (
     const start = from && from.length > 0 ? from : to;
     const end = to && to.length > 0 ? to : from;
     if (!start || !end) return undefined;
-    return [apiField, 'between', start, end];
+    const formattedStart = formatApiDate(start);
+    const formattedEnd = formatApiDate(end);
+    if (!formattedStart || !formattedEnd) return undefined;
+    return [apiField, 'between', formattedStart, formattedEnd];
   }
 
   return undefined;

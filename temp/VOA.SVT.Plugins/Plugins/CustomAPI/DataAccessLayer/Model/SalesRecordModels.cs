@@ -143,7 +143,7 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
                 return null;
             }
 
-            return taskStatus.Trim().ToUpperInvariant();
+            return taskStatus.Trim();
         }
     }
 
