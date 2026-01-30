@@ -239,11 +239,11 @@ const formatApiDate = (value?: string): string | undefined => {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
   if (isoMatch) {
     return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
   }
-  const ukMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const ukMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
   if (ukMatch) {
     return trimmed;
   }
