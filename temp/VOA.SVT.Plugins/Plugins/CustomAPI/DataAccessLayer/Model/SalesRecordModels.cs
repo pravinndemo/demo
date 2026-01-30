@@ -50,6 +50,7 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
         {
             var sortField = NormalizeSortField(SortField);
             var sortDirection = NormalizeSortDirection(SortDirection);
+            var normalizedTaskStatus = NormalizeTaskStatus(TaskStatus);
             var parameters = new Dictionary<string, string>
             {
                 ["page-number"] = PageNumber,
@@ -80,7 +81,7 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
                 ["outlierRatio"] = OutlierRatio,
                 ["overallFlag"] = OverallFlag,
                 ["summaryFlag"] = SummaryFlag,
-                ["taskStatus"] = TaskStatus,
+                ["taskStatus"] = normalizedTaskStatus,
                 ["assignedTo"] = AssignedTo,
                 ["assignedFromDate"] = AssignedFromDate,
                 ["assignedToDate"] = AssignedToDate,
@@ -133,6 +134,16 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
 
             var normalized = sortDirection.Trim().ToLowerInvariant();
             return normalized == "desc" ? "desc" : "asc";
+        }
+
+        private static string NormalizeTaskStatus(string taskStatus)
+        {
+            if (string.IsNullOrWhiteSpace(taskStatus))
+            {
+                return null;
+            }
+
+            return taskStatus.Trim().ToUpperInvariant();
         }
     }
 

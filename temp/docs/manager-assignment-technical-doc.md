@@ -23,6 +23,11 @@ Examples of manager column filter mappings:
 
 When column header filters change, the host normalizes them, persists them, and forwards them to the API request as string or string-array values.【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L236-L278】【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L918-L947】
 
+**Updated column filter API format (manager assignment):**
+- Use `columnFilter` (lowercase) in the query string.
+- Format: `columnFilter=field~operator~value`
+- For multi-value filters, values are comma-separated (`,`).
+
 ## Manager prefilters (screen-level filters)
 Manager assignment screens require **prefilters** before results are shown. The host defers API loading until prefilters are applied, then merges them into the request payload.【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L560-L605】【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L894-L972】
 
@@ -33,6 +38,24 @@ The prefilter model includes:
 - `completedFrom` / `completedTo` (date strings)
 
 These values are mapped into API parameters (e.g., `billingAuthority`, `assignedTo`, `taskStatus`, `completedFromDate`, `completedToDate`) before the Custom API call is made.【F:DetailsListVOA/config/PrefilterConfigs.ts†L9-L41】【F:DetailsListVOA/config/PrefilterConfigs.ts†L47-L90】
+
+**Updated manager prefilter API format (manager assignment):**
+- `source=MA`
+- `searchBy=BA` when search-by is billing authority
+- `searchBy=CW` when search-by is caseworker
+- `preFilter` values joined with `~`
+- `taskStatus` values joined with `~`
+- `fromDate` / `toDate` in `dd/MM/yyyy` (only send when provided)
+
+Example:
+```
+source=MA
+searchBy=BA
+preFilter=Powys 2 (Radnorshire)~Powys 3 (Breconshire)
+taskStatus=Assigned~Assigned QC -Failed
+fromDate=02/01/2026
+toDate=01/02/2026
+```
 
 ## Assignment security context (roles + teams)
 ### User context resolution

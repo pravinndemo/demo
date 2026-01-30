@@ -70,9 +70,13 @@ export const mapManagerPrefiltersToApi = (prefilters?: ManagerPrefilterState): R
   if (!prefilters) return {};
   const params: Record<string, string> = {};
   const separator = MANAGER_PREFILTER_VALUE_SEPARATOR;
+  const isAllSelected = (values: string[]): boolean => values.some((v) => v.trim() === '__all__');
   const trimList = (values: string[]): string[] =>
     values.map((v) => (typeof v === 'string' ? v.trim() : '')).filter((v) => v.length > 0);
   const joinValues = (values: string[]): string | undefined => {
+    if (isAllSelected(values)) {
+      return 'ALL';
+    }
     const trimmed = trimList(values);
     return trimmed.length > 0 ? trimmed.join(separator) : undefined;
   };

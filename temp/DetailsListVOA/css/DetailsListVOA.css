@@ -150,7 +150,6 @@
   box-sizing: border-box;
 }
 
-
 .voa-grid-shell--assignment {
   --voa-pagination-height: 0px;
 }
@@ -433,13 +432,6 @@
   min-width: max-content;
   padding-left: 8px;
   padding-right: var(--voa-list-right-pad);
-}
-
-.PowerCATFluentDetailsList .ms-DetailsList-headerWrapper {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  background: #f7f7f7;
 }
 
 .PowerCATFluentDetailsList .ms-DetailsHeader-cell {
