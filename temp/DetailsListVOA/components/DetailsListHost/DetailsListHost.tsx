@@ -564,6 +564,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const [assignUsersLoading, setAssignUsersLoading] = React.useState(false);
   const [assignUsersError, setAssignUsersError] = React.useState<string | undefined>(undefined);
   const [assignUsersInfo, setAssignUsersInfo] = React.useState<string | undefined>(undefined);
+  const [assignableUsersCache, setAssignableUsersCache] = React.useState<AssignUser[]>([]);
   const [assignPanelOpen, setAssignPanelOpen] = React.useState(false);
   const [assignPendingRefresh, setAssignPendingRefresh] = React.useState(false);
   const assignRefreshResolve = React.useRef<null | ((ok: boolean) => void)>(null);
@@ -660,21 +661,49 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return { users: normalized };
   }, []);
 
+  const getUserDisplayName = React.useCallback((user: AssignUser): string => {
+    const first = String(user?.firstName ?? '').trim();
+    const last = String(user?.lastName ?? '').trim();
+    const full = `${first} ${last}`.trim();
+    if (full) return full;
+    const email = String(user?.email ?? '').trim();
+    if (email) return email;
+    return String(user?.id ?? '').trim();
+  }, []);
+
   const buildCaseworkerNames = React.useCallback((users: AssignUser[]): string[] => {
-    const names = (users ?? []).map((user) => {
-      const first = String(user?.firstName ?? '').trim();
-      const last = String(user?.lastName ?? '').trim();
-      const full = `${first} ${last}`.trim();
-      if (full) return full;
-      const email = String(user?.email ?? '').trim();
-      if (email) return email;
-      return String(user?.id ?? '').trim();
-    }).filter((name) => !!name);
+    const names = (users ?? [])
+      .map((user) => getUserDisplayName(user))
+      .filter((name) => !!name);
 
     const unique = Array.from(new Set(names));
     unique.sort((a, b) => a.localeCompare(b));
     return unique;
+  }, [getUserDisplayName]);
+
+  const mergeAssignableUsers = React.useCallback((prev: AssignUser[], next: AssignUser[]): AssignUser[] => {
+    const map = new Map<string, AssignUser>();
+    prev.forEach((u) => {
+      const id = String(u.id ?? '').trim().toLowerCase();
+      if (id) map.set(id, u);
+    });
+    next.forEach((u) => {
+      const id = String(u.id ?? '').trim().toLowerCase();
+      if (id) map.set(id, u);
+    });
+    return Array.from(map.values());
   }, []);
+
+  const userDisplayNameMap = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    assignableUsersCache.forEach((user) => {
+      const id = String(user.id ?? '').trim().toLowerCase();
+      if (!id) return;
+      const name = getUserDisplayName(user);
+      if (name) map[id] = name;
+    });
+    return map;
+  }, [assignableUsersCache, getUserDisplayName]);
 
   // Persist header filters per table for consistent UX across reloads
   const storageKey = React.useMemo(() => `voa-grid-filters:${tableKey}`, [tableKey]);
@@ -786,6 +815,16 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     const all: string[] = [];
     const toText = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' ? String(v) : '');
     if (hasLoadedApim && apimItems.length > 0) {
+      const mapUserIdsToNames = (value: unknown): string[] | undefined => {
+        if (!value) return undefined;
+        const ids = Array.isArray(value)
+          ? value.map((v) => String(v ?? '').trim()).filter((v) => v !== '')
+          : typeof value === 'string'
+          ? value.split(',').map((v) => v.trim()).filter((v) => v !== '')
+          : [];
+        if (ids.length === 0) return undefined;
+        return ids.map((id) => userDisplayNameMap[id.toLowerCase()] ?? id);
+      };
       apimItems.forEach((item, index) => {
         const base: Record<string, unknown> = {};
         const r = base as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord & Record<string, unknown>;
@@ -807,6 +846,16 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         r.getValue = ((columnName: string) => r[columnName] ?? '') as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord['getValue'];
         r.getFormattedValue = ((columnName: string) => toText(r[columnName])) as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord['getFormattedValue'];
         Object.keys(obj).forEach((k) => (r[k.toLowerCase()] = obj[k]));
+        const assignedDisplay = mapUserIdsToNames((r as Record<string, unknown>).assignedto ?? (r as Record<string, unknown>).assignedTo);
+        if (assignedDisplay) {
+          r.assignedto = assignedDisplay;
+          (r as Record<string, unknown>).assignedTo = assignedDisplay;
+        }
+        const qcAssignedDisplay = mapUserIdsToNames((r as Record<string, unknown>).qcassignedto ?? (r as Record<string, unknown>).qcAssignedTo);
+        if (qcAssignedDisplay) {
+          r.qcassignedto = qcAssignedDisplay;
+          (r as Record<string, unknown>).qcAssignedTo = qcAssignedDisplay;
+        }
         // some handy aliases
         r.saleid = r.saleid ?? (r as Record<string, unknown> & { saleId?: unknown }).saleId;
         const suid = normalizeSuid(r.suid);
@@ -823,7 +872,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     const t1 = performance.now();
     logPerf('[Grid Perf] Map records (ms):', Math.round(t1 - t0), 'count:', all.length);
     return { records: recs, ids: all };
-  }, [apimItems, clientUrl, columnDisplayNames, datasetColumns, hasLoadedApim]);
+  }, [apimItems, clientUrl, columnDisplayNames, datasetColumns, hasLoadedApim, userDisplayNameMap]);
 
   const disableClientFiltering = hasLoadedApim;
 
@@ -1089,6 +1138,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         }
 
         setAssignUsers(parsed.users);
+        setAssignableUsersCache((prev) => mergeAssignableUsers(prev, parsed.users));
         setAssignUsersError(undefined);
         setAssignUsersInfo(undefined);
       } catch (err) {
@@ -1101,7 +1151,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         }
       }
     })();
-  }, [assignPanelOpen, assignmentContextKey, canvasScreenName, context, parseAssignableUsersResponse]);
+  }, [assignPanelOpen, assignmentContextKey, canvasScreenName, context, parseAssignableUsersResponse, mergeAssignableUsers]);
 
   React.useEffect(() => {
     if (!isManagerAssign) {
@@ -1158,6 +1208,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         }
 
         setCaseworkerOptions(buildCaseworkerNames(parsed.users));
+        setAssignableUsersCache((prev) => mergeAssignableUsers(prev, parsed.users));
         setCaseworkerOptionsError(undefined);
       } catch (err) {
         setCaseworkerOptions([]);
@@ -1175,6 +1226,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     context,
     isManagerAssign,
     parseAssignableUsersResponse,
+    mergeAssignableUsers,
   ]);
 
   // Handlers
