@@ -2592,7 +2592,11 @@ export const Grid = React.memo((props: GridProps) => {
   const selectFirstHelperText = selectionConfig.selectFirstHelperText ?? 'Uses the current page order.';
   const selectionControlsDisabled = pageItemCount === 0;
   const showGridToolbar = !!showResults
-    && (showSelectionControls || hasColumnFilters || (useAssignmentLayout && showPrefilterToggle));
+    && (showSelectionControls
+      || hasColumnFilters
+      || (useAssignmentLayout && showPrefilterToggle)
+      || showViewSalesRecord
+      || showAssign);
 
   const menuItems = React.useMemo<IContextualMenuItem[]>(() => {
     if (!menuState) return [];
@@ -2975,24 +2979,6 @@ export const Grid = React.memo((props: GridProps) => {
                     onClick={togglePrefilters}
                   />
                 )}
-                {showResults && showViewSalesRecord && (
-                  <DefaultButton
-                    text="View Sales Record"
-                    iconProps={{ iconName: 'View' }}
-                    onClick={onViewSelected}
-                    disabled={disableViewSalesRecordAction || selectedCount !== 1}
-                    ariaLabel="View selected sales record"
-                  />
-                )}
-                {showAssign && (
-                  <PrimaryButton
-                    text={assignActionText}
-                    iconProps={{ iconName: 'AddFriend' }}
-                    onClick={openAssignPanel}
-                    disabled={selectedCount === 0}
-                    ariaLabel={assignActionText}
-                  />
-                )}
               </div>
             </div>
           )}
@@ -3275,17 +3261,13 @@ export const Grid = React.memo((props: GridProps) => {
                       disabled={selectionControlsDisabled}
                       ariaLabel={selectAllText}
                     />
-                    <DefaultButton
-                      text={clearSelectionText}
-                      iconProps={{ iconName: 'Clear' }}
-                      onClick={clearPageSelection}
-                      disabled={selectionControlsDisabled || selectedCount === 0}
-                      ariaLabel={clearSelectionText}
-                    />
                     <div className="voa-selection-controls__field">
+                      <Label htmlFor="voa-select-first" className="voa-selection-controls__label">
+                        {selectFirstLabel}
+                      </Label>
                       <TextField
                         id="voa-select-first"
-                        label={selectFirstLabel}
+                        ariaLabel={selectFirstLabel}
                         value={selectFirstInput}
                         placeholder={selectFirstPlaceholder}
                         type="number"
@@ -3320,17 +3302,41 @@ export const Grid = React.memo((props: GridProps) => {
                       disabled={selectionControlsDisabled}
                       ariaLabel={selectFirstButtonText}
                     />
+                    <DefaultButton
+                      text={clearSelectionText}
+                      iconProps={{ iconName: 'Clear' }}
+                      onClick={clearPageSelection}
+                      disabled={selectionControlsDisabled || selectedCount === 0}
+                      ariaLabel={clearSelectionText}
+                    />
                   </div>
                 )}
-              </div>
-              <div className="voa-grid-toolbar__right">
                 {hasColumnFilters && (
                   <DefaultButton
                     text="Clear filters"
                     iconProps={{ iconName: 'ClearFilter' }}
                     onClick={() => clearAllColumnFilters()}
-                    disabled={!hasColumnFilters}
                     ariaLabel="Clear column filters"
+                  />
+                )}
+              </div>
+              <div className="voa-grid-toolbar__right">
+                {showResults && showViewSalesRecord && (
+                  <DefaultButton
+                    text="View Sales Record"
+                    iconProps={{ iconName: 'View' }}
+                    onClick={onViewSelected}
+                    disabled={disableViewSalesRecordAction || selectedCount !== 1}
+                    ariaLabel="View selected sales record"
+                  />
+                )}
+                {showAssign && (
+                  <PrimaryButton
+                    text={assignActionText}
+                    iconProps={{ iconName: 'AddFriend' }}
+                    onClick={openAssignPanel}
+                    disabled={selectedCount === 0}
+                    ariaLabel={assignActionText}
                   />
                 )}
               </div>

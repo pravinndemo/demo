@@ -240,6 +240,11 @@
   gap: 6px;
 }
 
+.voa-selection-controls__label {
+  font-weight: 600;
+  padding-bottom: 6px;
+}
+
 .voa-selection-controls__field .ms-TextField {
   min-width: 120px;
 }
@@ -247,6 +252,44 @@
 .voa-selection-controls__suffix {
   color: #605e5c;
   padding-bottom: 6px;
+}
+
+@media (max-width: 900px) {
+  .voa-grid-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 10px;
+    padding: 8px 10px;
+  }
+
+  .voa-grid-toolbar__left,
+  .voa-grid-toolbar__center,
+  .voa-grid-toolbar__right {
+    justify-self: start;
+    width: 100%;
+  }
+
+  .voa-grid-toolbar__right {
+    justify-content: flex-start;
+    padding-right: 0;
+  }
+
+  .voa-selection-controls {
+    width: 100%;
+  }
+
+  .voa-selection-controls__field {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .voa-selection-controls__field .ms-TextField {
+    flex: 1 1 140px;
+  }
+
+  .voa-selection-controls__label,
+  .voa-selection-controls__suffix {
+    padding-bottom: 0;
+  }
 }
 
 .voa-command-bar {
@@ -470,6 +513,16 @@
   min-width: max-content;
   padding-left: 8px;
   padding-right: var(--voa-list-right-pad);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.PowerCATFluentDetailsList .ms-DetailsRow:hover:not(.is-selected) {
+  background: #f3f2f1;
+  box-shadow: inset 4px 0 0 #1d70b8;
+}
+
+.PowerCATFluentDetailsList .ms-DetailsRow:hover:not(.is-selected) .ms-DetailsRow-fields {
+  background: #f3f2f1;
 }
 
 .PowerCATFluentDetailsList .ms-DetailsRow-fields {
