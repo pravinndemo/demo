@@ -205,6 +205,11 @@ const normalizeComboSearchText = (value?: string): string => {
   return (parts[parts.length - 1] ?? '').trim();
 };
 
+const formatTemplate = (template: string, tokens: Record<string, string | number>): string =>
+  template.replace(/\{(\w+)\}/g, (match: string, key: string) => (
+    Object.prototype.hasOwnProperty.call(tokens, key) ? String(tokens[key]) : match
+  ));
+
 const filterComboOptions = (
   options: IComboBoxOption[],
   query: string,
@@ -505,6 +510,8 @@ export const Grid = React.memo((props: GridProps) => {
   const [assignSearch, setAssignSearch] = React.useState('');
   const [assignTeam, setAssignTeam] = React.useState<string | number | undefined>();
   const [assignRole, setAssignRole] = React.useState<string | number | undefined>();
+  const [selectFirstInput, setSelectFirstInput] = React.useState('');
+  const [selectFirstError, setSelectFirstError] = React.useState<string | undefined>(undefined);
   const [assignLoading, setAssignLoading] = React.useState(false);
   const [assignSelectedUserId, setAssignSelectedUserId] = React.useState<string | undefined>();
   const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState>(MANAGER_PREFILTER_DEFAULT);
@@ -561,6 +568,7 @@ export const Grid = React.memo((props: GridProps) => {
   const assignActionText = isQcAssign ? 'Assign QC Tasks' : 'Assign Tasks';
   const assignHeaderText = isQcAssign ? 'QC Assignment' : 'Manager Assignment';
   const assignUserListTitle = isQcAssign ? 'QC Users' : 'SVT Users';
+  const selectionConfig = CONTROL_CONFIG.selectionControls ?? {};
   const pageHeaderText = isManagerAssign
       ? 'Manager Assignment'
       : isQcAssign
@@ -1502,6 +1510,63 @@ export const Grid = React.memo((props: GridProps) => {
     setIsLoading(false);
     return mapped;
   }, [records, sortedRecordIds]);
+  const pageItemCount = items.length;
+
+  const applySelectionChange = React.useCallback((action: () => void) => {
+    selection.setChangeEvents(false);
+    action();
+    selection.setChangeEvents(true);
+  }, [selection]);
+
+  const clearPageSelection = React.useCallback(() => {
+    applySelectionChange(() => {
+      selection.setItems(items, true);
+    });
+    setSelectFirstError(undefined);
+  }, [applySelectionChange, items]);
+
+  const selectAllOnPage = React.useCallback(() => {
+    if (pageItemCount === 0) return;
+    applySelectionChange(() => {
+      selection.setItems(items, true);
+      selection.setAllSelected(true);
+    });
+    setSelectFirstError(undefined);
+  }, [applySelectionChange, items, pageItemCount, selection]);
+
+  const selectFirstOnPage = React.useCallback(() => {
+    if (pageItemCount === 0) return;
+    const raw = selectFirstInput.trim();
+    const parsed = Number(raw);
+    const max = pageItemCount;
+    if (!raw || Number.isNaN(parsed) || !Number.isFinite(parsed) || parsed <= 0) {
+      const template = selectionConfig.selectFirstErrorText ?? 'Enter a number between 1 and {max}.';
+      setSelectFirstError(formatTemplate(template, { max }));
+      return;
+    }
+    const clamped = Math.min(Math.floor(parsed), max);
+    if (clamped !== parsed) {
+      setSelectFirstInput(String(clamped));
+    }
+    setSelectFirstError(undefined);
+    applySelectionChange(() => {
+      selection.setItems(items, true);
+      for (let i = 0; i < clamped; i += 1) {
+        selection.setIndexSelected(i, true, false);
+      }
+    });
+  }, [applySelectionChange, items, pageItemCount, selectFirstInput, selectionConfig.selectFirstErrorText, selection]);
+
+  const lastPageRef = React.useRef(currentPage);
+  React.useEffect(() => {
+    if (lastPageRef.current !== currentPage) {
+      lastPageRef.current = currentPage;
+      applySelectionChange(() => {
+        selection.setItems(items, true);
+      });
+      setSelectFirstError(undefined);
+    }
+  }, [applySelectionChange, currentPage, items, selection]);
 
   const getFilterableText = React.useCallback((raw: unknown): string => {
     if (Array.isArray(raw)) {
@@ -1677,6 +1742,16 @@ export const Grid = React.memo((props: GridProps) => {
     console.log('[Grid Perf] Client filteredItems (ms):', Math.round(t1 - t0), 'items:', items.length, 'filters:', filterEntries.length, 'result:', out.length);
     return out;
   }, [columnFiltersState, disableClientFiltering, getFilterableText, items, tableKey]);
+
+  const selectionSummaryText = React.useMemo(() => {
+    const template = selectionConfig.selectionSummaryText ?? 'Selected: {selected} of {pageTotal} on this page';
+    const resultTotal = typeof taskCount === 'number' ? taskCount : filteredItems.length;
+    return formatTemplate(template, {
+      selected: selectedCount,
+      pageTotal: pageItemCount,
+      resultTotal,
+    });
+  }, [filteredItems.length, pageItemCount, selectedCount, selectionConfig.selectionSummaryText, taskCount]);
 
   const clearAllColumnFilters = React.useCallback(() => {
     setColumnFilters(() => {
@@ -2505,6 +2580,19 @@ export const Grid = React.memo((props: GridProps) => {
   const prefilterToggleText = prefilterExpanded ? 'Hide Prefilter' : 'Show Prefilter';
   const showSearchPanelToggle = showSearchPanel && !useAssignmentLayout;
   const searchPanelToggleText = searchPanelExpanded ? 'Hide Filters' : 'Show Filters';
+  const showSelectionControls = !!showResults && selectionType !== SelectionMode.none;
+  const selectionToolbarLabel = selectionConfig.toolbarAriaLabel ?? 'Selection actions';
+  const selectionGroupLabel = selectionConfig.groupAriaLabel ?? 'Page selection';
+  const selectAllText = selectionConfig.selectAllText ?? 'Select all on this page';
+  const clearSelectionText = selectionConfig.clearText ?? 'Clear selection';
+  const selectFirstLabel = selectionConfig.selectFirstLabel ?? 'Select first';
+  const selectFirstPlaceholder = selectionConfig.selectFirstPlaceholder ?? 'Number';
+  const selectFirstSuffix = selectionConfig.selectFirstSuffix ?? 'on this page';
+  const selectFirstButtonText = selectionConfig.selectFirstButtonText ?? 'Apply';
+  const selectFirstHelperText = selectionConfig.selectFirstHelperText ?? 'Uses the current page order.';
+  const selectionControlsDisabled = pageItemCount === 0;
+  const showGridToolbar = !!showResults
+    && (showSelectionControls || hasColumnFilters || (useAssignmentLayout && showPrefilterToggle));
 
   const menuItems = React.useMemo<IContextualMenuItem[]>(() => {
     if (!menuState) return [];
@@ -2859,7 +2947,7 @@ export const Grid = React.memo((props: GridProps) => {
                     {pageHeaderText}
                   </Text>
                   <Text variant="small" className="voa-command-bar__meta" role="status" aria-live="polite">
-                    Selected: {selectedCount} of {typeof taskCount === 'number' ? taskCount : filteredItems.length}
+                    {selectionSummaryText}
                   </Text>
                 </div>
               </div>
@@ -3175,9 +3263,67 @@ export const Grid = React.memo((props: GridProps) => {
           </Stack.Item>
         </Stack>
         )}
-          {showResults && ((useAssignmentLayout && showPrefilterToggle) || hasColumnFilters) && (
-            <div className="voa-grid-toolbar" role="toolbar" aria-label="Table actions">
+          {showGridToolbar && (
+            <div className="voa-grid-toolbar" role="toolbar" aria-label={selectionToolbarLabel}>
               <div className="voa-grid-toolbar__left">
+                {showSelectionControls && (
+                  <div className="voa-selection-controls" role="group" aria-label={selectionGroupLabel}>
+                    <DefaultButton
+                      text={selectAllText}
+                      iconProps={{ iconName: 'MultiSelect' }}
+                      onClick={selectAllOnPage}
+                      disabled={selectionControlsDisabled}
+                      ariaLabel={selectAllText}
+                    />
+                    <DefaultButton
+                      text={clearSelectionText}
+                      iconProps={{ iconName: 'Clear' }}
+                      onClick={clearPageSelection}
+                      disabled={selectionControlsDisabled || selectedCount === 0}
+                      ariaLabel={clearSelectionText}
+                    />
+                    <div className="voa-selection-controls__field">
+                      <TextField
+                        id="voa-select-first"
+                        label={selectFirstLabel}
+                        value={selectFirstInput}
+                        placeholder={selectFirstPlaceholder}
+                        type="number"
+                        min={1}
+                        max={pageItemCount}
+                        inputMode="numeric"
+                        onChange={(_, value) => {
+                          setSelectFirstInput(value ?? '');
+                          if (selectFirstError) {
+                            setSelectFirstError(undefined);
+                          }
+                        }}
+                        onKeyDown={(ev) => {
+                          if (ev.key === 'Enter') {
+                            ev.preventDefault();
+                            selectFirstOnPage();
+                          }
+                        }}
+                        description={selectFirstHelperText}
+                        errorMessage={selectFirstError}
+                        disabled={selectionControlsDisabled}
+                        styles={{ root: { maxWidth: 160 } }}
+                      />
+                      <Text variant="small" className="voa-selection-controls__suffix">
+                        {selectFirstSuffix}
+                      </Text>
+                    </div>
+                    <DefaultButton
+                      text={selectFirstButtonText}
+                      iconProps={{ iconName: 'Accept' }}
+                      onClick={selectFirstOnPage}
+                      disabled={selectionControlsDisabled}
+                      ariaLabel={selectFirstButtonText}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="voa-grid-toolbar__right">
                 {hasColumnFilters && (
                   <DefaultButton
                     text="Clear filters"

@@ -227,6 +227,28 @@
   font-weight: 600;
 }
 
+.voa-selection-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.voa-selection-controls__field {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.voa-selection-controls__field .ms-TextField {
+  min-width: 120px;
+}
+
+.voa-selection-controls__suffix {
+  color: #605e5c;
+  padding-bottom: 6px;
+}
+
 .voa-command-bar {
   display: flex;
   align-items: center;

@@ -12,4 +12,17 @@ export const CONTROL_CONFIG = {
   assignableUsersApiType: 'function',
   emptyStateTitle: "We didn't find anything to show here",
   emptyStateMessage: 'Try adjusting your filters or search.',
+  selectionControls: {
+    toolbarAriaLabel: 'Table actions',
+    groupAriaLabel: 'Page selection',
+    selectAllText: 'Select all on this page',
+    clearText: 'Clear selection',
+    selectFirstLabel: 'Select first',
+    selectFirstPlaceholder: 'Number',
+    selectFirstSuffix: 'on this page',
+    selectFirstButtonText: 'Apply',
+    selectFirstHelperText: 'Uses the current page order.',
+    selectFirstErrorText: 'Enter a number between 1 and {max}.',
+    selectionSummaryText: 'Selected: {selected} of {pageTotal} on this page',
+  },
 };
