@@ -25,4 +25,11 @@ export const CONTROL_CONFIG = {
     selectFirstErrorText: 'Enter a number between 1 and {max}.',
     selectionSummaryText: 'Selected: {selected} of {pageTotal} on this page',
   },
+  taskAssignment: {
+    maxBatchSize: 500,
+    allowedStatuses: ['New', 'Assigned', 'Assigned QC failed', 'QC requested'],
+    loadingText: 'Please wait...',
+    tooManyTasksMessage: 'Please select {max} tasks or fewer for batch assignment.',
+    invalidStatusMessage: 'One or more selected tasks cannot be assigned based on status.',
+  },
 };

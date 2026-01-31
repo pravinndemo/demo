@@ -1422,6 +1422,14 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         setAssignMessage({ text: 'Please select one or more tasks to assign.', type: MessageBarType.warning });
         return false;
       }
+      const assignmentConfig = CONTROL_CONFIG.taskAssignment ?? { maxBatchSize: 500, allowedStatuses: [] as string[] };
+      const maxBatchSize = assignmentConfig.maxBatchSize ?? 500;
+      if (selected.length > maxBatchSize) {
+        const template = assignmentConfig.tooManyTasksMessage ?? 'Please select {max} tasks or fewer for batch assignment.';
+        const message = template.replace(/\{max\}/g, String(maxBatchSize));
+        setAssignMessage({ text: message, type: MessageBarType.warning });
+        return false;
+      }
       const apiName = resolveAssignmentApiName();
       if (!apiName) {
         setAssignMessage({ text: 'Task assignment API name is not configured.', type: MessageBarType.error });
@@ -1430,26 +1438,81 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       const customApiType = resolveCustomApiTypeForAssign();
       const assignedBy = (context.userSettings as { userId?: string } | undefined)?.userId ?? '';
       const assignedDate = new Date().toISOString();
+      const toNumericTaskId = (value: unknown): string => {
+        const raw = typeof value === 'string' ? value : typeof value === 'number' || typeof value === 'boolean' ? String(value) : '';
+        if (!raw) return '';
+        const digitsOnly = raw.replace(/\D/g, '');
+        return digitsOnly || raw;
+      };
+      const allowedStatuses = (assignmentConfig.allowedStatuses ?? []).map((s) => s.toLowerCase());
       for (const rec of selected) {
-        const saleId = (rec.saleid ?? rec.saleId ?? '') as string;
-        const taskId = (rec.taskid ?? rec.taskId ?? '') as string;
-        const taskStatus = (rec.taskstatus ?? rec.taskStatus ?? '') as string;
-        await executeUnboundCustomApi<Record<string, unknown>>(
-          context,
-          apiName,
-          {
-            assignedToUserId: user.id,
-            taskStatus,
-            saleId,
-            taskId,
-            assignedByUserId: assignedBy,
-            date: assignedDate,
-            screenName,
-          },
-          { operationType: customApiType },
-        );
+        const statusRaw = (rec.taskstatus ?? rec.taskStatus ?? '') as string;
+        const normalized = String(statusRaw ?? '').trim().toLowerCase();
+        if (allowedStatuses.length > 0 && normalized && !allowedStatuses.includes(normalized)) {
+          const message = assignmentConfig.invalidStatusMessage
+            ?? 'One or more selected tasks cannot be assigned based on status.';
+          setAssignMessage({ text: message, type: MessageBarType.error });
+          return false;
+        }
       }
-      setAssignMessage({ text: 'The selected tasks have been assigned successfully.', type: MessageBarType.success });
+      const taskIds = selected
+        .map((rec) => toNumericTaskId(rec.taskid ?? rec.taskId ?? ''))
+        .map((value) => value.trim())
+        .filter((value) => value !== '');
+      const uniqueTaskIds = Array.from(new Set(taskIds));
+      if (uniqueTaskIds.length === 0) {
+        setAssignMessage({ text: 'No valid task IDs were selected.', type: MessageBarType.error });
+        return false;
+      }
+      const parseAssignmentResult = (payload: unknown): { success?: boolean; message?: string; payload?: string } | null => {
+        if (!payload) return null;
+        if (typeof payload === 'string') {
+          try {
+            return JSON.parse(payload) as { success?: boolean; message?: string; payload?: string };
+          } catch {
+            return { message: payload };
+          }
+        }
+        if (typeof payload === 'object') {
+          const record = payload as Record<string, unknown>;
+          const raw = record.Result ?? record.result;
+          if (typeof raw === 'string') {
+            try {
+              return JSON.parse(raw) as { success?: boolean; message?: string; payload?: string };
+            } catch {
+              return { message: raw };
+            }
+          }
+          if (typeof record.success === 'boolean') {
+            return record as { success?: boolean; message?: string; payload?: string };
+          }
+        }
+        return null;
+      };
+
+      const response = await executeUnboundCustomApi<Record<string, unknown>>(
+        context,
+        apiName,
+        {
+          assignedToUserId: user.id,
+          taskId: JSON.stringify(uniqueTaskIds),
+          assignedByUserId: assignedBy,
+          date: assignedDate,
+          screenName,
+        },
+        { operationType: customApiType },
+      );
+      const parsed = parseAssignmentResult(response);
+      if (parsed?.success === false) {
+        const fallback = 'One or more of the selected tasks has already been assigned. Please refresh the page and try again.';
+        const message = parsed.message?.trim()
+          ?? parsed.payload?.trim()
+          ?? fallback;
+        setAssignMessage({ text: message, type: MessageBarType.error });
+        return false;
+      }
+      const successMessage = parsed?.message?.trim() ?? 'The selected tasks have been assigned successfully.';
+      setAssignMessage({ text: successMessage, type: MessageBarType.success });
       selection.setAllSelected(false);
       setSelectedCount(0);
       onSelectionCountChange?.(0);

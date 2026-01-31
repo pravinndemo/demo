@@ -56,8 +56,9 @@ namespace VOA.SVT.Plugins.CustomAPI
             var taskId = GetInput(context, "taskId");
             var assignedByUserId = GetInput(context, "assignedByUserId");
             var date = GetInput(context, "date");
+            var taskIds = ParseTaskIds(taskId);
 
-            if (string.IsNullOrWhiteSpace(assignedToUserId) || string.IsNullOrWhiteSpace(taskId))
+            if (string.IsNullOrWhiteSpace(assignedToUserId) || taskIds.Count == 0)
             {
                 throw new InvalidPluginExecutionException("assignedToUserId and taskId are required.");
             }
@@ -94,13 +95,14 @@ namespace VOA.SVT.Plugins.CustomAPI
             var auth = new Authentication(localPluginContext, apiConfig);
             var authResult = auth.GenerateAuthentication();
 
-            var payload = new Dictionary<string, string>
+            var payload = new Dictionary<string, object>
             {
-                ["assignedToUserId"] = assignedToUserId ?? string.Empty,
+                ["source"] = ResolveAssignmentSource(assignmentContext),
+                ["assignedTo"] = assignedToUserId ?? string.Empty,
+                ["taskId"] = taskIds,
+                ["requestedBy"] = assignedByUserId ?? string.Empty,
                 ["taskStatus"] = taskStatus ?? string.Empty,
                 ["saleId"] = saleId ?? string.Empty,
-                ["taskId"] = taskId ?? string.Empty,
-                ["assignedByUserId"] = assignedByUserId ?? string.Empty,
                 ["date"] = date ?? string.Empty
             };
 
@@ -167,6 +169,86 @@ namespace VOA.SVT.Plugins.CustomAPI
 
         private static string GetInput(IPluginExecutionContext context, string key)
             => context.InputParameters.Contains(key) ? context.InputParameters[key]?.ToString() : null;
+
+        private static List<string> ParseTaskIds(string raw)
+        {
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return result;
+            }
+
+            var trimmed = raw.Trim();
+            if (trimmed.StartsWith("["))
+            {
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<string[]>(trimmed);
+                    if (parsed != null)
+                    {
+                        foreach (var item in parsed)
+                        {
+                            AddTaskId(result, item);
+                        }
+                        return result;
+                    }
+                }
+                catch
+                {
+                    // fall back to simple parsing
+                }
+            }
+
+            if (trimmed.Contains(","))
+            {
+                foreach (var part in trimmed.Split(','))
+                {
+                    AddTaskId(result, part);
+                }
+                return result;
+            }
+
+            AddTaskId(result, trimmed);
+            return result;
+        }
+
+        private static void AddTaskId(ICollection<string> list, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            var normalized = NormalizeTaskId(value);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                list.Add(normalized);
+            }
+        }
+
+        private static string NormalizeTaskId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            var sb = new StringBuilder();
+            foreach (var ch in value)
+            {
+                if (char.IsDigit(ch))
+                {
+                    sb.Append(ch);
+                }
+            }
+            var digits = sb.ToString();
+            return string.IsNullOrWhiteSpace(digits) ? value.Trim() : digits;
+        }
+
+        private static string ResolveAssignmentSource(AssignmentContext context)
+        {
+            switch (context)
+            {
+                case AssignmentContext.Manager:
+                    return "MA";
+                case AssignmentContext.Qa:
+                    return "QCA";
+                default:
+                    return string.Empty;
+            }
+        }
 
         private static string BuildResult(bool success, string message, string payload)
         {

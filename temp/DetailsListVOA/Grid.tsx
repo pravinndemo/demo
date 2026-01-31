@@ -503,13 +503,9 @@ export const Grid = React.memo((props: GridProps) => {
   const [searchBySearch, setSearchBySearch] = React.useState('');
   const [prefilterSearchBySearch, setPrefilterSearchBySearch] = React.useState('');
   const [prefilterWorkThatSearch, setPrefilterWorkThatSearch] = React.useState('');
-  const [assignTeamSearch, setAssignTeamSearch] = React.useState('');
-  const [assignRoleSearch, setAssignRoleSearch] = React.useState('');
   const [comboSearchText, setComboSearchText] = React.useState<Record<string, string>>({});
   const [assignPanelOpen, setAssignPanelOpen] = React.useState(false);
   const [assignSearch, setAssignSearch] = React.useState('');
-  const [assignTeam, setAssignTeam] = React.useState<string | number | undefined>();
-  const [assignRole, setAssignRole] = React.useState<string | number | undefined>();
   const [selectFirstInput, setSelectFirstInput] = React.useState('');
   const [selectFirstError, setSelectFirstError] = React.useState<string | undefined>(undefined);
   const [assignLoading, setAssignLoading] = React.useState(false);
@@ -519,10 +515,12 @@ export const Grid = React.memo((props: GridProps) => {
   const [prefilterContainerWidth, setPrefilterContainerWidth] = React.useState<number | null>(null);
   const [searchPanelExpanded, setSearchPanelExpanded] = React.useState(true);
   const openAssignPanel = React.useCallback(() => {
+    setAssignSelectedUserId(undefined);
     setAssignPanelOpen(true);
     onAssignPanelToggle?.(true);
   }, [onAssignPanelToggle]);
   const closeAssignPanel = React.useCallback(() => {
+    setAssignSelectedUserId(undefined);
     setAssignPanelOpen(false);
     onAssignPanelToggle?.(false);
   }, [onAssignPanelToggle]);
@@ -566,9 +564,10 @@ export const Grid = React.memo((props: GridProps) => {
   const showAssign = isManagerAssign || isQcAssign;
   const useAssignmentLayout = isManagerAssign;
   const assignActionText = isQcAssign ? 'Assign QC Tasks' : 'Assign Tasks';
-  const assignHeaderText = isQcAssign ? 'QC Assignment' : 'Manager Assignment';
+  const assignHeaderText = 'Assign Tasks';
   const assignUserListTitle = isQcAssign ? 'QC Users' : 'SVT Users';
   const selectionConfig = CONTROL_CONFIG.selectionControls ?? {};
+  const assignmentConfig = CONTROL_CONFIG.taskAssignment ?? {};
   const pageHeaderText = isManagerAssign
       ? 'Manager Assignment'
       : isQcAssign
@@ -2445,34 +2444,9 @@ export const Grid = React.memo((props: GridProps) => {
   }, []);
 
   const assignUsers = React.useMemo(() => assignUsersProp ?? [], [assignUsersProp]);
-  const assignTeamOptions = React.useMemo<IComboBoxOption[]>(
-    () => assignUsers
-      .map((u) => u.team)
-      .filter((v, i, a) => a.indexOf(v) === i)
-      .map((team) => ({ key: team, text: team })),
-    [assignUsers],
-  );
-  const assignRoleOptions = React.useMemo<IComboBoxOption[]>(
-    () => assignUsers
-      .map((u) => u.role)
-      .filter((v, i, a) => a.indexOf(v) === i)
-      .map((role) => ({ key: role, text: role })),
-    [assignUsers],
-  );
-  const filteredAssignTeamOptions = React.useMemo(
-    () => filterComboOptions(assignTeamOptions, assignTeamSearch, assignTeam ? [String(assignTeam)] : []),
-    [assignTeam, assignTeamOptions, assignTeamSearch],
-  );
-  const filteredAssignRoleOptions = React.useMemo(
-    () => filterComboOptions(assignRoleOptions, assignRoleSearch, assignRole ? [String(assignRole)] : []),
-    [assignRole, assignRoleOptions, assignRoleSearch],
-  );
-
   const assignFilteredUsers = React.useMemo(() => {
     const term = assignSearch.trim().toLowerCase();
     return assignUsers.filter((u) => {
-      if (assignTeam && u.team !== assignTeam) return false;
-      if (assignRole && u.role !== assignRole) return false;
       if (!term) return true;
       return (
         u.firstName.toLowerCase().includes(term) ||
@@ -2480,7 +2454,7 @@ export const Grid = React.memo((props: GridProps) => {
         u.email.toLowerCase().includes(term)
       );
     });
-  }, [assignUsers, assignSearch, assignRole, assignTeam]);
+  }, [assignUsers, assignSearch]);
   const assignListItems = React.useMemo(() => {
     if (assignUsersLoading) {
       return [{
@@ -2495,6 +2469,16 @@ export const Grid = React.memo((props: GridProps) => {
     return assignFilteredUsers;
   }, [assignFilteredUsers, assignUsersLoading]);
 
+  const selectedAssignUser = React.useMemo(
+    () => assignUsers.find((u) => u.id === assignSelectedUserId),
+    [assignSelectedUserId, assignUsers],
+  );
+
+  const handleAssignUserSelect = React.useCallback((userId: string) => {
+    if (assignLoading) return;
+    setAssignSelectedUserId(userId);
+  }, [assignLoading]);
+
   const handleAssignClick = React.useCallback(async (user: AssignUser) => {
     if (!onAssignTasks || assignLoading) return;
     setAssignSelectedUserId(user.id);
@@ -2506,36 +2490,37 @@ export const Grid = React.memo((props: GridProps) => {
       }
     } finally {
       setAssignLoading(false);
-      setAssignSelectedUserId(undefined);
     }
   }, [assignLoading, closeAssignPanel, onAssignTasks]);
 
   const assignColumns = React.useMemo<IColumn[]>(
     () => [
-      { key: 'firstName', name: 'First Name', fieldName: 'firstName', minWidth: 120, isResizable: true },
-      { key: 'lastName', name: 'Last Name', fieldName: 'lastName', minWidth: 120, isResizable: true },
-      { key: 'email', name: 'Email', fieldName: 'email', minWidth: 220, isResizable: true },
       {
-        key: 'assign',
-        name: 'Action',
-        minWidth: 120,
+        key: 'select',
+        name: '',
+        minWidth: 40,
+        maxWidth: 40,
         onRender: (item: AssignUser) => (
           item.id === ASSIGN_LOADING_ROW_ID
             ? null
             : (
-          <PrimaryButton
-            text="Assign Task"
-            ariaLabel={`Assign task to ${item.firstName} ${item.lastName}`}
-            disabled={assignLoading || (!!assignSelectedUserId && assignSelectedUserId !== item.id)}
-            onClick={() => {
-              void handleAssignClick(item);
-            }}
-          />
+              <input
+                className="voa-assign-radio"
+                type="radio"
+                name="assign-user"
+                aria-label={`Select ${item.firstName} ${item.lastName}`}
+                checked={assignSelectedUserId === item.id}
+                disabled={assignLoading}
+                onChange={() => handleAssignUserSelect(item.id)}
+              />
             )
         ),
       },
+      { key: 'firstName', name: 'First Name', fieldName: 'firstName', minWidth: 140, isResizable: true },
+      { key: 'lastName', name: 'Last Name', fieldName: 'lastName', minWidth: 140, isResizable: true },
+      { key: 'email', name: 'Email', fieldName: 'email', minWidth: 240, isResizable: true },
     ],
-    [assignLoading, assignSelectedUserId, handleAssignClick],
+    [assignLoading, assignSelectedUserId, handleAssignUserSelect],
   );
 
   const prefilterWorkThatOptions = React.useMemo(
@@ -2580,6 +2565,7 @@ export const Grid = React.memo((props: GridProps) => {
   const selectFirstSuffix = selectionConfig.selectFirstSuffix ?? 'on this page';
   const selectFirstButtonText = selectionConfig.selectFirstButtonText ?? 'Apply';
   const selectFirstHelperText = selectionConfig.selectFirstHelperText ?? 'Uses the current page order.';
+  const assignLoadingText = assignmentConfig.loadingText ?? 'Please wait...';
   const selectionControlsDisabled = pageItemCount === 0;
   const showGridToolbar = !!showResults
     && (showSelectionControls
@@ -3498,50 +3484,13 @@ export const Grid = React.memo((props: GridProps) => {
                   onChange={(_, v) => setAssignSearch(v ?? '')}
                   disabled={assignLoading || assignUsersLoading}
                 />
-                <Stack horizontal tokens={{ childrenGap: 12 }} wrap>
-                  <ComboBox
-                    label="Team"
-                    selectedKey={assignTeam}
-                    placeholder="Filter by team"
-                    options={filteredAssignTeamOptions}
-                    onChange={(_, opt) => {
-                      setAssignTeam(opt?.key);
-                      setAssignTeamSearch('');
-                    }}
-                    disabled={assignLoading || assignUsersLoading}
-                    allowFreeform={false}
-                    autoComplete="on"
-                    onInputValueChange={(value) => setAssignTeamSearch(normalizeComboSearchText(value))}
-                    onMenuDismissed={() => setAssignTeamSearch('')}
-                    styles={{
-                      root: { minWidth: 200 },
-                      callout: { minWidth: 240 },
-                      optionsContainer: { minWidth: 200 },
-                    }}
-                  />
-                  <ComboBox
-                    label="Role"
-                    selectedKey={assignRole}
-                    placeholder="Filter by role"
-                    options={filteredAssignRoleOptions}
-                    onChange={(_, opt) => {
-                      setAssignRole(opt?.key);
-                      setAssignRoleSearch('');
-                    }}
-                    disabled={assignLoading || assignUsersLoading}
-                    allowFreeform={false}
-                    autoComplete="on"
-                    onInputValueChange={(value) => setAssignRoleSearch(normalizeComboSearchText(value))}
-                    onMenuDismissed={() => setAssignRoleSearch('')}
-                    styles={{
-                      root: { minWidth: 200 },
-                      callout: { minWidth: 240 },
-                      optionsContainer: { minWidth: 200 },
-                    }}
-                  />
-                </Stack>
                 {assignUsersLoading && <Spinner size={SpinnerSize.small} ariaLabel="Loading users" />}
-                {assignLoading && <Spinner size={SpinnerSize.small} ariaLabel="Assigning tasks" />}
+                {assignLoading && (
+                  <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+                    <Spinner size={SpinnerSize.small} ariaLabel="Assigning tasks" />
+                    <Text>{assignLoadingText}</Text>
+                  </Stack>
+                )}
                 {assignUsersInfo && (
                   <MessageBar messageBarType={MessageBarType.info}>
                     {assignUsersInfo}
@@ -3560,7 +3509,25 @@ export const Grid = React.memo((props: GridProps) => {
                   columns={assignColumns}
                   selectionMode={SelectionMode.none}
                   isHeaderVisible
+                  onItemInvoked={(item) => {
+                    const record = item as AssignUser | undefined;
+                    if (!record || record.id === ASSIGN_LOADING_ROW_ID) return;
+                    handleAssignUserSelect(record.id);
+                  }}
                 />
+                <Stack horizontal horizontalAlign="end" tokens={{ childrenGap: 12 }}>
+                  <PrimaryButton
+                    text={assignActionText}
+                    iconProps={{ iconName: 'AddFriend' }}
+                    onClick={() => {
+                      if (selectedAssignUser) {
+                        void handleAssignClick(selectedAssignUser);
+                      }
+                    }}
+                    disabled={!selectedAssignUser || assignLoading}
+                    ariaLabel={assignActionText}
+                  />
+                </Stack>
               </Stack>
             </FocusTrapZone>
           </div>
