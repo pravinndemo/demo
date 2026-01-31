@@ -1525,15 +1525,6 @@ export const Grid = React.memo((props: GridProps) => {
     setSelectFirstError(undefined);
   }, [applySelectionChange, items]);
 
-  const selectAllOnPage = React.useCallback(() => {
-    if (pageItemCount === 0) return;
-    applySelectionChange(() => {
-      selection.setItems(items, true);
-      selection.setAllSelected(true);
-    });
-    setSelectFirstError(undefined);
-  }, [applySelectionChange, items, pageItemCount, selection]);
-
   const selectFirstOnPage = React.useCallback(() => {
     if (pageItemCount === 0) return;
     const raw = selectFirstInput.trim();
@@ -2583,7 +2574,6 @@ export const Grid = React.memo((props: GridProps) => {
   const showSelectionControls = !!showResults && selectionType !== SelectionMode.none;
   const selectionToolbarLabel = selectionConfig.toolbarAriaLabel ?? 'Selection actions';
   const selectionGroupLabel = selectionConfig.groupAriaLabel ?? 'Page selection';
-  const selectAllText = selectionConfig.selectAllText ?? 'Select all on this page';
   const clearSelectionText = selectionConfig.clearText ?? 'Clear selection';
   const selectFirstLabel = selectionConfig.selectFirstLabel ?? 'Select first';
   const selectFirstPlaceholder = selectionConfig.selectFirstPlaceholder ?? 'Number';
@@ -3254,13 +3244,6 @@ export const Grid = React.memo((props: GridProps) => {
               <div className="voa-grid-toolbar__left">
                 {showSelectionControls && (
                   <div className="voa-selection-controls" role="group" aria-label={selectionGroupLabel}>
-                    <DefaultButton
-                      text={selectAllText}
-                      iconProps={{ iconName: 'MultiSelect' }}
-                      onClick={selectAllOnPage}
-                      disabled={selectionControlsDisabled}
-                      ariaLabel={selectAllText}
-                    />
                     <div className="voa-selection-controls__field">
                       <Label htmlFor="voa-select-first" className="voa-selection-controls__label">
                         {selectFirstLabel}
