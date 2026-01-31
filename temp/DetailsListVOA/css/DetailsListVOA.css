@@ -229,20 +229,20 @@
 
 .voa-selection-controls {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .voa-selection-controls__field {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .voa-selection-controls__label {
   font-weight: 600;
-  padding-bottom: 6px;
 }
 
 .voa-selection-controls__field .ms-TextField {
@@ -251,7 +251,19 @@
 
 .voa-selection-controls__suffix {
   color: #605e5c;
-  padding-bottom: 6px;
+  white-space: nowrap;
+}
+
+.voa-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 900px) {
@@ -275,6 +287,7 @@
 
   .voa-selection-controls {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .voa-selection-controls__field {

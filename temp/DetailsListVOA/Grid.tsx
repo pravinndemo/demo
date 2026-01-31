@@ -3251,6 +3251,7 @@ export const Grid = React.memo((props: GridProps) => {
                       <TextField
                         id="voa-select-first"
                         ariaLabel={selectFirstLabel}
+                        aria-describedby="voa-select-first-help"
                         value={selectFirstInput}
                         placeholder={selectFirstPlaceholder}
                         type="number"
@@ -3269,11 +3270,13 @@ export const Grid = React.memo((props: GridProps) => {
                             selectFirstOnPage();
                           }
                         }}
-                        description={selectFirstHelperText}
                         errorMessage={selectFirstError}
                         disabled={selectionControlsDisabled}
                         styles={{ root: { maxWidth: 160 } }}
                       />
+                      <span id="voa-select-first-help" className="voa-sr-only">
+                        {selectFirstHelperText}
+                      </span>
                       <Text variant="small" className="voa-selection-controls__suffix">
                         {selectFirstSuffix}
                       </Text>
