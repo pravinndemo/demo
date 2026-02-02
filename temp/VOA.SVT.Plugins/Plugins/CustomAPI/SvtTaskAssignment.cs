@@ -58,6 +58,14 @@ namespace VOA.SVT.Plugins.CustomAPI
             var date = GetInput(context, "date");
             var taskIds = ParseTaskIds(taskId);
 
+            if (string.IsNullOrWhiteSpace(assignedByUserId))
+            {
+                var fallbackId = context.InitiatingUserId != Guid.Empty
+                    ? context.InitiatingUserId
+                    : context.UserId;
+                assignedByUserId = fallbackId == Guid.Empty ? string.Empty : fallbackId.ToString();
+            }
+
             if (string.IsNullOrWhiteSpace(assignedToUserId) || taskIds.Count == 0)
             {
                 throw new InvalidPluginExecutionException("assignedToUserId and taskId are required.");
@@ -97,7 +105,7 @@ namespace VOA.SVT.Plugins.CustomAPI
 
             var payload = new Dictionary<string, object>
             {
-                ["source"] = ResolveAssignmentSource(assignmentContext),
+                ["source"] = ResolveSource(screenName, assignmentContext),
                 ["assignedTo"] = assignedToUserId ?? string.Empty,
                 ["taskId"] = taskIds,
                 ["requestedBy"] = assignedByUserId ?? string.Empty,
@@ -237,8 +245,34 @@ namespace VOA.SVT.Plugins.CustomAPI
             return string.IsNullOrWhiteSpace(digits) ? value.Trim() : digits;
         }
 
-        private static string ResolveAssignmentSource(AssignmentContext context)
+        private static string ResolveSource(string screenName, AssignmentContext context)
         {
+            var lower = (screenName ?? string.Empty).Trim().ToLowerInvariant();
+            if (lower.Contains("assignment") && lower.Contains("manager"))
+            {
+                return "MA";
+            }
+
+            if (lower.Contains("assignment") && (lower.Contains("qc") || lower.Contains("quality")))
+            {
+                return "QCA";
+            }
+
+            if ((lower.Contains("qc") || lower.Contains("quality")) && lower.Contains("view") && !lower.Contains("assignment"))
+            {
+                return "QCV";
+            }
+
+            if (lower.Contains("caseworker"))
+            {
+                return "CW";
+            }
+
+            if (lower.Contains("sales") || lower.Contains("record search") || lower.Contains("recordsearch"))
+            {
+                return "SRS";
+            }
+
             switch (context)
             {
                 case AssignmentContext.Manager:

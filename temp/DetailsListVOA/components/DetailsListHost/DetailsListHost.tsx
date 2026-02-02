@@ -146,6 +146,36 @@ const resolveScreenConfig = (
   return resolveFromScreenName(canvasScreenName) ?? buildResolvedFromTableKey(explicitTableKey ?? fallbackTableKey);
 };
 
+const normalizeUserId = (value?: string): string => {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.replace(/^[{(]?(.*?)[)}]?$/, '$1');
+};
+
+const resolveAssignedByUserId = (context: ComponentFramework.Context<IInputs>): string => {
+  const fromContext = (context.userSettings as { userId?: string } | undefined)?.userId;
+  if (fromContext) return normalizeUserId(fromContext);
+  const xrm = (globalThis as {
+    Xrm?: { Utility?: { getGlobalContext?: () => { userSettings?: { userId?: string } } } };
+  }).Xrm;
+  const fromXrm = xrm?.Utility?.getGlobalContext?.()?.userSettings?.userId;
+  return normalizeUserId(fromXrm);
+};
+
+const resolveAssignmentScreenName = (raw: string, kind: ScreenKind): string => {
+  switch (kind) {
+    case 'managerAssign':
+      return 'manager assignment';
+    case 'qcAssign':
+      return 'quality control assignment';
+    default: {
+      const trimmed = raw.trim();
+      return trimmed;
+    }
+  }
+};
+
 const SALES_SEARCH_DEFAULT_FILTERS: GridFilterState = {
   ...createDefaultGridFilters(),
   searchBy: 'address',
@@ -466,6 +496,10 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     [canvasScreenName, explicitTableKey, fallbackTableKey],
   );
   const { tableKey, profileKey, sourceCode, kind: screenKind } = resolvedScreenConfig;
+  const assignmentScreenName = React.useMemo(
+    () => resolveAssignmentScreenName(canvasScreenName, screenKind),
+    [canvasScreenName, screenKind],
+  );
   const commonText = SCREEN_TEXT.common;
   const managerText = SCREEN_TEXT.managerAssignment;
   const assignTasksText = SCREEN_TEXT.assignTasks;
@@ -1441,7 +1475,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         return false;
       }
       const customApiType = resolveCustomApiTypeForAssign();
-      const assignedBy = (context.userSettings as { userId?: string } | undefined)?.userId ?? '';
+      const assignedBy = resolveAssignedByUserId(context);
       const assignedDate = new Date().toISOString();
       const toNumericTaskId = (value: unknown): string => {
         const raw = typeof value === 'string' ? value : typeof value === 'number' || typeof value === 'boolean' ? String(value) : '';
@@ -1502,7 +1536,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           taskId: JSON.stringify(uniqueTaskIds),
           assignedByUserId: assignedBy,
           date: assignedDate,
-          screenName,
+          screenName: assignmentScreenName || screenName,
         },
         { operationType: customApiType },
       );
