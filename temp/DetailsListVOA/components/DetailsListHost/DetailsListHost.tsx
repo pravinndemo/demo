@@ -1527,6 +1527,44 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         }
         return null;
       };
+      const normalizeOutcomeText = (value?: string): string => {
+        if (!value) return '';
+        return value.replace(/^['"]|['"]$/g, '').trim().toLowerCase();
+      };
+      const parseApimOutcome = (payload?: string): { success?: boolean; alreadyAssigned?: boolean } => {
+        const raw = typeof payload === 'string' ? payload.trim() : '';
+        if (!raw) return {};
+        const normalized = normalizeOutcomeText(raw);
+        const hasAlreadyAssigned = normalized.includes('already assigned') || normalized.includes('alreadyassigned');
+        if (['success', 'succeeded', 'ok', 'true'].includes(normalized)) return { success: true };
+        if (['fail', 'failed', 'failure', 'error', 'false'].includes(normalized)) {
+          return { success: false, alreadyAssigned: hasAlreadyAssigned };
+        }
+        try {
+          const parsed = JSON.parse(raw) as unknown;
+          if (typeof parsed === 'string') {
+            return parseApimOutcome(parsed);
+          }
+          if (parsed && typeof parsed === 'object') {
+            const record = parsed as Record<string, unknown>;
+            const success = typeof record.success === 'boolean' ? record.success : undefined;
+            const message = [
+              record.message,
+              record.status,
+              record.result,
+              record.detail,
+            ]
+              .map((v) => (typeof v === 'string' ? v : ''))
+              .join(' ');
+            const normalizedMessage = normalizeOutcomeText(message);
+            const alreadyAssigned = normalizedMessage.includes('already assigned') || normalizedMessage.includes('alreadyassigned');
+            return { success, alreadyAssigned };
+          }
+        } catch {
+          // ignore JSON parse issues
+        }
+        return { alreadyAssigned: hasAlreadyAssigned };
+      };
 
       const assignmentParams: Record<string, string> = {
         assignedToUserId: user.id,
@@ -1544,12 +1582,16 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         { operationType: customApiType },
       );
       const parsed = parseAssignmentResult(response);
-      if (parsed?.success === false) {
+      if (!parsed || parsed?.success === false) {
         setAssignMessage({ text: assignTasksText.messages.assignmentFailed, type: MessageBarType.error });
         return false;
       }
-      const successMessage = parsed?.message?.trim() ?? assignTasksText.messages.assignedSuccess;
-      setAssignMessage({ text: successMessage, type: MessageBarType.success });
+      const apimOutcome = parseApimOutcome(parsed.payload);
+      if (apimOutcome.alreadyAssigned || apimOutcome.success === false) {
+        setAssignMessage({ text: assignTasksText.messages.alreadyAssigned, type: MessageBarType.error });
+        return false;
+      }
+      setAssignMessage({ text: assignTasksText.messages.assignedSuccess, type: MessageBarType.success });
       selection.setAllSelected(false);
       setSelectedCount(0);
       onSelectionCountChange?.(0);
