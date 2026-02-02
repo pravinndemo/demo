@@ -1584,11 +1584,13 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       const parsed = parseAssignmentResult(response);
       if (!parsed || parsed?.success === false) {
         setAssignMessage({ text: assignTasksText.messages.assignmentFailed, type: MessageBarType.error });
+        setSearchNonce((n) => n + 1);
         return false;
       }
       const apimOutcome = parseApimOutcome(parsed.payload);
       if (apimOutcome.alreadyAssigned || apimOutcome.success === false) {
         setAssignMessage({ text: assignTasksText.messages.alreadyAssigned, type: MessageBarType.error });
+        setSearchNonce((n) => n + 1);
         return false;
       }
       setAssignMessage({ text: assignTasksText.messages.assignedSuccess, type: MessageBarType.success });
@@ -1606,6 +1608,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         text: assignTasksText.messages.assignmentFailed,
         type: MessageBarType.error,
       });
+      setSearchNonce((n) => n + 1);
       if (assignRefreshResolve.current) {
         assignRefreshResolve.current(false);
         assignRefreshResolve.current = null;
@@ -1676,6 +1679,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     selectedCount,
     allowColumnReorder,
     statusMessage: assignMessage,
+    onStatusMessageDismiss: () => setAssignMessage(undefined),
     errorMessage: loadErrorMessage,
     assignUsers,
     assignUsersLoading,

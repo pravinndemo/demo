@@ -110,6 +110,7 @@ export interface GridProps {
   canvasScreenName?: string;
   onAssignTasks?: (user: AssignUser) => Promise<boolean>;
   statusMessage?: { text: string; type: MessageBarType };
+  onStatusMessageDismiss?: () => void;
   prefilterApplied?: boolean;
   onPrefilterApply?: (prefilters: ManagerPrefilterState) => void;
   onPrefilterClear?: () => void;
@@ -427,6 +428,7 @@ export const Grid = React.memo((props: GridProps) => {
     caseworkerOptionsError,
     errorMessage,
     statusMessage,
+    onStatusMessageDismiss,
     showResults,
     onLoadFilterOptions,
     onColumnFiltersChange,
@@ -2493,7 +2495,9 @@ export const Grid = React.memo((props: GridProps) => {
       const ok = await onAssignTasks(user);
       if (ok) {
         closeAssignPanel();
+        return;
       }
+      closeAssignPanel();
     } finally {
       setAssignLoading(false);
     }
@@ -2912,11 +2916,16 @@ export const Grid = React.memo((props: GridProps) => {
             {errorMessage}
           </MessageBar>
         )}
-          {statusMessage && (
-            <MessageBar messageBarType={statusMessage.type} style={{ marginBottom: 16 }}>
-              {statusMessage.text}
-            </MessageBar>
-          )}
+        {statusMessage && (
+          <MessageBar
+            messageBarType={statusMessage.type}
+            style={{ marginBottom: 16 }}
+            onDismiss={onStatusMessageDismiss}
+            dismissButtonAriaLabel={commonText.buttons.clear}
+          >
+            {statusMessage.text}
+          </MessageBar>
+        )}
           {pageHeaderText && (
             <div className="voa-command-bar">
               <div className="voa-command-bar__left">
@@ -3310,7 +3319,7 @@ export const Grid = React.memo((props: GridProps) => {
                   />
                 )}
                 {showAssign && (
-                  <PrimaryButton
+                  <DefaultButton
                     text={assignActionText}
                     iconProps={{ iconName: 'AddFriend' }}
                     onClick={openAssignPanel}
@@ -3523,7 +3532,7 @@ export const Grid = React.memo((props: GridProps) => {
                   }}
                 />
                 <Stack horizontal horizontalAlign="end" tokens={{ childrenGap: 12 }}>
-                  <PrimaryButton
+                  <DefaultButton
                     text={assignActionText}
                     iconProps={{ iconName: 'AddFriend' }}
                     onClick={() => {
