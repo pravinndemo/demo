@@ -589,6 +589,13 @@
   font-size: 11px;
 }
 
+.voa-summary-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 .voa-mda-link {
   color: #005A9E;
   text-decoration: none;

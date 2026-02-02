@@ -224,7 +224,7 @@ function getTextTagCell(
         : tagValues;
     const isBlank = normalizedTagValues.length === 0;
     const cellContents = !isBlank ? (
-        <span>
+        <span className={isSummaryFlags ? 'voa-summary-tags' : undefined}>
             {normalizedTagValues.map((t, idx) => {
                 const text = t.toString().trim();
                 const displayText = isSummaryFlags ? getSummaryTagLabel(text) : text;
@@ -233,13 +233,14 @@ function getTextTagCell(
                 const summaryStyle = colors
                     ? { background: colors.background, borderColor: colors.borderColor, color: colors.color }
                     : undefined;
+                const marginRight = isSummaryFlags ? 0 : 6;
                 return (
                     <span
                         key={idx}
                         className={`${tagColorClass}${summaryClass ? ` ${summaryClass}` : ''}`}
                         title={text}
                         aria-label={`${column.name ?? column.fieldName ?? 'Tag'} ${text}`}
-                        style={{ marginRight: 6, ...(summaryStyle ?? {}) }}
+                        style={{ marginRight, ...(summaryStyle ?? {}) }}
                     >
                         {displayText}
                     </span>
