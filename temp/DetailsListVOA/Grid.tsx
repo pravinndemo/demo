@@ -1940,8 +1940,14 @@ export const Grid = React.memo((props: GridProps) => {
                   setBillingAuthoritySearch('');
                 }}
                 onInputValueChange={(value) => {
+                  const next = normalizeComboSearchText(value);
+                  if (!next) {
+                    setComboEditingFor('salesBillingAuthority', false);
+                    setBillingAuthoritySearch('');
+                    return;
+                  }
                   setComboEditingFor('salesBillingAuthority', true);
-                  setBillingAuthoritySearch(normalizeComboSearchText(value));
+                  setBillingAuthoritySearch(next);
                 }}
                 onMenuDismissed={() => {
                   setComboEditingFor('salesBillingAuthority', false);
@@ -2165,8 +2171,14 @@ export const Grid = React.memo((props: GridProps) => {
               setComboSearchTextFor(cfg.key, '');
             }}
             onInputValueChange={(value) => {
+              const next = normalizeComboSearchText(value);
+              if (!next) {
+                setComboEditingFor(cfg.key, false);
+                setComboSearchTextFor(cfg.key, '');
+                return;
+              }
               setComboEditingFor(cfg.key, true);
-              setComboSearchTextFor(cfg.key, normalizeComboSearchText(value));
+              setComboSearchTextFor(cfg.key, next);
             }}
             onMenuDismissed={() => {
               setComboEditingFor(cfg.key, false);
@@ -2787,8 +2799,14 @@ export const Grid = React.memo((props: GridProps) => {
                     setMenuFilterSearch('');
                   }}
                   onInputValueChange={(value) => {
+                    const next = normalizeComboSearchText(value);
+                    if (!next) {
+                      setComboEditingFor(menuFilterKey, false);
+                      setMenuFilterSearch('');
+                      return;
+                    }
                     setComboEditingFor(menuFilterKey, true);
-                    setMenuFilterSearch(normalizeComboSearchText(value));
+                    setMenuFilterSearch(next);
                   }}
                   onMenuDismissed={() => {
                     setComboEditingFor(menuFilterKey, false);
@@ -3134,8 +3152,14 @@ export const Grid = React.memo((props: GridProps) => {
                 autoComplete="on"
                 text={comboEditing.prefilterSearchBy ? prefilterSearchBySearch : undefined}
                 onInputValueChange={(value) => {
+                  const next = normalizeComboSearchText(value);
+                  if (!next) {
+                    setComboEditingFor('prefilterSearchBy', false);
+                    setPrefilterSearchBySearch('');
+                    return;
+                  }
                   setComboEditingFor('prefilterSearchBy', true);
-                  setPrefilterSearchBySearch(normalizeComboSearchText(value));
+                  setPrefilterSearchBySearch(next);
                 }}
                 onMenuDismissed={() => {
                   setComboEditingFor('prefilterSearchBy', false);
@@ -3276,8 +3300,14 @@ export const Grid = React.memo((props: GridProps) => {
                 autoComplete="on"
                 text={comboEditing.prefilterWorkThat ? prefilterWorkThatSearch : undefined}
                 onInputValueChange={(value) => {
+                  const next = normalizeComboSearchText(value);
+                  if (!next) {
+                    setComboEditingFor('prefilterWorkThat', false);
+                    setPrefilterWorkThatSearch('');
+                    return;
+                  }
                   setComboEditingFor('prefilterWorkThat', true);
-                  setPrefilterWorkThatSearch(normalizeComboSearchText(value));
+                  setPrefilterWorkThatSearch(next);
                 }}
                 onMenuDismissed={() => {
                   setComboEditingFor('prefilterWorkThat', false);
@@ -3386,8 +3416,14 @@ export const Grid = React.memo((props: GridProps) => {
               autoComplete="on"
               text={comboEditing.searchBy ? searchBySearch : undefined}
               onInputValueChange={(value) => {
+                const next = normalizeComboSearchText(value);
+                if (!next) {
+                  setComboEditingFor('searchBy', false);
+                  setSearchBySearch('');
+                  return;
+                }
                 setComboEditingFor('searchBy', true);
-                setSearchBySearch(normalizeComboSearchText(value));
+                setSearchBySearch(next);
               }}
               onMenuDismissed={() => {
                 setComboEditingFor('searchBy', false);
