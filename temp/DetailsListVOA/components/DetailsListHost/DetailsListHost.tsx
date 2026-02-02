@@ -709,6 +709,33 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return String(user?.id ?? '').trim();
   }, []);
 
+  const caseworkerNameToIdMap = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    assignableUsersCache.forEach((user) => {
+      const id = String(user?.id ?? '').trim();
+      if (!id) return;
+      const name = getUserDisplayName(user).trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!map[key]) {
+        map[key] = id;
+      }
+    });
+    return map;
+  }, [assignableUsersCache, getUserDisplayName]);
+
+  const mapCaseworkerNamesToIds = React.useCallback(
+    (values: string[]): string[] =>
+      values.map((v) => {
+        const raw = String(v ?? '').trim();
+        if (!raw) return raw;
+        if (raw === '__all__') return raw;
+        const id = caseworkerNameToIdMap[raw.toLowerCase()];
+        return id ?? raw;
+      }),
+    [caseworkerNameToIdMap],
+  );
+
   const buildCaseworkerNames = React.useCallback((users: AssignUser[]): string[] => {
     const names = (users ?? [])
       .map((user) => getUserDisplayName(user))
@@ -1735,7 +1762,10 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     canvasScreenName,
     prefilterApplied,
     onPrefilterApply: (next) => {
-      setPrefilters(next);
+      const resolved = next.searchBy === 'caseworker'
+        ? { ...next, caseworkers: mapCaseworkerNamesToIds(next.caseworkers ?? []) }
+        : next;
+      setPrefilters(resolved);
       setPrefilterApplied(true);
       setCurrentPage(0);
       setSearchFilters(createDefaultGridFilters());
