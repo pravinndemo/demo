@@ -206,6 +206,29 @@ const normalizeComboSearchText = (value?: string): string => {
   return (parts[parts.length - 1] ?? '').trim();
 };
 
+const normalizeMultiSelectSearchText = (
+  value: string | undefined,
+  options: IComboBoxOption[],
+  selectedKeys: string[],
+): string => {
+  const raw = value ?? '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (selectedKeys.length > 0) {
+    const selectedText = selectedKeys
+      .map((key) => {
+        const match = options.find((opt) => String(opt.key) === key);
+        return String(match?.text ?? match?.key ?? '');
+      })
+      .filter((text) => text !== '')
+      .join(', ');
+    if (selectedText && trimmed === selectedText) {
+      return '';
+    }
+  }
+  return normalizeComboSearchText(raw);
+};
+
 const formatTemplate = (template: string, tokens: Record<string, string | number>): string =>
   template.replace(/\{(\w+)\}/g, (match: string, key: string) => (
     Object.prototype.hasOwnProperty.call(tokens, key) ? String(tokens[key]) : match
@@ -1887,10 +1910,11 @@ export const Grid = React.memo((props: GridProps) => {
                 label={salesSearchText.fields.billingAuthority}
                 placeholder={salesSearchText.placeholders.billingAuthority}
                 options={filteredBillingAuthorityOptionsList}
-                selectedKey={authority}
-                allowFreeform={false}
+                selectedKey={billingAuthoritySearch.trim() ? undefined : authority}
+                allowFreeform
                 allowFreeInput
                 autoComplete="on"
+                text={billingAuthoritySearch.trim() ? billingAuthoritySearch : undefined}
                 disabled={billingAuthorityOptionsLoading}
                 onChange={(_, opt) => {
                   if (!opt || opt.key === '__loading__' || opt.key === '__error__') return;
@@ -2106,15 +2130,16 @@ export const Grid = React.memo((props: GridProps) => {
           <ComboBox
             label={cfg.label}
             options={filteredOptions}
-            selectedKey={selectedKey}
-            allowFreeform={false}
+            selectedKey={searchText.trim() ? undefined : selectedKey}
+            allowFreeform
             allowFreeInput
             autoComplete="on"
+            text={searchText.trim() ? searchText : undefined}
             onChange={(_, opt) => {
               updateSingleSelect(cfg.stateKey, opt);
               setComboSearchTextFor(cfg.key, '');
             }}
-            onInputValueChange={(value) => setComboSearchTextFor(cfg.key, value)}
+            onInputValueChange={(value) => setComboSearchTextFor(cfg.key, normalizeComboSearchText(value))}
             onMenuDismissed={() => setComboSearchTextFor(cfg.key, '')}
             styles={{
               root: { width: '100%' },
@@ -2136,9 +2161,10 @@ export const Grid = React.memo((props: GridProps) => {
           <ComboBox
             label={cfg.label}
             multiSelect
-            allowFreeform={false}
+            allowFreeform
             allowFreeInput
             autoComplete="on"
+            text={searchText.trim() ? searchText : ''}
             persistMenu
             options={filteredOptions}
             selectedKey={selected ?? []}
@@ -2696,10 +2722,11 @@ export const Grid = React.memo((props: GridProps) => {
                 label={`Filter ${menuState.column.name}`}
                 placeholder={`Select ${menuState.column.name}`}
                 options={filteredColumnOptions}
-                allowFreeform={false}
+                allowFreeform
                 allowFreeInput
                 autoComplete="on"
-                selectedKey={typeof menuFilterValue === 'string' ? menuFilterValue : undefined}
+                text={menuFilterSearch.trim() ? menuFilterSearch : undefined}
+                selectedKey={menuFilterSearch.trim() ? undefined : typeof menuFilterValue === 'string' ? menuFilterValue : undefined}
                 onChange={(_, opt) => {
                   setMenuFilterValue((opt?.key as string) ?? '');
                   setMenuFilterSearch('');
@@ -2720,9 +2747,10 @@ export const Grid = React.memo((props: GridProps) => {
             placeholder={`Select ${menuState.column.name}`}
             options={filteredColumnOptions}
             multiSelect
-            allowFreeform={false}
+            allowFreeform
             allowFreeInput
             autoComplete="on"
+            text={menuFilterSearch.trim() ? menuFilterSearch : ''}
             persistMenu
             selectedKey={Array.isArray(menuFilterValue) ? menuFilterValue : []}
             onChange={(_, opt) => {
@@ -2748,7 +2776,15 @@ export const Grid = React.memo((props: GridProps) => {
                 });
               setMenuFilterSearch('');
               }}
-              onInputValueChange={(value) => setMenuFilterSearch(normalizeComboSearchText(value))}
+              onInputValueChange={(value) =>
+                setMenuFilterSearch(
+                  normalizeMultiSelectSearchText(
+                    value,
+                    options,
+                    Array.isArray(menuFilterValue) ? menuFilterValue.map((key) => String(key)) : [],
+                  ),
+                )
+              }
               onMenuDismissed={() => setMenuFilterSearch('')}
               styles={{
                 root: { width: '100%' },
@@ -3015,14 +3051,15 @@ export const Grid = React.memo((props: GridProps) => {
                 id="prefilter-searchby"
                 ariaLabel={prefilterText.labels.searchBy}
                 options={filteredPrefilterSearchByOptions}
-                selectedKey={prefilters.searchBy}
+                selectedKey={prefilterSearchBySearch.trim() ? undefined : prefilters.searchBy}
                 onChange={(event, option) => {
                   onPrefilterSearchByChange(event, option);
                   setPrefilterSearchBySearch('');
                 }}
-                allowFreeform={false}
+                allowFreeform
                 allowFreeInput
                 autoComplete="on"
+                text={prefilterSearchBySearch.trim() ? prefilterSearchBySearch : undefined}
                 onInputValueChange={(value) => setPrefilterSearchBySearch(normalizeComboSearchText(value))}
                 onMenuDismissed={() => setPrefilterSearchBySearch('')}
                 styles={{
@@ -3054,11 +3091,20 @@ export const Grid = React.memo((props: GridProps) => {
                       setManagerBillingSearch('');
                     }}
                     disabled={billingAuthorityOptionsLoading}
-                    allowFreeform={false}
+                    allowFreeform
                     allowFreeInput
                     autoComplete="on"
+                    text={managerBillingSearch.trim() ? managerBillingSearch : ''}
                     persistMenu
-                    onInputValueChange={(value) => setManagerBillingSearch(normalizeComboSearchText(value))}
+                    onInputValueChange={(value) =>
+                      setManagerBillingSearch(
+                        normalizeMultiSelectSearchText(
+                          value,
+                          managerBillingAuthorityOptions as IComboBoxOption[],
+                          managerBillingSelectedKeys.map((key) => String(key)),
+                        ),
+                      )
+                    }
                     onMenuDismissed={() => setManagerBillingSearch('')}
                     styles={{
                       root: { width: '100%' },
@@ -3090,11 +3136,20 @@ export const Grid = React.memo((props: GridProps) => {
                       setCaseworkerSearch('');
                     }}
                     disabled={caseworkerOptionsDisabled}
-                    allowFreeform={false}
+                    allowFreeform
                     allowFreeInput
                     autoComplete="on"
+                    text={caseworkerSearch.trim() ? caseworkerSearch : ''}
                     persistMenu
-                    onInputValueChange={(value) => setCaseworkerSearch(normalizeComboSearchText(value))}
+                    onInputValueChange={(value) =>
+                      setCaseworkerSearch(
+                        normalizeMultiSelectSearchText(
+                          value,
+                          caseworkerOptionsList as IComboBoxOption[],
+                          caseworkerSelectedKeys.map((key) => String(key)),
+                        ),
+                      )
+                    }
                     onMenuDismissed={() => setCaseworkerSearch('')}
                     styles={{
                       root: { width: '100%' },
@@ -3123,14 +3178,15 @@ export const Grid = React.memo((props: GridProps) => {
                 ariaLabel={prefilterText.labels.workThat}
                 placeholder={prefilterText.placeholders.workThat}
                 options={filteredPrefilterWorkThatOptions}
-                selectedKey={prefilters.workThat}
+                selectedKey={prefilterWorkThatSearch.trim() ? undefined : prefilters.workThat}
                 onChange={(event, option) => {
                   onPrefilterWorkThatChange(event, option);
                   setPrefilterWorkThatSearch('');
                 }}
-                allowFreeform={false}
+                allowFreeform
                 allowFreeInput
                 autoComplete="on"
+                text={prefilterWorkThatSearch.trim() ? prefilterWorkThatSearch : undefined}
                 onInputValueChange={(value) => setPrefilterWorkThatSearch(normalizeComboSearchText(value))}
                 onMenuDismissed={() => setPrefilterWorkThatSearch('')}
                 styles={{
@@ -3225,14 +3281,15 @@ export const Grid = React.memo((props: GridProps) => {
             <ComboBox
               label={salesSearchText.searchPanel.searchByLabel}
               options={filteredSearchByOptions}
-              selectedKey={filters.searchBy}
+              selectedKey={searchBySearch.trim() ? undefined : filters.searchBy}
               onChange={(event, option) => {
                 onSearchByChange(event, option);
                 setSearchBySearch('');
               }}
-              allowFreeform={false}
+              allowFreeform
               allowFreeInput
               autoComplete="on"
+              text={searchBySearch.trim() ? searchBySearch : undefined}
               onInputValueChange={(value) => setSearchBySearch(normalizeComboSearchText(value))}
               onMenuDismissed={() => setSearchBySearch('')}
               styles={{
