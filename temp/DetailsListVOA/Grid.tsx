@@ -3168,7 +3168,7 @@ export const Grid = React.memo((props: GridProps) => {
             <div className="voa-prefilter-field voa-prefilter-actions">
               <span className="voa-prefilter-label-spacer" aria-hidden="true"></span>
               <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
-                <PrimaryButton
+                <DefaultButton
                   text={prefilterText.buttons.search}
                   iconProps={{ iconName: 'Search' }}
                   onClick={handlePrefilterSearch}
@@ -3224,7 +3224,7 @@ export const Grid = React.memo((props: GridProps) => {
               {(shimmer || itemsLoading || isComponentLoading) && (
                 <Spinner size={SpinnerSize.small} ariaLabel={commonText.aria.loadingFilterResults} />
               )}
-              <PrimaryButton
+              <DefaultButton
                 text={commonText.buttons.search}
                 iconProps={{ iconName: 'Search' }}
                 onClick={handleSearch}

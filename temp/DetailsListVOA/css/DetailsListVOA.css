@@ -645,6 +645,7 @@
   z-index: auto;
   background: #ffffff;
   border-bottom: 1px solid #e6e6e6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .voa-prefilter-bar .ms-Stack-inner {
@@ -815,6 +816,16 @@
   padding-right: 12px;
 }
 
+.voa-prefilter-actions .ms-Button {
+  height: 32px;
+  border-radius: 4px;
+}
+
+.voa-prefilter-actions .ms-Button-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .voa-prefilter-bar--inline .ms-Stack-inner {
   display: grid !important;
   grid-template-columns:
@@ -827,7 +838,7 @@
   column-gap: 10px;
   row-gap: 6px;
   align-items: start;
-  padding: 6px 12px 8px;
+  padding: 6px 12px 10px;
 }
 
 .voa-prefilter-bar--inline.voa-prefilter-bar--no-date .ms-Stack-inner {
@@ -839,7 +850,7 @@
 }
 
 .voa-prefilter-bar--inline .ms-Label {
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 
 .voa-prefilter-bar--inline .voa-prefilter-field {
