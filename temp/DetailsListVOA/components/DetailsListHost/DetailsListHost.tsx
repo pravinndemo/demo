@@ -1528,25 +1528,24 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         return null;
       };
 
+      const assignmentParams: Record<string, string> = {
+        assignedToUserId: user.id,
+        taskId: JSON.stringify(uniqueTaskIds),
+        assignedByUserId: assignedBy,
+        screenName: assignmentScreenName || screenName,
+      };
+      if (screenKind !== 'managerAssign') {
+        assignmentParams.date = assignedDate;
+      }
       const response = await executeUnboundCustomApi<Record<string, unknown>>(
         context,
         apiName,
-        {
-          assignedToUserId: user.id,
-          taskId: JSON.stringify(uniqueTaskIds),
-          assignedByUserId: assignedBy,
-          date: assignedDate,
-          screenName: assignmentScreenName || screenName,
-        },
+        assignmentParams,
         { operationType: customApiType },
       );
       const parsed = parseAssignmentResult(response);
       if (parsed?.success === false) {
-        const fallback = assignTasksText.messages.alreadyAssigned;
-        const message = parsed.message?.trim()
-          ?? parsed.payload?.trim()
-          ?? fallback;
-        setAssignMessage({ text: message, type: MessageBarType.error });
+        setAssignMessage({ text: assignTasksText.messages.assignmentFailed, type: MessageBarType.error });
         return false;
       }
       const successMessage = parsed?.message?.trim() ?? assignTasksText.messages.assignedSuccess;
@@ -1562,7 +1561,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       });
     } catch (err) {
       setAssignMessage({
-        text: assignTasksText.messages.alreadyAssigned,
+        text: assignTasksText.messages.assignmentFailed,
         type: MessageBarType.error,
       });
       if (assignRefreshResolve.current) {

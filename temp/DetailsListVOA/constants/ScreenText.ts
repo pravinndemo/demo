@@ -202,6 +202,7 @@ export const SCREEN_TEXT = {
       noValidTaskIds: 'No valid task IDs were selected.',
       assignedSuccess: 'The selected tasks have been assigned successfully.',
       alreadyAssigned: 'One or more of the selected tasks has already been assigned. Please refresh the page and try again.',
+      assignmentFailed: 'Technical error. Please try again in some time.',
       invalidStatus: 'One or more selected tasks cannot be assigned based on status.',
       tooManyTasks: 'Please select {max} tasks or fewer for batch assignment.',
     },
