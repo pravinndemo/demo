@@ -41,6 +41,16 @@
   box-sizing: border-box;
 }
 
+.PowerCATFluentDetailsList .text-tag.voa-summary-tag {
+  border-radius: 999px;
+  height: 28px;
+  min-width: 28px;
+  width: auto;
+  max-width: none;
+  padding: 0 6px;
+  line-height: 28px;
+}
+
 .voa-skip-links {
   position: absolute;
   left: 0;
@@ -579,10 +589,10 @@
   align-items: center;
   justify-content: center;
   height: 28px;
-  width: 28px;
   min-width: 28px;
-  max-width: 28px;
-  padding: 0;
+  width: auto;
+  max-width: none;
+  padding: 0 6px;
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
