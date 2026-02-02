@@ -182,11 +182,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 4px 12px;
-  background: #fafafa;
-  border: 1px solid #e6e6e6;
-  border-left: none;
-  border-right: none;
+  padding: 8px 12px;
 }
 
 .voa-grid-toolbar__left,
@@ -445,7 +441,9 @@
     justify-content: flex-start;
     padding-right: 0;
   }
+}
 
+@media (max-width: 1200px) {
   .voa-grid-toolbar {
     flex-wrap: wrap;
     justify-content: flex-start;
@@ -506,6 +504,13 @@
   min-width: max-content;
   padding-left: 8px;
   padding-right: var(--voa-list-right-pad);
+}
+
+.PowerCATFluentDetailsList .ms-DetailsList-headerWrapper {
+  position: sticky;
+  top: 0;
+  z-index: 3; 
+  background: #f7f7f7;
 }
 
 .PowerCATFluentDetailsList .ms-DetailsHeader-cell {

@@ -213,13 +213,21 @@ function getTextTagCell(
         background: tagColor || '#F4F6F7' + CSS_IMPORTANT,
         borderColor: (tagBorderColor || '#CAD0D5') + CSS_IMPORTANT,
     })}`;
-    const isBlank = tagValues.length === 0;
     const isSummaryFlags = (column.fieldName ?? '').toLowerCase() === 'summaryflags';
+    const normalizedTagValues = isSummaryFlags
+        ? tagValues.flatMap((value) => {
+            const raw = value?.toString?.().trim() ?? '';
+            if (!raw) return [];
+            const parts = raw.split(/[;|,]/).map((part) => part.trim()).filter((part) => part.length > 0);
+            return parts.length > 0 ? parts : [raw];
+        })
+        : tagValues;
+    const isBlank = normalizedTagValues.length === 0;
     const cellContents = !isBlank ? (
         <span>
-            {tagValues.map((t, idx) => {
+            {normalizedTagValues.map((t, idx) => {
                 const text = t.toString().trim();
-                const displayText = isSummaryFlags && text.length > 2 ? text.slice(0, 2) : text;
+                const displayText = isSummaryFlags ? getSummaryTagLabel(text) : text;
                 const colors = isSummaryFlags ? getSummaryTagColors(text) : undefined;
                 const summaryClass = isSummaryFlags ? 'voa-summary-tag' : undefined;
                 const summaryStyle = colors
@@ -242,6 +250,24 @@ function getTextTagCell(
         <></>
     );
     return { isBlank, cellContents };
+}
+
+function getSummaryTagLabel(text: string): string {
+    const trimmed = (text ?? '').trim();
+    if (!trimmed) return '';
+    const tokens = trimmed.split(/[\s_-]+/).map((t) => t.trim()).filter((t) => t.length > 0);
+    if (tokens.length > 1) {
+        const initials = tokens.map((t) => t[0]).join('');
+        const digits = trimmed.replace(/[^0-9]/g, '');
+        return `${initials}${digits}`;
+    }
+    const letters = trimmed.replace(/[^a-zA-Z]/g, '');
+    const digits = trimmed.replace(/[^0-9]/g, '');
+    if (letters.length > 0 || digits.length > 0) {
+        const prefix = letters.length > 2 ? letters.slice(0, 2) : letters;
+        return `${prefix}${digits}`;
+    }
+    return trimmed.length > 2 ? trimmed.slice(0, 2) : trimmed;
 }
 
 function getSummaryTagColors(text: string): { background: string; borderColor: string; color: string } {
