@@ -58,11 +58,12 @@ const SALES_COLUMN_FILTERS: Record<string, ColumnFilterConfig> = {
   ratio: { control: 'numeric', minLength: 1 },
   dwellingtype: { control: 'multiSelect', optionFields: ['dwellingtype'], selectAllValues: ['ALL'], minLength: 1 },
   flaggedforreview: { control: 'singleSelect', options: ['true', 'false'], minLength: 1 },
-  reviewflags: { control: 'multiSelect', optionFields: ['reviewflags'], minLength: 1 },
+  reviewflags: { control: 'multiSelect', optionFields: ['reviewflags'], selectAllValues: ['ALL'], minLength: 1 },
   outlierratio: { control: 'numeric', minLength: 1 },
   overallflag: {
     control: 'multiSelect',
     minLength: 1,
+    selectAllValues: ['ALL'],
     options: [
       'Exclude',
       'Exclude potential false',
@@ -74,7 +75,7 @@ const SALES_COLUMN_FILTERS: Record<string, ColumnFilterConfig> = {
     ],
   },
   summaryflag: { control: 'textContains', minLength: 3 },
-  taskstatus: { control: 'multiSelect', optionFields: ['taskstatus', 'status', 'statuscode'], minLength: 1 },
+  taskstatus: { control: 'multiSelect', optionFields: ['taskstatus', 'status', 'statuscode'], selectAllValues: ['ALL'], minLength: 1 },
   assignedto: { control: 'singleSelect', optionFields: ['assignedto'], minLength: 1 },
   assigneddate: { control: 'dateRange', minLength: 1 },
   taskcompleteddate: { control: 'dateRange', minLength: 1 },

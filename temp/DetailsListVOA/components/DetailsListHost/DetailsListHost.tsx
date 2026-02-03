@@ -607,6 +607,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const assignRefreshResolve = React.useRef<null | ((ok: boolean) => void)>(null);
   const assignUsersLoadKeyRef = React.useRef<string>('');
   const caseworkerOptionsLoadKeyRef = React.useRef<string>('');
+  const assignableUsersCacheLoadKeyRef = React.useRef<string>('');
   const handleAssignPanelToggle = React.useCallback((isOpen: boolean) => {
     setAssignPanelOpen(isOpen);
     if (isOpen) {
@@ -1365,6 +1366,55 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     mergeAssignableUsers,
   ]);
 
+  const requiresUserMapping = React.useMemo(() => {
+    const assignedCfg = getColumnFilterConfigFor(tableKey, 'assignedto');
+    const qcCfg = getColumnFilterConfigFor(tableKey, 'qcassignedto');
+    return !!assignedCfg || !!qcCfg;
+  }, [tableKey]);
+
+  React.useEffect(() => {
+    if (!requiresUserMapping || isManagerAssign) return;
+    if (assignableUsersCache.length > 0) return;
+    const apiName = resolveAssignableUsersApiName();
+    if (!apiName) return;
+    const customApiType = resolveCustomApiTypeForAssignableUsers();
+    const requestKey = `assignable-users-cache|${apiName}|${customApiType}|${canvasScreenName}`;
+    if (assignableUsersCacheLoadKeyRef.current === requestKey) {
+      return;
+    }
+    assignableUsersCacheLoadKeyRef.current = requestKey;
+
+    void (async () => {
+      try {
+        const response = await executeUnboundCustomApi<{ Result?: string; result?: string }>(
+          context,
+          apiName,
+          { screenName: canvasScreenName ?? '' },
+          { operationType: customApiType },
+        );
+        const parsed = parseAssignableUsersResponse(response);
+        if (assignableUsersCacheLoadKeyRef.current !== requestKey) {
+          return;
+        }
+        if (parsed.users && parsed.users.length > 0) {
+          setAssignableUsersCache((prev) => mergeAssignableUsers(prev, parsed.users));
+        }
+      } catch {
+        // ignore assignable users cache load failures
+      }
+    })();
+  }, [
+    assignableUsersCache.length,
+    canvasScreenName,
+    context,
+    isManagerAssign,
+    mergeAssignableUsers,
+    parseAssignableUsersResponse,
+    requiresUserMapping,
+    resolveAssignableUsersApiName,
+    resolveCustomApiTypeForAssignableUsers,
+  ]);
+
   // Handlers
   const [selectedCount, setSelectedCount] = React.useState(0);
   const onSelectionChangeRef = React.useRef(onSelectionChange);
@@ -1435,19 +1485,19 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return resolveCustomApiOperationType(fromContext ?? CONTROL_CONFIG.customApiType);
   };
 
-  const resolveAssignableUsersApiName = (): string => {
+  function resolveAssignableUsersApiName(): string {
     const raw = (context.parameters as unknown as Record<string, { raw?: string }>).assignableUsersApiName?.raw;
     const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
     const fallback = normalizeCustomApiName(CONTROL_CONFIG.assignableUsersApiName);
     return fromContext || fallback || '';
-  };
+  }
 
-  const resolveCustomApiTypeForAssignableUsers = (): number => {
+  function resolveCustomApiTypeForAssignableUsers(): number {
     const raw = (context.parameters as unknown as Record<string, { raw?: string }>).assignableUsersApiType?.raw;
     const fromContext = typeof raw === 'string' ? raw : undefined;
     const fallback = CONTROL_CONFIG.assignableUsersApiType ?? CONTROL_CONFIG.customApiType;
     return resolveCustomApiOperationType(fromContext ?? fallback);
-  };
+  }
 
   const resolveMetadataApiName = (): string => {
     const raw = (context.parameters as unknown as Record<string, { raw?: string }>).metadataApiName?.raw;

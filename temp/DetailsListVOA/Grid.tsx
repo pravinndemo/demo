@@ -2903,14 +2903,13 @@ export const Grid = React.memo((props: GridProps) => {
         case 'multiSelect':
             return (
               (() => {
-                const hasSelectAll = !!cfg.selectAllValues;
-                const isSingleAll = hasSelectAll
-                  && cfg.selectAllValues.length === 1
-                  && String(cfg.selectAllValues[0] ?? '').toUpperCase() === 'ALL';
-                const selectAllKey = hasSelectAll
-                  ? (isSingleAll ? String(cfg.selectAllValues[0] ?? 'ALL') : 'all')
-                  : '';
                 const selectAllValues = cfg.selectAllValues ?? [];
+                const hasSelectAll = selectAllValues.length > 0;
+                const isSingleAll = selectAllValues.length === 1
+                  && String(selectAllValues[0] ?? '').toUpperCase() === 'ALL';
+                const selectAllKey = hasSelectAll
+                  ? (isSingleAll ? String(selectAllValues[0] ?? 'ALL') : 'all')
+                  : '';
                 return (
           <ComboBox
             label={`Filter ${menuState.column.name}`}
