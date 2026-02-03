@@ -2830,18 +2830,26 @@ export const Grid = React.memo((props: GridProps) => {
     const renderControl = () => {
       if (!cfg) {
         return (
-          <TextField
-            label={`Filter ${menuState.column.name}`}
-            placeholder={`Filter ${menuState.column.name}`}
-            value={textVal}
-            onChange={(_, v) => {
-              const next = isTaskIdField ? sanitizeDigits(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
-              setMenuFilterValue(next);
-              setMenuFilterText(next);
-              if (menuFilterError) setMenuFilterError(undefined);
-            }}
-            errorMessage={isPostcodeField ? menuFilterError : undefined}
-          />
+          <>
+            <TextField
+              label={`Filter ${menuState.column.name}`}
+              placeholder={`Filter ${menuState.column.name}`}
+              value={textVal}
+              onChange={(_, v) => {
+                const next = isTaskIdField ? sanitizeDigits(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
+                setMenuFilterValue(next);
+                setMenuFilterText(next);
+                if (menuFilterError) setMenuFilterError(undefined);
+              }}
+              errorMessage={isPostcodeField ? menuFilterError : undefined}
+              inputMode={isTaskIdField ? 'numeric' : undefined}
+            />
+            {isTaskIdField && (
+              <Text variant="small" styles={{ root: { marginTop: 4 } }}>
+                Please enter only numeric.
+              </Text>
+            )}
+          </>
         );
       }
       switch (cfg.control) {
@@ -2849,18 +2857,26 @@ export const Grid = React.memo((props: GridProps) => {
         case 'textPrefix':
         case 'textContains':
             return (
-              <TextField
-                label={`Filter ${menuState.column.name}`}
-                placeholder={`Filter ${menuState.column.name}`}
-                value={textVal}
-                onChange={(_, v) => {
-                  const next = isTaskIdField ? sanitizeDigits(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
-                  setMenuFilterValue(next);
-                  setMenuFilterText(next);
-                  if (menuFilterError) setMenuFilterError(undefined);
-                }}
-                errorMessage={isPostcodeField ? menuFilterError : undefined}
-              />
+              <>
+                <TextField
+                  label={`Filter ${menuState.column.name}`}
+                  placeholder={`Filter ${menuState.column.name}`}
+                  value={textVal}
+                  onChange={(_, v) => {
+                    const next = isTaskIdField ? sanitizeDigits(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
+                    setMenuFilterValue(next);
+                    setMenuFilterText(next);
+                    if (menuFilterError) setMenuFilterError(undefined);
+                  }}
+                  errorMessage={isPostcodeField ? menuFilterError : undefined}
+                  inputMode={isTaskIdField ? 'numeric' : undefined}
+                />
+                {isTaskIdField && (
+                  <Text variant="small" styles={{ root: { marginTop: 4 } }}>
+                    Please enter only numeric.
+                  </Text>
+                )}
+              </>
             );
           case 'singleSelect':
             return (() => {

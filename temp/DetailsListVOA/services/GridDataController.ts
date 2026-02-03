@@ -20,6 +20,21 @@ export interface LoadResult {
   errorMessage?: string;
 }
 
+const TECHNICAL_ERROR_MESSAGE = 'Technical error. Please try again in some time.';
+
+const isServerErrorMessage = (message: string): boolean => {
+  const normalized = message.toLowerCase();
+  return normalized.includes('500')
+    || normalized.includes('internal server error')
+    || normalized.includes('status: 500')
+    || normalized.includes('status code 500');
+};
+
+const normalizeErrorMessage = (message?: string): string | undefined => {
+  if (!message) return undefined;
+  return isServerErrorMessage(message) ? TECHNICAL_ERROR_MESSAGE : message;
+};
+
 const normalizeSortField = (value?: string): string | undefined => {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -115,7 +130,7 @@ export async function loadGridData(
       totalCount: total,
       serverDriven,
       filters: responseFilters,
-      errorMessage: firstPayload.errorMessage,
+      errorMessage: normalizeErrorMessage(firstPayload.errorMessage),
     };
   } catch (err) {
     // On error, log and fall back to showing local sample data (from SampleData)
@@ -138,7 +153,7 @@ export async function loadGridData(
       items: [],
       totalCount: 0,
       serverDriven: false,
-      errorMessage: 'Unable to load results. Please try again.',
+      errorMessage: normalizeErrorMessage(errText) ?? 'Unable to load results. Please try again.',
     };
   }
 }
