@@ -2546,7 +2546,9 @@ export const Grid = React.memo((props: GridProps) => {
         case 'textEq':
         case 'textPrefix':
         case 'textContains': {
-          const trimmed = String(menuFilterText ?? '').trim();
+          const trimmed = normalizedField === 'taskid'
+            ? sanitizeDigits(menuFilterText, ID_FIELD_MAX_LENGTH).trim()
+            : String(menuFilterText ?? '').trim();
           if (trimmed === '') delete updated[fieldName];
           else updated[fieldName] = trimmed;
           break;
@@ -2787,6 +2789,7 @@ export const Grid = React.memo((props: GridProps) => {
     const minLen = cfg?.minLength ?? 1;
     const normalizedField = fieldName.replace(/[^a-z0-9]/gi, '').toLowerCase();
     const isPostcodeField = normalizedField === 'postcode';
+    const isTaskIdField = normalizedField === 'taskid';
 
     const isApplyDisabled = () => {
       if (!cfg) {
@@ -2832,7 +2835,7 @@ export const Grid = React.memo((props: GridProps) => {
             placeholder={`Filter ${menuState.column.name}`}
             value={textVal}
             onChange={(_, v) => {
-              const next = v ?? '';
+              const next = isTaskIdField ? sanitizeDigits(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
               setMenuFilterValue(next);
               setMenuFilterText(next);
               if (menuFilterError) setMenuFilterError(undefined);
@@ -2851,7 +2854,7 @@ export const Grid = React.memo((props: GridProps) => {
                 placeholder={`Filter ${menuState.column.name}`}
                 value={textVal}
                 onChange={(_, v) => {
-                  const next = v ?? '';
+                  const next = isTaskIdField ? sanitizeDigits(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
                   setMenuFilterValue(next);
                   setMenuFilterText(next);
                   if (menuFilterError) setMenuFilterError(undefined);
