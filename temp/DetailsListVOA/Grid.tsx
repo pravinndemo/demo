@@ -114,6 +114,8 @@ export interface GridProps {
   prefilterApplied?: boolean;
   onPrefilterApply?: (prefilters: ManagerPrefilterState) => void;
   onPrefilterClear?: () => void;
+  onPrefilterDirty?: () => void;
+  onSearchDirty?: () => void;
   onBackRequested?: () => void;
   disableViewSalesRecordAction?: boolean;
   rowInvokeEnabled?: boolean;
@@ -245,6 +247,26 @@ const filterComboOptions = (options: IComboBoxOption[], query: string): IComboBo
     const text = String(opt.text ?? opt.key ?? '').toLowerCase();
     return text.includes(term) || key.toLowerCase().includes(term);
   });
+};
+
+const resolveComboOptionKey = (options: IComboBoxOption[], value?: string): string | undefined => {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return undefined;
+  const target = trimmed.toLowerCase();
+  const match = options.find((opt) => {
+    const text = String(opt.text ?? opt.key ?? '').trim().toLowerCase();
+    const key = String(opt.key ?? '').trim().toLowerCase();
+    return text === target || key === target;
+  });
+  return match ? String(match.key) : undefined;
+};
+
+const resolveComboKeyFromSearch = (options: IComboBoxOption[], value?: string): string | undefined => {
+  const exact = resolveComboOptionKey(options, value);
+  if (exact) return exact;
+  const filtered = filterComboOptions(options, value ?? '');
+  const firstMatch = filtered.find((opt) => !opt.disabled);
+  return firstMatch ? String(firstMatch.key) : undefined;
 };
 
 const SEARCH_FIELD_CONFIGS: Record<SearchByOption, SearchFieldConfig> = {
@@ -458,6 +480,8 @@ export const Grid = React.memo((props: GridProps) => {
     onPrefilterApply,
     prefilterApplied,
     onPrefilterClear,
+    onPrefilterDirty,
+    onSearchDirty,
     onBackRequested,
     disableViewSalesRecordAction = false,
     rowInvokeEnabled = true,
@@ -555,6 +579,30 @@ export const Grid = React.memo((props: GridProps) => {
     }
     return false;
   }, []);
+  const commitPrefilterMultiSelect = React.useCallback(
+    (
+      event: React.KeyboardEvent<IComboBox>,
+      searchValue: string,
+      options: IComboBoxOption[],
+      selectedKeys: string[],
+      onChange: (ev: React.FormEvent<IComboBox>, option?: IComboBoxOption) => void,
+      ignoreKey: string,
+      clearSearch: (value: string) => void,
+    ) => {
+      if (event.key !== 'Enter') return;
+      const resolvedKey = resolveComboKeyFromSearch(options, searchValue);
+      if (!resolvedKey) return;
+      const match = options.find((opt) => String(opt.key) === resolvedKey);
+      if (!match || match.disabled) return;
+      event.preventDefault();
+      const selected = selectedKeys.map(String).includes(String(resolvedKey));
+      const nextOption: IComboBoxOption = { ...match, selected: !selected };
+      onChange(event as unknown as React.FormEvent<IComboBox>, nextOption);
+      setComboIgnoreNextInput(ignoreKey);
+      clearSearch('');
+    },
+    [setComboIgnoreNextInput],
+  );
 
   React.useEffect(() => {
     setDismissedColumnConfigMessage(false);
@@ -829,8 +877,9 @@ export const Grid = React.memo((props: GridProps) => {
   }, [parseISODate, prefilters.completedFrom, today]);
 
   const onPrefilterSearchByChange = React.useCallback(
-    (_: React.FormEvent<IComboBox>, option?: IComboBoxOption) => {
-      const next = option?.key === 'caseworker' ? 'caseworker' : 'billingAuthority';
+    (_: React.FormEvent<IComboBox>, option?: IComboBoxOption, _index?: number, value?: string) => {
+      const resolvedKey = option?.key ?? resolveComboOptionKey(MANAGER_SEARCH_BY_OPTIONS as IComboBoxOption[], value);
+      const next = resolvedKey === 'caseworker' ? 'caseworker' : 'billingAuthority';
       setPrefilters((prev) => ({
         ...prev,
         searchBy: next as ManagerSearchBy,
@@ -840,8 +889,11 @@ export const Grid = React.memo((props: GridProps) => {
         completedFrom: undefined,
         completedTo: undefined,
       }));
+      setComboEditingFor('prefilterWorkThat', false);
+      setPrefilterWorkThatSearch('');
+      onPrefilterDirty?.();
     },
-    [],
+    [onPrefilterDirty, setComboEditingFor],
   );
 
   const normalizedCaseworkerOptions = React.useMemo<IDropdownOption[]>(() => {
@@ -914,8 +966,10 @@ export const Grid = React.memo((props: GridProps) => {
   );
 
   const onPrefilterWorkThatChange = React.useCallback(
-    (_: React.FormEvent<IComboBox>, option?: IComboBoxOption) => {
-      const nextWork = option?.key as ManagerWorkThat | undefined;
+    (_: React.FormEvent<IComboBox>, option?: IComboBoxOption, _index?: number, value?: string) => {
+      const options = getManagerWorkThatOptions(prefilters.searchBy) as IComboBoxOption[];
+      const resolvedKey = option?.key ?? resolveComboOptionKey(options, value);
+      const nextWork = resolvedKey as ManagerWorkThat | undefined;
       setPrefilters((prev) => ({
         ...prev,
         workThat: nextWork,
@@ -923,7 +977,7 @@ export const Grid = React.memo((props: GridProps) => {
         completedTo: isManagerCompletedWorkThat(nextWork) ? prev.completedTo : undefined,
       }));
     },
-    [],
+    [prefilters.searchBy],
   );
 
   const onPrefilterFromDateChange = React.useCallback(
@@ -1187,6 +1241,18 @@ export const Grid = React.memo((props: GridProps) => {
     return selected;
   }, [prefilters.billingAuthorities]);
 
+  React.useEffect(() => {
+    if (managerBillingSearch) {
+      setManagerBillingSearch('');
+    }
+  }, [managerBillingSelectedKeys, managerBillingSearch]);
+
+  React.useEffect(() => {
+    if (caseworkerSearch) {
+      setCaseworkerSearch('');
+    }
+  }, [caseworkerSelectedKeys, caseworkerSearch]);
+
   const onPrefilterBillingChange = React.useCallback(
     (_: React.FormEvent<IComboBox>, option?: IComboBoxOption) => {
       if (!option) return;
@@ -1218,12 +1284,14 @@ export const Grid = React.memo((props: GridProps) => {
   );
 
   const onSearchByChange = React.useCallback(
-    (_: React.FormEvent<IComboBox>, option?: IComboBoxOption) => {
-      if (!option) {
+    (_: React.FormEvent<IComboBox>, option?: IComboBoxOption, _index?: number, value?: string) => {
+      const resolvedKey = option?.key ?? resolveComboOptionKey(searchByOptions as IComboBoxOption[], value);
+      if (!resolvedKey) {
         return;
       }
-      const selected = option.key as SearchByOption;
+      const selected = resolvedKey as SearchByOption;
       if (isSalesSearch) {
+        onSearchDirty?.();
         setFilters({
           ...createDefaultGridFilters(),
           searchBy: selected,
@@ -1235,7 +1303,7 @@ export const Grid = React.memo((props: GridProps) => {
         searchBy: selected,
       }));
     },
-    [isSalesSearch],
+    [isSalesSearch, onSearchDirty, searchByOptions],
   );
 
   type NumericFilterKey = 'salePrice' | 'ratio' | 'outlierRatio';
@@ -3161,6 +3229,19 @@ export const Grid = React.memo((props: GridProps) => {
                   setComboEditingFor('prefilterSearchBy', true);
                   setPrefilterSearchBySearch(next);
                 }}
+                onKeyDown={(event) => {
+                  if (!comboEditing.prefilterSearchBy) return;
+                  if (event.key !== 'Enter') return;
+                  const resolvedKey = resolveComboKeyFromSearch(
+                    MANAGER_SEARCH_BY_OPTIONS as IComboBoxOption[],
+                    prefilterSearchBySearch,
+                  );
+                  if (!resolvedKey) return;
+                  event.preventDefault();
+                  onPrefilterSearchByChange(event as unknown as React.FormEvent<IComboBox>, { key: resolvedKey } as IComboBoxOption);
+                  setComboEditingFor('prefilterSearchBy', false);
+                  setPrefilterSearchBySearch('');
+                }}
                 onMenuDismissed={() => {
                   setComboEditingFor('prefilterSearchBy', false);
                   setPrefilterSearchBySearch('');
@@ -3200,6 +3281,18 @@ export const Grid = React.memo((props: GridProps) => {
                     autoComplete="on"
                     text={managerBillingSearch.trim() ? managerBillingSearch : ''}
                     persistMenu
+                    onKeyDown={(event) => {
+                      if (!managerBillingSearch.trim()) return;
+                      commitPrefilterMultiSelect(
+                        event,
+                        managerBillingSearch,
+                        managerBillingAuthorityOptions as IComboBoxOption[],
+                        managerBillingSelectedKeys.map((key) => String(key)),
+                        onPrefilterBillingChange,
+                        'prefilterBilling',
+                        setManagerBillingSearch,
+                      );
+                    }}
                     onInputValueChange={(value) => {
                       if (consumeComboIgnoreNextInput('prefilterBilling')) {
                         return;
@@ -3249,6 +3342,18 @@ export const Grid = React.memo((props: GridProps) => {
                     autoComplete="on"
                     text={caseworkerSearch.trim() ? caseworkerSearch : ''}
                     persistMenu
+                    onKeyDown={(event) => {
+                      if (!caseworkerSearch.trim()) return;
+                      commitPrefilterMultiSelect(
+                        event,
+                        caseworkerSearch,
+                        caseworkerOptionsList as IComboBoxOption[],
+                        caseworkerSelectedKeys.map((key) => String(key)),
+                        onPrefilterCaseworkerChange,
+                        'prefilterCaseworker',
+                        setCaseworkerSearch,
+                      );
+                    }}
                     onInputValueChange={(value) => {
                       if (consumeComboIgnoreNextInput('prefilterCaseworker')) {
                         return;

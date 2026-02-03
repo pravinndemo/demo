@@ -627,6 +627,14 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const isAssignment = isManagerAssign || isQcAssign;
   const assignmentContextKey = isManagerAssign ? 'manager' : isQcAssign ? 'qa' : '';
   const [salesSearchApplied, setSalesSearchApplied] = React.useState(!isSalesSearch);
+  const handlePrefilterDirty = React.useCallback(() => {
+    if (!isManagerAssign) return;
+    setPrefilterApplied(false);
+  }, [isManagerAssign]);
+  const handleSalesSearchDirty = React.useCallback(() => {
+    if (!isSalesSearch) return;
+    setSalesSearchApplied(false);
+  }, [isSalesSearch]);
   const lastSalesModeRef = React.useRef<boolean | undefined>(undefined);
   const lastScreenKindRef = React.useRef<ScreenKind | undefined>(undefined);
 
@@ -1761,6 +1769,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     taskCount: serverDriven ? totalCount : filteredIds.length,
     canvasScreenName,
     prefilterApplied,
+    onPrefilterDirty: handlePrefilterDirty,
+    onSearchDirty: handleSalesSearchDirty,
     onPrefilterApply: (next) => {
       const resolved = next.searchBy === 'caseworker'
         ? { ...next, caseworkers: mapCaseworkerNamesToIds(next.caseworkers ?? []) }
