@@ -56,7 +56,7 @@ const SALES_COLUMN_FILTERS: Record<string, ColumnFilterConfig> = {
   transactiondate: { control: 'dateRange', minLength: 1 },
   saleprice: { control: 'numeric', minLength: 1 },
   ratio: { control: 'numeric', minLength: 1 },
-  dwellingtype: { control: 'multiSelect', optionFields: ['dwellingtype'], selectAllValues: ['all'], minLength: 1 },
+  dwellingtype: { control: 'multiSelect', optionFields: ['dwellingtype'], selectAllValues: ['ALL'], minLength: 1 },
   flaggedforreview: { control: 'singleSelect', options: ['true', 'false'], minLength: 1 },
   reviewflags: { control: 'multiSelect', optionFields: ['reviewflags'], minLength: 1 },
   outlierratio: { control: 'numeric', minLength: 1 },

@@ -230,6 +230,9 @@ const normalizeSuid = (value: unknown): string => {
   return isGuid ? unwrapped : '';
 };
 
+const isGuidValue = (value: string): boolean =>
+  /^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value);
+
 const COLUMN_FILTER_FIELD_MAP: Record<string, string> = {
   saleid: 'saleId',
   taskid: 'taskId',
@@ -314,7 +317,7 @@ const buildColumnFilterTokens = (
     }
     if (mode === 'between') {
       if (min !== undefined && min !== null && max !== undefined && max !== null) {
-        return [apiField, 'GTE,LTE', String(min), String(max)];
+        return [apiField, 'between', String(min), String(max)];
       }
       if (min !== undefined && min !== null) {
         return [apiField, 'GTE', String(min)];
@@ -554,10 +557,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   // State
   const [currentPage, setCurrentPage] = React.useState(0);
   const [headerFilters, setHeaderFilters] = React.useState<Record<string, ColumnFilterValue>>({});
-  const columnFilterQuery = React.useMemo(
-    () => buildColumnFilterQuery(tableKey, headerFilters),
-    [headerFilters, tableKey],
-  );
 
   const toApiHeaderFilters = React.useCallback(
     (filters: Record<string, ColumnFilterValue>): Record<string, string | string[]> => {
@@ -742,6 +741,55 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         return id ?? raw;
       }),
     [caseworkerNameToIdMap],
+  );
+
+  const mapUserValueToId = React.useCallback((value: string): string => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return raw;
+    const normalized = normalizeUserId(raw);
+    if (isGuidValue(normalized)) return normalized;
+    const mapped = caseworkerNameToIdMap[raw.toLowerCase()];
+    return mapped ?? raw;
+  }, [caseworkerNameToIdMap]);
+
+  const mapColumnFiltersForApi = React.useCallback(
+    (filters: Record<string, ColumnFilterValue>): Record<string, ColumnFilterValue> => {
+      const mapped: Record<string, ColumnFilterValue> = { ...filters };
+      (['assignedto', 'qcassignedto'] as const).forEach((field) => {
+        const current = mapped[field];
+        if (!current) return;
+        if (typeof current === 'string') {
+          mapped[field] = mapUserValueToId(current);
+          return;
+        }
+        if (Array.isArray(current)) {
+          mapped[field] = current.map((value) => mapUserValueToId(String(value)));
+        }
+      });
+      return mapped;
+    },
+    [mapUserValueToId],
+  );
+
+  const mapSearchFiltersForApi = React.useCallback(
+    (filters: GridFilterState): GridFilterState => {
+      const assignedTo = filters.assignedTo ? mapUserValueToId(filters.assignedTo) : filters.assignedTo;
+      const qcAssignedTo = filters.qcAssignedTo ? mapUserValueToId(filters.qcAssignedTo) : filters.qcAssignedTo;
+      if (assignedTo === filters.assignedTo && qcAssignedTo === filters.qcAssignedTo) {
+        return filters;
+      }
+      return { ...filters, assignedTo, qcAssignedTo };
+    },
+    [mapUserValueToId],
+  );
+
+  const apiHeaderFilters = React.useMemo(
+    () => mapColumnFiltersForApi(headerFilters),
+    [headerFilters, mapColumnFiltersForApi],
+  );
+  const columnFilterQuery = React.useMemo(
+    () => buildColumnFilterQuery(tableKey, apiHeaderFilters),
+    [apiHeaderFilters, tableKey],
   );
 
   const buildCaseworkerNames = React.useCallback((users: AssignUser[]): string[] => {
@@ -1127,7 +1175,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     void (async () => {
       const res = await loadGridData(context, {
         tableKey,
-        filters: sanitizeFilters(searchFilters),
+        filters: sanitizeFilters(mapSearchFiltersForApi(searchFilters)),
         source: sourceCode,
         currentPage,
         pageSize,
@@ -1148,7 +1196,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       }
       setApiFilterOptions(normalizeFilterOptions(res.filters));
     })();
-  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isManagerAssign, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery]);
+  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isManagerAssign, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi]);
 
   React.useEffect(() => {
     if (!assignPanelOpen || !assignmentContextKey) {
@@ -1761,7 +1809,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           // ignore storage failures
         }
         setCurrentPage(0);
-        try { onColumnFiltersApply?.(toApiHeaderFilters(normalized)); } catch { void 0; }
+        try { onColumnFiltersApply?.(toApiHeaderFilters(mapColumnFiltersForApi(normalized))); } catch { void 0; }
       }
     },
     columnFilters: headerFilters,

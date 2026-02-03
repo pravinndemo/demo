@@ -2434,7 +2434,8 @@ export const Grid = React.memo((props: GridProps) => {
         getDistinctOptions(cfg.optionFields).forEach((o) => push(String(o.key), o.text));
       }
       if (cfg?.selectAllValues) {
-        opts.unshift({ key: 'all', text: 'Select all' });
+        const allKey = String(cfg.selectAllValues[0] ?? 'ALL');
+        opts.unshift({ key: allKey, text: 'All' });
       }
       return opts;
     },
@@ -2554,8 +2555,10 @@ export const Grid = React.memo((props: GridProps) => {
           const vals = Array.isArray(menuFilterValue)
             ? menuFilterValue.map((v) => String(v).trim()).filter((v) => v !== '')
             : [];
-          if (vals.length === 0) delete updated[fieldName];
-          else updated[fieldName] = vals;
+          const allKey = cfg.selectAllValues ? String(cfg.selectAllValues[0] ?? 'ALL') : '';
+          const normalizedVals = allKey && vals.includes(allKey) ? [allKey] : vals;
+          if (normalizedVals.length === 0) delete updated[fieldName];
+          else updated[fieldName] = normalizedVals;
           break;
         }
         case 'numeric': {
@@ -2890,6 +2893,9 @@ export const Grid = React.memo((props: GridProps) => {
             })();
           case 'multiSelect':
             return (
+              (() => {
+                const allKey = cfg.selectAllValues ? String(cfg.selectAllValues[0] ?? 'ALL') : '';
+                return (
           <ComboBox
             label={`Filter ${menuState.column.name}`}
             placeholder={`Select ${menuState.column.name}`}
@@ -2903,14 +2909,14 @@ export const Grid = React.memo((props: GridProps) => {
             selectedKey={Array.isArray(menuFilterValue) ? menuFilterValue : []}
             onChange={(_, opt) => {
               if (!opt) return;
-              if (opt.key === 'all' && cfg.selectAllValues) {
-                setMenuFilterValue(cfg.selectAllValues);
+              if (cfg.selectAllValues && String(opt.key) === allKey) {
+                setMenuFilterValue([allKey]);
                 setComboIgnoreNextInput(`menuFilter-${menuState.column.key ?? menuState.column.fieldName ?? 'column'}`);
                 setMenuFilterSearch('');
                 return;
               }
               setMenuFilterValue((prev) => {
-                const current = Array.isArray(prev) ? prev.slice() : [];
+                const current = Array.isArray(prev) ? prev.slice().filter((key) => String(key) !== allKey) : [];
                 const key = String(opt.key);
                   const idx = current.indexOf(key);
                   if (opt.selected) {
@@ -2946,7 +2952,9 @@ export const Grid = React.memo((props: GridProps) => {
                 optionsContainer: { minWidth: 200 },
               }}
             />
-          );
+                );
+              })()
+            );
         case 'numeric':
           return (
             <Stack tokens={{ childrenGap: 8 }}>
@@ -3279,7 +3287,7 @@ export const Grid = React.memo((props: GridProps) => {
                     allowFreeform={false}
                     allowFreeInput
                     autoComplete="on"
-                    text={managerBillingSearch.trim() ? managerBillingSearch : ''}
+                    text={managerBillingSearch.trim() ? managerBillingSearch : undefined}
                     persistMenu
                     onKeyDown={(event) => {
                       if (!managerBillingSearch.trim()) return;
@@ -3340,7 +3348,7 @@ export const Grid = React.memo((props: GridProps) => {
                     allowFreeform={false}
                     allowFreeInput
                     autoComplete="on"
-                    text={caseworkerSearch.trim() ? caseworkerSearch : ''}
+                    text={caseworkerSearch.trim() ? caseworkerSearch : undefined}
                     persistMenu
                     onKeyDown={(event) => {
                       if (!caseworkerSearch.trim()) return;
