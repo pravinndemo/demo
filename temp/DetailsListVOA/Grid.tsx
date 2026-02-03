@@ -2434,8 +2434,14 @@ export const Grid = React.memo((props: GridProps) => {
         getDistinctOptions(cfg.optionFields).forEach((o) => push(String(o.key), o.text));
       }
       if (cfg?.selectAllValues) {
-        const allKey = String(cfg.selectAllValues[0] ?? 'ALL');
-        opts.unshift({ key: allKey, text: 'All' });
+        const isSingleAll = cfg.selectAllValues.length === 1
+          && String(cfg.selectAllValues[0] ?? '').toUpperCase() === 'ALL';
+        if (isSingleAll) {
+          const allKey = String(cfg.selectAllValues[0] ?? 'ALL');
+          opts.unshift({ key: allKey, text: 'All' });
+        } else {
+          opts.unshift({ key: 'all', text: 'Select all' });
+        }
       }
       return opts;
     },
@@ -2555,7 +2561,10 @@ export const Grid = React.memo((props: GridProps) => {
           const vals = Array.isArray(menuFilterValue)
             ? menuFilterValue.map((v) => String(v).trim()).filter((v) => v !== '')
             : [];
-          const allKey = cfg.selectAllValues ? String(cfg.selectAllValues[0] ?? 'ALL') : '';
+          const isSingleAll = cfg.selectAllValues
+            && cfg.selectAllValues.length === 1
+            && String(cfg.selectAllValues[0] ?? '').toUpperCase() === 'ALL';
+          const allKey = isSingleAll ? String(cfg.selectAllValues?.[0] ?? 'ALL') : '';
           const normalizedVals = allKey && vals.includes(allKey) ? [allKey] : vals;
           if (normalizedVals.length === 0) delete updated[fieldName];
           else updated[fieldName] = normalizedVals;
@@ -2891,10 +2900,17 @@ export const Grid = React.memo((props: GridProps) => {
                 />
               );
             })();
-          case 'multiSelect':
+        case 'multiSelect':
             return (
               (() => {
-                const allKey = cfg.selectAllValues ? String(cfg.selectAllValues[0] ?? 'ALL') : '';
+                const hasSelectAll = !!cfg.selectAllValues;
+                const isSingleAll = hasSelectAll
+                  && cfg.selectAllValues.length === 1
+                  && String(cfg.selectAllValues[0] ?? '').toUpperCase() === 'ALL';
+                const selectAllKey = hasSelectAll
+                  ? (isSingleAll ? String(cfg.selectAllValues[0] ?? 'ALL') : 'all')
+                  : '';
+                const selectAllValues = cfg.selectAllValues ?? [];
                 return (
           <ComboBox
             label={`Filter ${menuState.column.name}`}
@@ -2909,14 +2925,14 @@ export const Grid = React.memo((props: GridProps) => {
             selectedKey={Array.isArray(menuFilterValue) ? menuFilterValue : []}
             onChange={(_, opt) => {
               if (!opt) return;
-              if (cfg.selectAllValues && String(opt.key) === allKey) {
-                setMenuFilterValue([allKey]);
+              if (hasSelectAll && String(opt.key) === selectAllKey) {
+                setMenuFilterValue(isSingleAll ? [selectAllKey] : selectAllValues);
                 setComboIgnoreNextInput(`menuFilter-${menuState.column.key ?? menuState.column.fieldName ?? 'column'}`);
                 setMenuFilterSearch('');
                 return;
               }
               setMenuFilterValue((prev) => {
-                const current = Array.isArray(prev) ? prev.slice().filter((key) => String(key) !== allKey) : [];
+                const current = Array.isArray(prev) ? prev.slice().filter((key) => String(key) !== selectAllKey) : [];
                 const key = String(opt.key);
                   const idx = current.indexOf(key);
                   if (opt.selected) {

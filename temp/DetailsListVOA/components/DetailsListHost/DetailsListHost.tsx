@@ -749,7 +749,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     const normalized = normalizeUserId(raw);
     if (isGuidValue(normalized)) return normalized;
     const mapped = caseworkerNameToIdMap[raw.toLowerCase()];
-    return mapped ?? raw;
+    return mapped ?? '';
   }, [caseworkerNameToIdMap]);
 
   const mapColumnFiltersForApi = React.useCallback(
@@ -759,11 +759,23 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         const current = mapped[field];
         if (!current) return;
         if (typeof current === 'string') {
-          mapped[field] = mapUserValueToId(current);
+          const value = mapUserValueToId(current);
+          if (!value) {
+            delete mapped[field];
+            return;
+          }
+          mapped[field] = value;
           return;
         }
         if (Array.isArray(current)) {
-          mapped[field] = current.map((value) => mapUserValueToId(String(value)));
+          const values = current
+            .map((value) => mapUserValueToId(String(value)))
+            .filter((value) => value && isGuidValue(value));
+          if (values.length === 0) {
+            delete mapped[field];
+            return;
+          }
+          mapped[field] = values;
         }
       });
       return mapped;
@@ -773,12 +785,14 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 
   const mapSearchFiltersForApi = React.useCallback(
     (filters: GridFilterState): GridFilterState => {
-      const assignedTo = filters.assignedTo ? mapUserValueToId(filters.assignedTo) : filters.assignedTo;
-      const qcAssignedTo = filters.qcAssignedTo ? mapUserValueToId(filters.qcAssignedTo) : filters.qcAssignedTo;
-      if (assignedTo === filters.assignedTo && qcAssignedTo === filters.qcAssignedTo) {
+      const assignedTo = filters.assignedTo ? mapUserValueToId(filters.assignedTo) : '';
+      const qcAssignedTo = filters.qcAssignedTo ? mapUserValueToId(filters.qcAssignedTo) : '';
+      const nextAssignedTo = assignedTo || undefined;
+      const nextQcAssignedTo = qcAssignedTo || undefined;
+      if (nextAssignedTo === filters.assignedTo && nextQcAssignedTo === filters.qcAssignedTo) {
         return filters;
       }
-      return { ...filters, assignedTo, qcAssignedTo };
+      return { ...filters, assignedTo: nextAssignedTo, qcAssignedTo: nextQcAssignedTo };
     },
     [mapUserValueToId],
   );
