@@ -2731,6 +2731,21 @@ export const Grid = React.memo((props: GridProps) => {
     ),
     [prefilterWorkThatOptions, prefilterWorkThatSearch],
   );
+  React.useEffect(() => {
+    if (!isManagerAssign || prefilters.workThat) return;
+    const firstOption = prefilterWorkThatOptions.find((opt) => opt?.key !== undefined);
+    if (!firstOption) return;
+    const nextWork = String(firstOption.key) as ManagerWorkThat;
+    setPrefilters((prev) => {
+      if (prev.workThat) return prev;
+      return {
+        ...prev,
+        workThat: nextWork,
+        completedFrom: isManagerCompletedWorkThat(nextWork) ? prev.completedFrom : undefined,
+        completedTo: isManagerCompletedWorkThat(nextWork) ? prev.completedTo : undefined,
+      };
+    });
+  }, [isManagerAssign, prefilterWorkThatOptions, prefilters.workThat]);
   const caseworkerOptionsDisabled = caseworkerOptionsLoading
     || !!caseworkerOptionsError
     || normalizedCaseworkerOptions.length === 0;

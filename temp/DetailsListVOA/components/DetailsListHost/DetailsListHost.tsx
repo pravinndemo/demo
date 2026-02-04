@@ -8,7 +8,7 @@ import { getProfileConfigs } from '../../config/ColumnProfiles';
 import { CONTROL_CONFIG } from '../../config/ControlConfig';
 import { getColumnFilterConfigFor, isLookupFieldFor, type TableKey } from '../../config/TableConfigs';
 import { type ManagerPrefilterState } from '../../config/PrefilterConfigs';
-import { SCREEN_TEXT } from '../../constants/ScreenText';
+import { SCREEN_TEXT, MANAGER_BILLING_AUTHORITY_OPTIONS, MANAGER_CASEWORKER_OPTIONS } from '../../constants/ScreenText';
 import { buildColumns } from '../../utils/ColumnsBuilder';
 import { ensureSampleColumns, buildSampleEntityRecords } from '../../utils/SampleHelpers';
 import { loadGridData } from '../../services/GridDataController';
@@ -506,6 +506,27 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const commonText = SCREEN_TEXT.common;
   const managerText = SCREEN_TEXT.managerAssignment;
   const assignTasksText = SCREEN_TEXT.assignTasks;
+  const isLocalHost = React.useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const host = window.location?.hostname ?? '';
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  }, []);
+  const fallbackBillingAuthorityOptions = React.useMemo(
+    () => (isLocalHost
+      ? MANAGER_BILLING_AUTHORITY_OPTIONS
+        .map((opt) => String(opt.text ?? opt.key ?? '').trim())
+        .filter((value) => value.length > 0)
+      : []),
+    [isLocalHost],
+  );
+  const fallbackCaseworkerOptions = React.useMemo(
+    () => (isLocalHost
+      ? MANAGER_CASEWORKER_OPTIONS
+        .map((opt) => String(opt.text ?? opt.key ?? '').trim())
+        .filter((value) => value.length > 0)
+      : []),
+    [isLocalHost],
+  );
 
   // Column display names and configs
   const [columnDisplayNames, setColumnDisplayNames] = React.useState<Record<string, string>>({});
@@ -1300,6 +1321,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 
     const apiName = resolveAssignableUsersApiName();
     if (!apiName) {
+      if (fallbackCaseworkerOptions.length > 0) {
+        setCaseworkerOptions(fallbackCaseworkerOptions);
+        setCaseworkerOptionsError(undefined);
+        setCaseworkerOptionsLoading(false);
+        return;
+      }
       setCaseworkerOptions([]);
       setCaseworkerOptionsError(managerText.errors.assignableUsersApiNotConfigured);
       setCaseworkerOptionsLoading(false);
@@ -1332,23 +1359,39 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         }
 
         if (parsed.error) {
-          setCaseworkerOptions([]);
-          setCaseworkerOptionsError(parsed.error);
+          if (fallbackCaseworkerOptions.length > 0) {
+            setCaseworkerOptions(fallbackCaseworkerOptions);
+            setCaseworkerOptionsError(undefined);
+          } else {
+            setCaseworkerOptions([]);
+            setCaseworkerOptionsError(parsed.error);
+          }
           return;
         }
 
         if (parsed.info) {
-          setCaseworkerOptions([]);
-          setCaseworkerOptionsError(undefined);
+          if (fallbackCaseworkerOptions.length > 0) {
+            setCaseworkerOptions(fallbackCaseworkerOptions);
+            setCaseworkerOptionsError(undefined);
+          } else {
+            setCaseworkerOptions([]);
+            setCaseworkerOptionsError(undefined);
+          }
           return;
         }
 
-        setCaseworkerOptions(buildCaseworkerNames(parsed.users));
+        const normalized = buildCaseworkerNames(parsed.users);
+        setCaseworkerOptions(normalized.length > 0 ? normalized : fallbackCaseworkerOptions);
         setAssignableUsersCache((prev) => mergeAssignableUsers(prev, parsed.users));
         setCaseworkerOptionsError(undefined);
       } catch (err) {
-        setCaseworkerOptions([]);
-        setCaseworkerOptionsError(err instanceof Error ? err.message : managerText.errors.caseworkersLoadFailed);
+        if (fallbackCaseworkerOptions.length > 0) {
+          setCaseworkerOptions(fallbackCaseworkerOptions);
+          setCaseworkerOptionsError(undefined);
+        } else {
+          setCaseworkerOptions([]);
+          setCaseworkerOptionsError(err instanceof Error ? err.message : managerText.errors.caseworkersLoadFailed);
+        }
       } finally {
         if (caseworkerOptionsLoadKeyRef.current === requestKey) {
           setCaseworkerOptionsLoading(false);
@@ -1360,6 +1403,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     buildCaseworkerNames,
     canvasScreenName,
     context,
+    fallbackCaseworkerOptions,
     isManagerAssign,
     managerText.errors,
     parseAssignableUsersResponse,
@@ -1526,8 +1570,13 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     }
 
     if (!metadataApiName) {
-      setBillingAuthorityOptions([]);
-      setBillingAuthorityOptionsError(commonText.messages.metadataApiNotConfigured);
+      if (fallbackBillingAuthorityOptions.length > 0) {
+        setBillingAuthorityOptions(fallbackBillingAuthorityOptions);
+        setBillingAuthorityOptionsError(undefined);
+      } else {
+        setBillingAuthorityOptions([]);
+        setBillingAuthorityOptionsError(commonText.messages.metadataApiNotConfigured);
+      }
       setBillingAuthorityOptionsLoading(false);
       return;
     }
@@ -1581,14 +1630,20 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 
         if (!active) return;
 
-        setBillingAuthorityOptions(normalized);
+        const finalOptions = normalized.length > 0 ? normalized : fallbackBillingAuthorityOptions;
+        setBillingAuthorityOptions(finalOptions);
         if (!record || (!Array.isArray(record?.billingAuthority) && !Array.isArray(record?.billingAuthorities))) {
-          setBillingAuthorityOptionsError(commonText.messages.billingAuthoritiesMissing);
+          setBillingAuthorityOptionsError(finalOptions.length > 0 ? undefined : commonText.messages.billingAuthoritiesMissing);
         }
       } catch {
         if (!active) return;
-        setBillingAuthorityOptions([]);
-        setBillingAuthorityOptionsError(commonText.messages.billingAuthoritiesLoadFailed);
+        if (fallbackBillingAuthorityOptions.length > 0) {
+          setBillingAuthorityOptions(fallbackBillingAuthorityOptions);
+          setBillingAuthorityOptionsError(undefined);
+        } else {
+          setBillingAuthorityOptions([]);
+          setBillingAuthorityOptionsError(commonText.messages.billingAuthoritiesLoadFailed);
+        }
       } finally {
         if (active) {
           setBillingAuthorityOptionsLoading(false);
@@ -1599,7 +1654,15 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return () => {
       active = false;
     };
-  }, [commonText.messages, context, isManagerAssign, isSalesSearch, metadataApiName, metadataApiType]);
+  }, [
+    commonText.messages,
+    context,
+    fallbackBillingAuthorityOptions,
+    isManagerAssign,
+    isSalesSearch,
+    metadataApiName,
+    metadataApiType,
+  ]);
 
   const assignTasksToUser = async (user: { id: string; firstName: string; lastName: string }): Promise<boolean> => {
     try {
