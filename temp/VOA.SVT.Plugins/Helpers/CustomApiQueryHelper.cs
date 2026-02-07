@@ -36,6 +36,7 @@ namespace VOA.SVT.Plugins.Helpers
                 Source = GetString(inputParameters, "source"),
                 SearchBy = GetString(inputParameters, "searchBy"),
                 PreFilter = GetString(inputParameters, "preFilter"),
+                RequestedBy = GetString(inputParameters, "RequestedBy") ?? GetString(inputParameters, "requestedBy"),
                 FromDate = GetString(inputParameters, "fromDate"),
                 ToDate = GetString(inputParameters, "toDate"),
                 SaleId = GetString(inputParameters, "saleId"),

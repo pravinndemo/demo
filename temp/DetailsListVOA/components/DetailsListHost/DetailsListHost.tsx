@@ -1267,10 +1267,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     setLoadErrorMessage(undefined);
     setApimLoading(true);
     void (async () => {
+      const requestedBy = isCaseworkerView ? currentUserId : undefined;
       const res = await loadGridData(context, {
         tableKey,
         filters: sanitizeFilters(mapSearchFiltersForApi(searchFilters)),
         source: sourceCode,
+        requestedBy,
         currentPage,
         pageSize,
         clientSort,
@@ -1290,7 +1292,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       }
       setApiFilterOptions(normalizeFilterOptions(res.filters));
     })();
-  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isCaseworkerView, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi]);
+  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi]);
 
   React.useEffect(() => {
     if (!assignPanelOpen || !assignmentContextKey) {

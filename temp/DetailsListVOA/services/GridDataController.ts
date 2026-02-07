@@ -80,6 +80,7 @@ export async function loadGridData(
     tableKey: string;
     filters: unknown; // GridFilterState but keep loose to avoid circular deps
     source?: string;
+    requestedBy?: string;
     currentPage: number;
     pageSize: number;
     clientSort?: ClientSortState;
@@ -89,6 +90,7 @@ export async function loadGridData(
 ): Promise<LoadResult> {
   const pageSize = args.pageSize ?? (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 500;
   const source = typeof args.source === 'string' ? args.source.trim() : '';
+  const requestedBy = typeof args.requestedBy === 'string' ? args.requestedBy.trim() : '';
   const baseFilters = (args.filters ?? {}) as Record<string, unknown>;
   const filtersWithSource = source ? { ...baseFilters, source } : baseFilters;
   const apiParamsBase = buildApiParamsFor(args.tableKey, filtersWithSource as never, args.currentPage, pageSize, args.prefilters);
@@ -108,6 +110,7 @@ export async function loadGridData(
     if (normalizedSortField) p.sortField = normalizedSortField;
     if (typeof sortDirection === 'number') p.sortDirection = sortDirection === 1 ? 'desc' : 'asc';
     if (searchQuery) p.SearchQuery = searchQuery;
+    if (requestedBy) p.RequestedBy = requestedBy;
     return p;
   };
 
