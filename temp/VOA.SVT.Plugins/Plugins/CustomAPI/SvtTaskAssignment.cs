@@ -107,7 +107,7 @@ namespace VOA.SVT.Plugins.CustomAPI
             {
                 ["source"] = ResolveSource(screenName, assignmentContext),
                 ["assignedTo"] = assignedToUserId ?? string.Empty,
-                ["taskId"] = taskIds,
+                ["taskList"] = taskIds,
                 ["requestedBy"] = assignedByUserId ?? string.Empty,
                 ["taskStatus"] = taskStatus ?? string.Empty,
                 ["saleId"] = saleId ?? string.Empty,
@@ -250,12 +250,12 @@ namespace VOA.SVT.Plugins.CustomAPI
             var lower = (screenName ?? string.Empty).Trim().ToLowerInvariant();
             if (lower.Contains("assignment") && lower.Contains("manager"))
             {
-                return "MA";
+                return "MAT";
             }
 
             if (lower.Contains("assignment") && (lower.Contains("qc") || lower.Contains("quality")))
             {
-                return "QCA";
+                return "QCAT";
             }
 
             if ((lower.Contains("qc") || lower.Contains("quality")) && lower.Contains("view") && !lower.Contains("assignment"))
@@ -265,7 +265,7 @@ namespace VOA.SVT.Plugins.CustomAPI
 
             if (lower.Contains("caseworker"))
             {
-                return "CW";
+                return "CWV";
             }
 
             if (lower.Contains("sales") || lower.Contains("record search") || lower.Contains("recordsearch"))
@@ -276,9 +276,9 @@ namespace VOA.SVT.Plugins.CustomAPI
             switch (context)
             {
                 case AssignmentContext.Manager:
-                    return "MA";
+                    return "MAT";
                 case AssignmentContext.Qa:
-                    return "QCA";
+                    return "QCAT";
                 default:
                     return string.Empty;
             }

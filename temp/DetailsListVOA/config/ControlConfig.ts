@@ -12,6 +12,19 @@ export const CONTROL_CONFIG = {
   assignableUsersApiType: 'function',
   taskAssignment: {
     maxBatchSize: 500,
-    allowedStatuses: ['New', 'Assigned', 'Assigned QC failed', 'QC requested'],
+    allowedStatusesManager: [
+      'New',
+      'Assigned',
+      'Assigned QC failed',
+      'QC requested',
+    ],
+    allowedStatusesQc: [
+      'QC requested',
+      'Assigned QC failed',
+      'Assigned To QC',
+      'Reassigned To QC',
+    ],
+    // Fallback for non-assignment screens if needed.
+    allowedStatuses: [],
   },
 };

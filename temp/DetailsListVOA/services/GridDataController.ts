@@ -68,6 +68,12 @@ const resolveServerDrivenThreshold = (context: ComponentFramework.Context<IInput
   return CONTROL_CONFIG.serverDrivenThreshold;
 };
 
+const isLocalHost = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const host = window.location?.hostname ?? '';
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+};
+
 export async function loadGridData(
   context: ComponentFramework.Context<IInputs>,
   args: {
@@ -117,7 +123,10 @@ export async function loadGridData(
     const firstParams = buildParams(args.currentPage);
     if (!customApiName) {
       // When no custom API is configured, show local sample data (from SampleData)
-      return { items: SAMPLE_RECORDS as unknown as TaskSearchItem[], totalCount: SAMPLE_RECORDS.length, serverDriven: false };
+      if (isLocalHost()) {
+        return { items: SAMPLE_RECORDS as unknown as TaskSearchItem[], totalCount: SAMPLE_RECORDS.length, serverDriven: false };
+      }
+      return { items: [], totalCount: 0, serverDriven: false };
     }
     const firstPayload = await execCustomApi(firstParams);
     const total = Number(firstPayload.totalCount ?? firstPayload.items?.length ?? 0);

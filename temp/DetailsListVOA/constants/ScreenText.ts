@@ -18,6 +18,40 @@ export const MANAGER_WORKTHAT_CASEWORKER: IDropdownOption[] = [
   { key: 'assignedAwaitingQc', text: 'Is assigned to the selected user(s) but is awaiting or undergoing QC' },
 ];
 
+export const CASEWORKER_WORKTHAT_OPTIONS: IDropdownOption[] = [
+  { key: 'assignedToSelected', text: 'Is assigned to me' },
+  { key: 'completedBySelected', text: 'I have completed' },
+  { key: 'assignedAwaitingQc', text: 'Is assigned to me but is awaiting or undergoing QC' },
+];
+
+export const QC_SEARCH_BY_OPTIONS: IDropdownOption[] = [
+  { key: 'qcUser', text: 'QC User' },
+  { key: 'task', text: 'Task' },
+  { key: 'caseworker', text: 'Caseworker' },
+];
+
+export const QC_WORKTHAT_QCUSER_OPTIONS: IDropdownOption[] = [
+  { key: 'qcAssignedToSelected', text: 'Is assigned to the selected user(s)' },
+  { key: 'qcCompletedBySelected', text: 'Has been completed by the selected user(s)' },
+  { key: 'qcAssignedInProgress', text: 'Is assigned to the selected user(s) but is being progressed by the caseworker' },
+];
+
+export const QC_WORKTHAT_SELF_OPTIONS: IDropdownOption[] = [
+  { key: 'qcAssignedToSelected', text: 'Is assigned to me' },
+  { key: 'qcCompletedBySelected', text: 'I have completed' },
+  { key: 'qcAssignedInProgress', text: 'Is assigned to me but is being progressed by the caseworker' },
+];
+
+export const QC_WORKTHAT_CASEWORKER_OPTIONS: IDropdownOption[] = [
+  { key: 'caseworkerCompletedQcRequested', text: 'Has been complete by the selected caseworker where QC has been requested' },
+  { key: 'caseworkerCompleted', text: 'Has been complete by the selected caseworker' },
+];
+
+export const QC_WORKTHAT_TASK_OPTIONS: IDropdownOption[] = [
+  { key: 'taskCompletedQcRequested', text: 'Has been complete by a caseworker where QC has been requested' },
+  { key: 'taskCompleted', text: 'Has been complete by a caseworker' },
+];
+
 export const MANAGER_BILLING_AUTHORITY_OPTIONS: IDropdownOption[] = [
   { key: 'Cardiff', text: 'Cardiff' },
   { key: 'Newport', text: 'Newport' },
@@ -159,12 +193,81 @@ export const SCREEN_TEXT = {
     title: 'QC Assignment',
     assignActionText: 'Assign QC Tasks',
     assignUserListTitle: 'QC Users',
+    errors: {
+      assignableUsersApiNotConfigured: 'Assignable users API name is not configured.',
+      caseworkersLoadFailed: 'Unable to load users.',
+    },
+    prefilter: {
+      labels: {
+        searchBy: 'Search by',
+        qcUser: 'QC User',
+        caseworker: 'Caseworker',
+        workThat: 'Work that',
+        completedDateRange: 'Select Completed Date Range',
+        fromDate: 'From date',
+        toDate: 'To date',
+      },
+      placeholders: {
+        qcUser: 'Select User',
+        caseworker: 'Select User',
+        workThat: 'Select a option',
+        completedFrom: 'Select a From date...',
+        completedTo: 'Select a To date...',
+      },
+      buttons: {
+        search: 'Search',
+        clearSearch: 'Clear search',
+      },
+      options: {
+        searchBy: QC_SEARCH_BY_OPTIONS,
+        workThatQcUser: QC_WORKTHAT_QCUSER_OPTIONS,
+        workThatCaseworker: QC_WORKTHAT_CASEWORKER_OPTIONS,
+        workThatTask: QC_WORKTHAT_TASK_OPTIONS,
+      },
+    },
+    emptyState: {
+      title: 'No results found',
+      message: '',
+    },
   },
   caseworkerView: {
-    title: 'Caseworker View',
+    title: 'My Allocated Sales',
+    emptyState: {
+      title: 'No results found',
+      message: '',
+    },
   },
   qcView: {
     title: 'Quality Control View',
+    emptyState: {
+      title: 'No results found',
+      message: '',
+    },
+    prefilter: {
+      labels: {
+        searchBy: 'Search by',
+        qcUser: 'QC User',
+        caseworker: 'Caseworker',
+        workThat: 'Work that',
+        completedDateRange: 'Select Completed Date Range',
+        fromDate: 'From date',
+        toDate: 'To date',
+      },
+      placeholders: {
+        qcUser: 'Select User',
+        caseworker: 'Select User',
+        workThat: 'Select a option',
+        completedFrom: 'Select a From date...',
+        completedTo: 'Select a To date...',
+      },
+      buttons: {
+        search: 'Search',
+        clearSearch: 'Clear search',
+      },
+      options: {
+        workThatSelf: QC_WORKTHAT_SELF_OPTIONS,
+      },
+    },
   },
   salesSearch: {
     title: 'Sales Record Search',
@@ -201,6 +304,10 @@ export const SCREEN_TEXT = {
       noUsersFound: 'No users found.',
       noValidTaskIds: 'No valid task IDs were selected.',
       assignedSuccess: 'The selected tasks have been assigned successfully.',
+      assignedSuccessSingle: 'The task has been assigned successfully.',
+      assignedSuccessMultiple: 'The selected tasks have been assigned successfully.',
+      assignedSuccessWithUserSingle: 'Assigned 1 task to {user}.',
+      assignedSuccessWithUserMultiple: 'Assigned {count} tasks to {user}.',
       alreadyAssigned: 'One or more of the selected tasks has already been assigned. Please refresh the page and try again.',
       assignmentFailed: 'Technical error. Please try again in some time.',
       invalidStatus: 'One or more selected tasks cannot be assigned based on status.',

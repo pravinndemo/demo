@@ -68,6 +68,18 @@ When the **assignment panel opens**, the PCF calls the **assignable users** Cust
 
 The plugin resolves assignment context from the screen name (manager vs QA), then loads users from **team membership** and **role membership** using the assignment context’s configured team/role names (e.g., SVT User team or role for manager assignment).【F:VOA.SVT.Plugins/Plugins/CustomAPI/SvtGetAssignableUsers.cs†L24-L83】【F:VOA.SVT.Plugins/Helpers/AssignmentContextResolver.cs†L7-L95】
 
+## Assign Tasks screen behavior (manager)
+- Clicking **Assign Tasks** opens the Assign Tasks overlay with a search bar and a list of SVT users.
+- The user list shows first name, last name, and email; only one user can be selected at a time.
+- Clicking **Assign Tasks** assigns the selected records to that user and returns to the manager assignment grid.
+- On success, the grid refreshes and the banner uses count + assignee wording for clarity and accessibility, e.g. "Assigned 1 task to Alice Johnson." or "Assigned 5 tasks to Alice Johnson." This replaces the single-record story text to reflect multi-select.
+- If the API reports that one or more tasks were already assigned, the banner message reads: "One or more of the selected tasks has already been assigned. Please refresh the page and try again."
+
+## Assignment vs. reassignment (manager)
+- **Assignment**: all selected tasks are `New` -> send `taskStatus = "New"` to the assignment API.
+- **Reassignment**: tasks already assigned (status not `New`) -> send `taskStatus = "NULL"` to the assignment API.
+- Mixed `New` + non-`New` selections are blocked by the client with the invalid-status message.
+
 ## PCF configuration (inputs + outputs)
 ### Inputs (app maker/config)
 The PCF control exposes inputs for:

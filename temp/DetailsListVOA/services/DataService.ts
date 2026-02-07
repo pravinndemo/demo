@@ -304,6 +304,12 @@ const resolveCustomApiType = (context: ComponentFramework.Context<IInputs>): num
   return resolveCustomApiOperationType(fromContext ?? CONTROL_CONFIG.customApiType);
 };
 
+const isLocalHost = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const host = window.location?.hostname ?? '';
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+};
+
 export async function executeSearch(
   context: ComponentFramework.Context<IInputs>,
   req: SearchRequest,
@@ -315,9 +321,17 @@ export async function executeSearch(
   const customApiName = resolveCustomApiName(context);
   const customApiType = resolveCustomApiType(context);
   if (!customApiName) {
+    if (isLocalHost()) {
+      return {
+        items: SAMPLE_TASK_RESULTS,
+        totalCount: SAMPLE_TASK_RESULTS.length,
+        page,
+        pageSize,
+      };
+    }
     return {
-      items: SAMPLE_TASK_RESULTS,
-      totalCount: SAMPLE_TASK_RESULTS.length,
+      items: [],
+      totalCount: 0,
       page,
       pageSize,
     };

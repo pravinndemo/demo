@@ -505,9 +505,9 @@
 }
 
 .PowerCATFluentDetailsList .ms-DetailsHeader {
-  position: sticky;
+  position: sticky !important;
   top: 0;
-  z-index: 2;
+  z-index: 4;
   background: #f7f7f7;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
   width: max-content;
@@ -517,9 +517,9 @@
 }
 
 .PowerCATFluentDetailsList .ms-DetailsList-headerWrapper {
-  position: sticky;
+  position: sticky !important;
   top: 0;
-  z-index: 3; 
+  z-index: 5;
   background: #f7f7f7;
 }
 
@@ -698,6 +698,21 @@
     minmax(160px, 1fr);
 }
 
+.voa-prefilter-bar--no-owner .ms-Stack-inner {
+  grid-template-columns:
+    minmax(140px, 1fr)
+    minmax(180px, 1fr)
+    minmax(200px, 1fr)
+    minmax(160px, 1fr);
+}
+
+.voa-prefilter-bar--no-owner.voa-prefilter-bar--no-date .ms-Stack-inner {
+  grid-template-columns:
+    minmax(140px, 1fr)
+    minmax(200px, 1fr)
+    minmax(160px, 1fr);
+}
+
 .voa-prefilter-col-searchby-label {
   grid-column: 1;
   grid-row: 1;
@@ -800,6 +815,56 @@
   align-self: start;
 }
 
+.voa-prefilter-bar--no-owner .voa-prefilter-col-workthat-label,
+.voa-prefilter-bar--no-owner .voa-prefilter-col-workthat-field {
+  grid-column: 2;
+}
+
+.voa-prefilter-bar--no-owner .voa-prefilter-col-daterange-label,
+.voa-prefilter-bar--no-owner .voa-prefilter-col-daterange-fields {
+  grid-column: 3;
+}
+
+.voa-prefilter-bar--no-owner .voa-prefilter-col-actions {
+  grid-column: 4;
+}
+
+.voa-prefilter-bar--no-owner.voa-prefilter-bar--no-date .voa-prefilter-col-actions {
+  grid-column: 3;
+}
+
+.voa-prefilter-bar--qcview .ms-Stack-inner {
+  grid-template-columns:
+    minmax(240px, 1fr)
+    minmax(220px, 1fr)
+    minmax(140px, auto);
+}
+
+.voa-prefilter-bar--qcview.voa-prefilter-bar--no-date .ms-Stack-inner {
+  grid-template-columns:
+    minmax(240px, 1fr)
+    minmax(140px, auto);
+}
+
+.voa-prefilter-bar--qcview .voa-prefilter-col-workthat-label,
+.voa-prefilter-bar--qcview .voa-prefilter-col-workthat-field {
+  grid-column: 1;
+}
+
+.voa-prefilter-bar--qcview .voa-prefilter-col-daterange-label,
+.voa-prefilter-bar--qcview .voa-prefilter-col-daterange-fields {
+  grid-column: 2;
+}
+
+.voa-prefilter-bar--qcview .voa-prefilter-col-actions {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.voa-prefilter-bar--qcview.voa-prefilter-bar--no-date .voa-prefilter-col-actions {
+  grid-column: 2;
+}
+
 .voa-prefilter-field {
   display: flex;
   flex-direction: column;
@@ -863,12 +928,88 @@
   padding: 6px 12px 10px;
 }
 
+.voa-prefilter-bar--inline.voa-prefilter-bar--no-owner .ms-Stack-inner {
+  grid-template-columns:
+    minmax(140px, 1fr)
+    minmax(180px, 1fr)
+    minmax(200px, 1fr)
+    minmax(140px, auto);
+}
+
 .voa-prefilter-bar--inline.voa-prefilter-bar--no-date .ms-Stack-inner {
   grid-template-columns:
     minmax(140px, 1fr)
     minmax(180px, 1fr)
     minmax(180px, 1fr)
     minmax(140px, auto);
+}
+
+.voa-prefilter-bar--inline.voa-prefilter-bar--no-owner.voa-prefilter-bar--no-date .ms-Stack-inner {
+  grid-template-columns:
+    minmax(140px, 1fr)
+    minmax(180px, 1fr)
+    minmax(140px, auto);
+}
+
+.voa-prefilter-bar--inline.voa-prefilter-bar--qcview .ms-Stack-inner {
+  grid-template-columns:
+    minmax(240px, 1fr)
+    minmax(220px, 1fr)
+    minmax(140px, auto);
+}
+
+.voa-prefilter-bar--inline.voa-prefilter-bar--qcview.voa-prefilter-bar--no-date .ms-Stack-inner {
+  grid-template-columns:
+    minmax(240px, 1fr)
+    minmax(140px, auto);
+}
+
+.voa-prefilter-bar--inline.voa-prefilter-bar--caseworker .ms-Stack-inner {
+  grid-template-columns:
+    minmax(240px, 50%)
+    max-content
+    max-content;
+  column-gap: 8px;
+  justify-content: start;
+}
+
+.voa-prefilter-bar--inline.voa-prefilter-bar--caseworker.voa-prefilter-bar--no-date .ms-Stack-inner {
+  grid-template-columns:
+    minmax(240px, 50%)
+    max-content;
+  column-gap: 8px;
+  justify-content: start;
+}
+
+.voa-prefilter-bar--caseworker .voa-prefilter-col-workthat-label {
+  grid-column: 1;
+}
+
+.voa-prefilter-bar--caseworker .voa-prefilter-col-workthat-field {
+  grid-column: 1;
+}
+
+.voa-prefilter-bar--caseworker .voa-prefilter-col-daterange-label {
+  grid-column: 2;
+}
+
+.voa-prefilter-bar--caseworker .voa-prefilter-col-daterange-fields {
+  grid-column: 2;
+}
+
+.voa-prefilter-bar--caseworker .voa-prefilter-col-actions {
+  grid-column: 3;
+  justify-self: start;
+}
+
+.voa-prefilter-bar--caseworker.voa-prefilter-bar--no-date .voa-prefilter-col-actions {
+  grid-column: 2;
+}
+
+.voa-prefilter-bar--caseworker .voa-prefilter-actions {
+  justify-content: flex-start;
+  padding-right: 0;
+  gap: 6px;
 }
 
 .voa-prefilter-bar--inline .ms-Label {
@@ -1013,6 +1154,14 @@
   }
 
   .voa-prefilter-bar--inline.voa-prefilter-bar--no-date .ms-Stack-inner {
+    grid-template-columns: minmax(200px, 1fr);
+  }
+
+  .voa-prefilter-bar--inline.voa-prefilter-bar--qcview .ms-Stack-inner {
+    grid-template-columns: minmax(200px, 1fr);
+  }
+
+  .voa-prefilter-bar--inline.voa-prefilter-bar--qcview.voa-prefilter-bar--no-date .ms-Stack-inner {
     grid-template-columns: minmax(200px, 1fr);
   }
 

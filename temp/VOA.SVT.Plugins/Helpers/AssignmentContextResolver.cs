@@ -63,7 +63,7 @@ namespace VOA.SVT.Plugins.Helpers
                 case AssignmentContext.Manager:
                     return new[] { UserContextConfig.TeamNameSvtUser };
                 case AssignmentContext.Qa:
-                    return new[] { UserContextConfig.TeamNameSvtQa };
+                    return new[] { UserContextConfig.TeamNameSvtQa, UserContextConfig.TeamNameSvtUser };
                 default:
                     return Array.Empty<string>();
             }
@@ -76,7 +76,7 @@ namespace VOA.SVT.Plugins.Helpers
                 case AssignmentContext.Manager:
                     return new[] { UserContextConfig.RoleNameSvtUser };
                 case AssignmentContext.Qa:
-                    return new[] { UserContextConfig.RoleNameSvtUser };
+                    return new[] { UserContextConfig.RoleNameSvtQa, UserContextConfig.RoleNameSvtUser };
                 default:
                     return Array.Empty<string>();
             }

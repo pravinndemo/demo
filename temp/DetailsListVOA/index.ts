@@ -20,6 +20,9 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   private actionType?: string;
   private actionRequestId?: string;
   private actionSequence = 0;
+  private viewSalePending?: boolean;
+  private viewSaleRequestSeq = 0;
+  private activeViewSaleRequestId?: number;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
@@ -52,7 +55,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
             this.selectedTaskId = args?.taskId;
             this.selectedSaleId = args?.saleId;
             console.log('[DetailsListVOA] Row invoke:', { taskId: args?.taskId, saleId: args?.saleId });
-            this._saleDetails = '';
             void this.onTaskClick(args?.taskId, args?.saleId);
           },
           onSelectionChange: (args) => {
@@ -73,6 +75,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
           onBackRequested: () => {
             this._saleDetails = '';
             console.log('[DetailsListVOA] Back requested');
+            this.viewSalePending = false;
             this.emitAction('back');
           },
         }),
@@ -89,6 +92,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       selectedSaleIdsJson: this.selectedSaleIdsJson,
       selectedCount: this.selectedCount,
       saleDetails: this._saleDetails,
+      viewSalePending: this.viewSalePending,
       actionType: this.actionType,
       actionRequestId: this.actionRequestId,
       backRequestId: this.backRequestId,
@@ -102,16 +106,17 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   }
 
   private async onTaskClick(taskId?: string, saleId?: string): Promise<void> {
-    this._saleDetails = '';
-    console.log('[DetailsListVOA] Fetching sale details:', { taskId, saleId });
+    const requestId = this.beginViewSaleRequest();
+    console.log('[DetailsListVOA] Fetching sale details:', { taskId, saleId, requestId });
 
     if (!saleId) {
-      this._saleDetails = JSON.stringify(this.getEmptySaleRecord());
+      const emptyDetails = JSON.stringify(this.getEmptySaleRecord());
       console.log('[DetailsListVOA] Empty sale details returned (no saleId).');
-      this.emitAction('viewSale');
+      this.finishViewSaleRequest(requestId, emptyDetails);
       return;
     }
 
+    let detailsPayload = '';
     try {
       const apiName = this.resolveViewSaleRecordApiName();
       if (!apiName) {
@@ -126,17 +131,37 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
         { operationType: customApiType },
       );
       const payload = this.unwrapCustomApiPayload(rawPayload);
-      this._saleDetails = typeof payload === 'string'
+      detailsPayload = typeof payload === 'string'
         ? payload
         : JSON.stringify(payload ?? this.getEmptySaleRecord());
     } catch (error) {
       console.warn('Failed to fetch SVT sale record.', error);
-      this._saleDetails = JSON.stringify(this.getEmptySaleRecord());
+      detailsPayload = JSON.stringify(this.getEmptySaleRecord());
     }
 
+    this.finishViewSaleRequest(requestId, detailsPayload);
+  }
+
+  private beginViewSaleRequest(): number {
+    this.viewSaleRequestSeq += 1;
+    const requestId = this.viewSaleRequestSeq;
+    this.activeViewSaleRequestId = requestId;
+    this.viewSalePending = true;
+    this._saleDetails = '';
+    this._notifyOutputChanged();
+    return requestId;
+  }
+
+  private finishViewSaleRequest(requestId: number, detailsPayload: string): void {
+    if (this.activeViewSaleRequestId !== requestId) {
+      return;
+    }
+    this._saleDetails = detailsPayload;
+    this.viewSalePending = false;
     console.log('[DetailsListVOA] Sale details updated.', {
       hasDetails: !!this._saleDetails,
       length: this._saleDetails.length,
+      requestId,
     });
     this.emitAction('viewSale');
   }

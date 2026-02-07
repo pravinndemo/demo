@@ -25,7 +25,7 @@ The Custom API is called with the following parameters (per selected task):
 | Parameter | Type | Notes |
 | --- | --- | --- |
 | `assignedToUserId` | string | Selected assignee’s Dataverse user ID. | 
-| `taskStatus` | string | Task status from the selected record. |
+| `taskStatus` | string | Manager assignment: `New` for first-time assignment, `NULL` for reassignment. QC assignment: `QC Requested` for first-time assignment, `NULL` for reassignment. (PCF blocks mixed New + non-New and mixed QC Requested + non-QC Requested selections.) |
 | `saleId` | string | Sale ID from the selected record. |
 | `taskId` | string | Task ID from the selected record. **Required** by plugin. |
 | `assignedByUserId` | string | Current user ID (from context). |
@@ -44,6 +44,14 @@ The plugin `SvtTaskAssignment`:
 3. Validates that `assignedToUserId` and `taskId` are present.
 4. Posts the assignment payload to APIM as JSON.
 5. Returns a `Result` JSON string indicating success or failure.
+
+APIM payload notes:
+- The plugin maps the incoming `taskId` values into `taskList` in the APIM JSON body.
+- Source codes are derived from screen name for assignment calls:
+  - Manager assignment -> `MAT`
+  - QC assignment -> `QCAT`
+  - Caseworker screens -> `CWV`
+  - Sales record search -> `SRS`
 
 Relevant files:
 - `VOA.SVT.Plugins/Plugins/CustomAPI/SvtTaskAssignment.cs` (context resolution, authorization, payload, error handling).【F:VOA.SVT.Plugins/Plugins/CustomAPI/SvtTaskAssignment.cs†L12-L172】
@@ -72,3 +80,4 @@ The plugin sets the `Result` string for both success and failure cases.【F:VOA.
 - `docs/svtGetViewSaleRecordById.md` (sale details retrieval).
 - `docs/svtManualTaskCreation.md` (manual task creation endpoint).
 - `docs/svtGetUserContext.md` (user persona/roles context for Canvas apps).
+- `docs/task-assignment-api-urls.md` (task assignment URL examples).

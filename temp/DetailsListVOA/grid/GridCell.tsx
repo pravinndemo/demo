@@ -295,14 +295,18 @@ function getIconCell(
     let isBlank = true;
     if (item?.getValue) {
         const imageData = getCellValue<string>(column.fieldName, item)[0];
+        const rawAriaText = getCellValue<string>(column.ariaTextColumn, item)[0];
+        const ariaText = typeof rawAriaText === 'string' ? rawAriaText.trim() : String(rawAriaText ?? '').trim();
+        const columnLabel = String(column.name ?? column.fieldName ?? '').trim();
+        const cellLabel = ariaText || columnLabel;
+        const actionLabel = cellLabel || 'Open';
         isBlank = !imageData || imageData === '';
         if (imageData) {
             const iconColor = column.tagColor?.startsWith('#')
                 ? column.tagColor
                 : getCellValue<string>(column.tagColor, item)[0];
-            const ariaText = getCellValue<string>(column.ariaTextColumn, item)[0];
             const actionDisabled = getCellValue<string>(column.cellActionDisabledColumn, item)[0];
-            const buttonContent: JSX.Element | null = getImageTag(imageData, column, iconColor);
+            const buttonContent: JSX.Element | null = getImageTag(imageData, column, iconColor, cellLabel);
             const padding = column.imagePadding;
             if (column.cellType?.toLowerCase() === CellTypes.ClickableImage) {
                 const containerClass = `${ClassNames.imageButton} ${mergeStyles({ padding: padding })}`;
@@ -312,7 +316,8 @@ function getIconCell(
                         className={containerClass}
                         data-is-focusable={true}
                         disabled={actionDisabled === 'True'}
-                        ariaDescription={ariaText}
+                        ariaLabel={actionLabel}
+                        ariaDescription={ariaText && ariaText !== actionLabel ? ariaText : undefined}
                     >
                         {buttonContent}
                     </DefaultButton>
@@ -324,13 +329,14 @@ function getIconCell(
                     display: 'flex',
                 });
                 cellContents = (
-                    <div className={containerClass} title={ariaText}>
+                    <div className={containerClass} title={cellLabel}>
                         {buttonContent}
+                        {cellLabel ? <span className="voa-sr-only">{cellLabel}</span> : null}
                     </div>
                 );
             }
         } else {
-            cellContents = <DefaultButton onClick={cellNavigation}></DefaultButton>;
+            cellContents = <DefaultButton onClick={cellNavigation} ariaLabel={actionLabel}></DefaultButton>;
         }
     } else {
         cellContents = <></>;
@@ -338,7 +344,7 @@ function getIconCell(
     return { isBlank, cellContents };
 }
 
-function getImageTag(imageData: string, column: IGridColumn, iconColor: string) {
+function getImageTag(imageData: string, column: IGridColumn, iconColor: string, ariaText?: string) {
     let buttonContent: JSX.Element | null = null;
     const iconName = imageData.substring('icon:'.length);
 
@@ -356,7 +362,7 @@ function getImageTag(imageData: string, column: IGridColumn, iconColor: string) 
         buttonContent = <FontIcon iconName={iconName} className={iconColorClass} aria-hidden="true" />;
     } else if (imageData.startsWith('data:') || imageData.startsWith('https:')) {
         const imageSize = validWidth ?? 32;
-        buttonContent = <Image src={imageData} width={imageSize} />;
+        buttonContent = <Image src={imageData} width={imageSize} alt={ariaText ?? ''} />;
     }
     return buttonContent;
 }

@@ -1,5 +1,5 @@
 import { GridFilterState, SearchByOption } from '../Filters';
-import { mapManagerPrefiltersToApi, type ManagerPrefilterState } from './PrefilterConfigs';
+import { mapManagerPrefiltersToApi, mapQcPrefiltersToApi, mapQcViewPrefiltersToApi, type ManagerPrefilterState } from './PrefilterConfigs';
 
 export type TableKey = 'sales' | 'allsales' | 'myassignment' | 'manager' | 'qa' | 'qaassign' | 'qaview';
 
@@ -250,6 +250,7 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
   myassignment: {
     lookupFields: new Set<string>([...salesLookupFields]),
     buildApiParams: buildSalesParams,
+    buildPrefilterParams: (prefilters?: unknown) => mapManagerPrefiltersToApi(prefilters as ManagerPrefilterState | undefined),
     columnFilterConfig: SALES_COLUMN_FILTERS,
     showViewSalesRecord: true,
     searchByOptions: [
@@ -311,6 +312,7 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
   qa: {
     lookupFields: new Set<string>([...salesLookupFields]),
     buildApiParams: buildSalesParams,
+    buildPrefilterParams: (prefilters?: unknown) => mapQcViewPrefiltersToApi(prefilters as ManagerPrefilterState | undefined),
     columnFilterConfig: SALES_COLUMN_FILTERS,
     showViewSalesRecord: true,
     searchByOptions: [
@@ -341,6 +343,7 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
   qaassign: {
     lookupFields: new Set<string>([...salesLookupFields]),
     buildApiParams: buildSalesParams,
+    buildPrefilterParams: (prefilters?: unknown) => mapQcPrefiltersToApi(prefilters as ManagerPrefilterState | undefined),
     columnFilterConfig: SALES_COLUMN_FILTERS,
     showViewSalesRecord: true,
     searchByOptions: [
@@ -371,6 +374,7 @@ export const TABLE_CONFIGS: Record<TableKey, TableConfig> = {
   qaview: {
     lookupFields: new Set<string>([...salesLookupFields]),
     buildApiParams: buildSalesParams,
+    buildPrefilterParams: (prefilters?: unknown) => mapQcViewPrefiltersToApi(prefilters as ManagerPrefilterState | undefined),
     columnFilterConfig: SALES_COLUMN_FILTERS,
     showViewSalesRecord: true,
     searchByOptions: [

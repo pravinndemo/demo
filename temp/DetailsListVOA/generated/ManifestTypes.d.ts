@@ -24,6 +24,7 @@ export interface IOutputs {
     selectedTaskId?: string;
     selectedSaleId?: string;
     saleDetails?: string;
+    viewSalePending?: boolean;
     actionType?: string;
     actionRequestId?: string;
     selectedTaskIdsJson?: string;

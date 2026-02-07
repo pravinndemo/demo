@@ -108,3 +108,4 @@ The plugin already sets a clear `message` when the APIM response body is empty, 
 ## Related docs
 - `docs/svtGetSaleRecords.md` (search + grid data retrieval).
 - `docs/svtTaskAssignment.md` (task assignment endpoint).
+- `docs/task-creation-api-urls.md` (manual task creation URL examples).
