@@ -27,6 +27,7 @@ When column header filters change, the host normalizes them, persists them, and 
 - Use `columnFilter` (lowercase) in the query string.
 - Format: `columnFilter=field~operator~value`
 - For multi-value filters, values are comma-separated (`,`).
+- Separators are configurable via `COLUMN_FILTER_CONDITION_SEPARATOR` and `COLUMN_FILTER_VALUE_SEPARATOR` in `DetailsListVOA/config/PrefilterConfigs.ts`.
 
 ## Manager prefilters (screen-level filters)
 Manager assignment screens require **prefilters** before results are shown. The host defers API loading until prefilters are applied, then merges them into the request payload.【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L560-L605】【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L894-L972】
@@ -43,16 +44,16 @@ These values are mapped into API parameters (e.g., `billingAuthority`, `assigned
 - `source=MA`
 - `searchBy=BA` when search-by is billing authority
 - `searchBy=CW` when search-by is caseworker
-- `preFilter` values joined with `~`
-- `taskStatus` values joined with `~`
+- `preFilter` values joined with `,` (configurable via `PREFILTER_VALUE_SEPARATOR`).
+- `taskStatus` values joined with `,` (configurable via `TASKSTATUS_VALUE_SEPARATOR`).
 - `fromDate` / `toDate` in `dd/MM/yyyy` (only send when provided)
 
 Example:
 ```
 source=MA
 searchBy=BA
-preFilter=Powys 2 (Radnorshire)~Powys 3 (Breconshire)
-taskStatus=Assigned~Assigned QC -Failed
+preFilter=Powys 2 (Radnorshire),Powys 3 (Breconshire)
+taskStatus=Assigned,Assigned QC -Failed
 fromDate=02/01/2026
 toDate=01/02/2026
 ```

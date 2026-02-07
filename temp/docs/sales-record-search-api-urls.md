@@ -10,6 +10,7 @@ This document lists the exact URL shapes produced for Sales Record Search, inclu
 - date format: dd/MM/yyyy
 - multi-select field separator (sales search filters): ","
 - SearchQuery format: repeated `columnFilter=<field>~<op>~<value>` joined with `&`
+- columnFilter separators: condition `~`, value `,` (configurable via `COLUMN_FILTER_CONDITION_SEPARATOR` and `COLUMN_FILTER_VALUE_SEPARATOR` in `DetailsListVOA/config/PrefilterConfigs.ts`)
 - Column filter operators:
   - `eq` for singleSelect and exact text fields (saleId, taskId, uprn)
   - `like` for text contains/prefix (address, postCode, summaryFlags)

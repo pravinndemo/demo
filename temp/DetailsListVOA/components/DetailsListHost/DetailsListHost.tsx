@@ -7,7 +7,11 @@ import { GridFilterState, createDefaultGridFilters, sanitizeFilters, NumericFilt
 import { getProfileConfigs } from '../../config/ColumnProfiles';
 import { CONTROL_CONFIG } from '../../config/ControlConfig';
 import { getColumnFilterConfigFor, isLookupFieldFor, type TableKey } from '../../config/TableConfigs';
-import { type ManagerPrefilterState } from '../../config/PrefilterConfigs';
+import {
+  type ManagerPrefilterState,
+  COLUMN_FILTER_CONDITION_SEPARATOR,
+  COLUMN_FILTER_VALUE_SEPARATOR,
+} from '../../config/PrefilterConfigs';
 import { SCREEN_TEXT, MANAGER_BILLING_AUTHORITY_OPTIONS, MANAGER_CASEWORKER_OPTIONS } from '../../constants/ScreenText';
 import { buildColumns } from '../../utils/ColumnsBuilder';
 import { ensureSampleColumns, buildSampleEntityRecords } from '../../utils/SampleHelpers';
@@ -317,7 +321,7 @@ const buildColumnFilterTokens = (
     const values = value.map((entry) => String(entry ?? '').trim()).filter((entry) => entry !== '');
     if (values.length === 0) return undefined;
     const operator = 'in';
-    return [apiField, operator, values.join(',')];
+    return [apiField, operator, values.join(COLUMN_FILTER_VALUE_SEPARATOR)];
   }
 
   if (cfg.control === 'numeric' && isNumericFilterValue(value)) {
@@ -367,7 +371,7 @@ const buildColumnFilterQuery = (tableKey: TableKey, filters: Record<string, Colu
     .filter((tokens): tokens is string[] => !!tokens && tokens.length > 0)
     .map((tokens) => {
       const encoded = tokens.map((token) => encodeURIComponent(token));
-      return `columnFilter=${encoded.join('~')}`;
+      return `columnFilter=${encoded.join(COLUMN_FILTER_CONDITION_SEPARATOR)}`;
     });
 
   return expressions.join('&');

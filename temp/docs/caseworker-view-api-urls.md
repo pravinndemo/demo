@@ -8,10 +8,11 @@ This document lists the exact URL shapes produced for Caseworker View, including
 - {customApiName} default: voa_GetAllSalesRecord
 - pageNumber is 1-based; examples use pageSize=50
 - date format: dd/MM/yyyy
-- preFilter separator: "~"
-- taskStatus separator: "~"
+- preFilter separator: "," (configurable via `PREFILTER_VALUE_SEPARATOR` in `DetailsListVOA/config/PrefilterConfigs.ts`)
+- taskStatus separator: "," (configurable via `TASKSTATUS_VALUE_SEPARATOR` in `DetailsListVOA/config/PrefilterConfigs.ts`)
 - multi-select field separator (sales search filters): ","
 - SearchQuery format: repeated `columnFilter=<field>~<op>~<value>` joined with `&`
+- columnFilter separators: condition `~`, value `,` (configurable via `COLUMN_FILTER_CONDITION_SEPARATOR` and `COLUMN_FILTER_VALUE_SEPARATOR` in `DetailsListVOA/config/PrefilterConfigs.ts`)
 - Column filter operators:
   - `eq` for singleSelect and exact text fields (saleId, taskId, uprn)
   - `like` for text contains/prefix (address, postCode, summaryFlags)
@@ -28,34 +29,34 @@ This document lists the exact URL shapes produced for Caseworker View, including
 
 Note: preFilter is the current caseworker user id (GUID) resolved from the Dataverse context.
 
-### Work that: Is assigned to me (taskStatus=Assigned QC Failed~Assigned)
+### Work that: Is assigned to me (taskStatus=Assigned QC Failed,Assigned)
 Custom API (function):
 ```text
-GET https://{org}.crm.dynamics.com/api/data/v9.2/voa_GetAllSalesRecord(pageNumber='1',pageSize='50',sortField='saleId',sortDirection='asc',source='CWV',searchBy='CW',preFilter='00000000-0000-0000-0000-000000000000',taskStatus='Assigned QC Failed~Assigned')
+GET https://{org}.crm.dynamics.com/api/data/v9.2/voa_GetAllSalesRecord(pageNumber='1',pageSize='50',sortField='saleId',sortDirection='asc',source='CWV',searchBy='CW',preFilter='00000000-0000-0000-0000-000000000000',taskStatus='Assigned QC Failed,Assigned')
 ```
 APIM:
 ```text
-{APIM_BASE_ADDRESS}?page-number=1&page-size=50&source=CWV&searchBy=CW&preFilter=00000000-0000-0000-0000-000000000000&taskStatus=Assigned+QC+Failed%7eAssigned&sort-field=saleId&sort-direction=asc
+{APIM_BASE_ADDRESS}?page-number=1&page-size=50&source=CWV&searchBy=CW&preFilter=00000000-0000-0000-0000-000000000000&taskStatus=Assigned+QC+Failed%2CAssigned&sort-field=saleId&sort-direction=asc
 ```
 
-### Work that: I have completed (taskStatus=Complete Passed QC~Complete, fromDate/toDate)
+### Work that: I have completed (taskStatus=Complete Passed QC,Complete, fromDate/toDate)
 Custom API:
 ```text
-GET https://{org}.crm.dynamics.com/api/data/v9.2/voa_GetAllSalesRecord(pageNumber='1',pageSize='50',sortField='saleId',sortDirection='asc',source='CWV',searchBy='CW',preFilter='00000000-0000-0000-0000-000000000000',taskStatus='Complete Passed QC~Complete',fromDate='01/02/2026',toDate='15/02/2026')
+GET https://{org}.crm.dynamics.com/api/data/v9.2/voa_GetAllSalesRecord(pageNumber='1',pageSize='50',sortField='saleId',sortDirection='asc',source='CWV',searchBy='CW',preFilter='00000000-0000-0000-0000-000000000000',taskStatus='Complete Passed QC,Complete',fromDate='01/02/2026',toDate='15/02/2026')
 ```
 APIM:
 ```text
-{APIM_BASE_ADDRESS}?page-number=1&page-size=50&source=CWV&searchBy=CW&preFilter=00000000-0000-0000-0000-000000000000&taskStatus=Complete+Passed+QC%7eComplete&fromDate=01%2f02%2f2026&toDate=15%2f02%2f2026&sort-field=saleId&sort-direction=asc
+{APIM_BASE_ADDRESS}?page-number=1&page-size=50&source=CWV&searchBy=CW&preFilter=00000000-0000-0000-0000-000000000000&taskStatus=Complete+Passed+QC%2CComplete&fromDate=01%2f02%2f2026&toDate=15%2f02%2f2026&sort-field=saleId&sort-direction=asc
 ```
 
-### Work that: Is assigned to me but is awaiting or undergoing QC (taskStatus=QC Requested~Reassigned To QC~Assigned To QC)
+### Work that: Is assigned to me but is awaiting or undergoing QC (taskStatus=QC Requested,Reassigned To QC,Assigned To QC)
 Custom API:
 ```text
-GET https://{org}.crm.dynamics.com/api/data/v9.2/voa_GetAllSalesRecord(pageNumber='1',pageSize='50',sortField='saleId',sortDirection='asc',source='CWV',searchBy='CW',preFilter='00000000-0000-0000-0000-000000000000',taskStatus='QC Requested~Reassigned To QC~Assigned To QC')
+GET https://{org}.crm.dynamics.com/api/data/v9.2/voa_GetAllSalesRecord(pageNumber='1',pageSize='50',sortField='saleId',sortDirection='asc',source='CWV',searchBy='CW',preFilter='00000000-0000-0000-0000-000000000000',taskStatus='QC Requested,Reassigned To QC,Assigned To QC')
 ```
 APIM:
 ```text
-{APIM_BASE_ADDRESS}?page-number=1&page-size=50&source=CWV&searchBy=CW&preFilter=00000000-0000-0000-0000-000000000000&taskStatus=QC+Requested%7eReassigned+To+QC%7eAssigned+To+QC&sort-field=saleId&sort-direction=asc
+{APIM_BASE_ADDRESS}?page-number=1&page-size=50&source=CWV&searchBy=CW&preFilter=00000000-0000-0000-0000-000000000000&taskStatus=QC+Requested%2CReassigned+To+QC%2CAssigned+To+QC&sort-field=saleId&sort-direction=asc
 ```
 
 ## Column header filters (SearchQuery) - all supported fields

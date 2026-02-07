@@ -78,7 +78,12 @@ const QC_WORKTHAT_TASK_OPTIONS: IDropdownOption[] = QC_WORKTHAT_TASK_OPTIONS_CON
 export const MANAGER_BILLING_AUTHORITY_OPTIONS: IDropdownOption[] = MANAGER_BILLING_AUTHORITY_OPTIONS_CONST;
 export const MANAGER_CASEWORKER_OPTIONS: IDropdownOption[] = MANAGER_CASEWORKER_OPTIONS_CONST;
 
-export const MANAGER_PREFILTER_VALUE_SEPARATOR = '~';
+// Configurable separators for list-style API parameters (all screens).
+export const PREFILTER_VALUE_SEPARATOR = ',';
+export const TASKSTATUS_VALUE_SEPARATOR = ',';
+// Column filter format uses field/operator/value; values may be multi-select.
+export const COLUMN_FILTER_CONDITION_SEPARATOR = '~';
+export const COLUMN_FILTER_VALUE_SEPARATOR = ',';
 
 export const getManagerWorkThatOptions = (searchBy: ManagerSearchBy): IDropdownOption[] =>
   (searchBy === 'caseworker' ? CASEWORKER_WORKTHAT_OPTIONS : BILLING_WORKTHAT_OPTIONS);
@@ -157,7 +162,8 @@ const mapQcViewWorkThatToStatuses = (workThat?: ManagerWorkThat): string[] => {
 export const mapManagerPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record<string, string> => {
   if (!prefilters) return {};
   const params: Record<string, string> = {};
-  const separator = MANAGER_PREFILTER_VALUE_SEPARATOR;
+  const prefilterSeparator = PREFILTER_VALUE_SEPARATOR;
+  const taskStatusSeparator = TASKSTATUS_VALUE_SEPARATOR;
   const isAllSelected = (values: string[]): boolean => values.some((v) => v.trim() === '__all__');
   const trimList = (values: string[]): string[] =>
     values.map((v) => (typeof v === 'string' ? v.trim() : '')).filter((v) => v.length > 0);
@@ -166,7 +172,7 @@ export const mapManagerPrefiltersToApi = (prefilters?: ManagerPrefilterState): R
       return 'ALL';
     }
     const trimmed = trimList(values);
-    return trimmed.length > 0 ? trimmed.join(separator) : undefined;
+    return trimmed.length > 0 ? trimmed.join(prefilterSeparator) : undefined;
   };
   const formatIsoToDdMmYyyy = (value?: string): string | undefined => {
     if (!value) return undefined;
@@ -186,7 +192,7 @@ export const mapManagerPrefiltersToApi = (prefilters?: ManagerPrefilterState): R
     if (joined) params.preFilter = joined;
   }
   const statuses = mapWorkThatToStatuses(prefilters.workThat);
-  if (statuses.length > 0) params.taskStatus = statuses.join(separator);
+  if (statuses.length > 0) params.taskStatus = statuses.join(taskStatusSeparator);
   const fromDate = formatIsoToDdMmYyyy(prefilters.completedFrom);
   const toDate = formatIsoToDdMmYyyy(prefilters.completedTo);
   if (fromDate) params.fromDate = fromDate;
@@ -197,7 +203,8 @@ export const mapManagerPrefiltersToApi = (prefilters?: ManagerPrefilterState): R
 export const mapQcPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record<string, string> => {
   if (!prefilters) return {};
   const params: Record<string, string> = {};
-  const separator = MANAGER_PREFILTER_VALUE_SEPARATOR;
+  const prefilterSeparator = PREFILTER_VALUE_SEPARATOR;
+  const taskStatusSeparator = TASKSTATUS_VALUE_SEPARATOR;
   const isAllSelected = (values: string[]): boolean => values.some((v) => v.trim() === '__all__');
   const trimList = (values: string[]): string[] =>
     values.map((v) => (typeof v === 'string' ? v.trim() : '')).filter((v) => v.length > 0);
@@ -206,7 +213,7 @@ export const mapQcPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record
       return 'ALL';
     }
     const trimmed = trimList(values);
-    return trimmed.length > 0 ? trimmed.join(separator) : undefined;
+    return trimmed.length > 0 ? trimmed.join(prefilterSeparator) : undefined;
   };
   const formatIsoToDdMmYyyy = (value?: string): string | undefined => {
     if (!value) return undefined;
@@ -233,7 +240,7 @@ export const mapQcPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record
   if (joined) params.preFilter = joined;
 
   const statuses = mapQcWorkThatToStatuses(prefilters.workThat);
-  if (statuses.length > 0) params.taskStatus = statuses.join(separator);
+  if (statuses.length > 0) params.taskStatus = statuses.join(taskStatusSeparator);
 
   const fromDate = formatIsoToDdMmYyyy(prefilters.completedFrom);
   const toDate = formatIsoToDdMmYyyy(prefilters.completedTo);
@@ -245,7 +252,8 @@ export const mapQcPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record
 export const mapQcViewPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record<string, string> => {
   if (!prefilters) return {};
   const params: Record<string, string> = {};
-  const separator = MANAGER_PREFILTER_VALUE_SEPARATOR;
+  const prefilterSeparator = PREFILTER_VALUE_SEPARATOR;
+  const taskStatusSeparator = TASKSTATUS_VALUE_SEPARATOR;
   const isAllSelected = (values: string[]): boolean => values.some((v) => v.trim() === '__all__');
   const trimList = (values: string[]): string[] =>
     values.map((v) => (typeof v === 'string' ? v.trim() : '')).filter((v) => v.length > 0);
@@ -254,7 +262,7 @@ export const mapQcViewPrefiltersToApi = (prefilters?: ManagerPrefilterState): Re
       return 'ALL';
     }
     const trimmed = trimList(values);
-    return trimmed.length > 0 ? trimmed.join(separator) : undefined;
+    return trimmed.length > 0 ? trimmed.join(prefilterSeparator) : undefined;
   };
   const formatIsoToDdMmYyyy = (value?: string): string | undefined => {
     if (!value) return undefined;
@@ -280,7 +288,7 @@ export const mapQcViewPrefiltersToApi = (prefilters?: ManagerPrefilterState): Re
   if (joined) params.preFilter = joined;
 
   const statuses = mapQcViewWorkThatToStatuses(prefilters.workThat);
-  if (statuses.length > 0) params.taskStatus = statuses.join(separator);
+  if (statuses.length > 0) params.taskStatus = statuses.join(taskStatusSeparator);
 
   const fromDate = formatIsoToDdMmYyyy(prefilters.completedFrom);
   const toDate = formatIsoToDdMmYyyy(prefilters.completedTo);
