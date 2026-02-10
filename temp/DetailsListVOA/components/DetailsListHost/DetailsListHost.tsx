@@ -59,6 +59,8 @@ const QC_TEAM_NAMES = new Set(['svt qa team']);
 const QC_ROLE_NAMES = new Set(['voa - svt qa']);
 const CASEWORKER_TEAM_NAMES = new Set(['svt user team']);
 const CASEWORKER_ROLE_NAMES = new Set(['voa - svt user']);
+const MANAGER_ASSIGNMENT_SCREEN_NAME = 'manager assignment';
+const QC_ASSIGNMENT_SCREEN_NAME = 'quality control assignment';
 
 const normalizeGroupName = (value?: string): string => (value ?? '').trim().toLowerCase();
 const isAssignableUserInGroup = (user: AssignUser, teamNames: Set<string>, roleNames: Set<string>): boolean => {
@@ -67,6 +69,9 @@ const isAssignableUserInGroup = (user: AssignUser, teamNames: Set<string>, roleN
   const role = normalizeGroupName(user.role);
   return (team !== '' && teamNames.has(team)) || (role !== '' && roleNames.has(role));
 };
+
+const buildAssignableUsersCacheKey = (apiName: string, customApiType: number, screenName: string): string =>
+  `${apiName}|${customApiType}|${screenName.trim().toLowerCase()}`;
 
 export type ScreenKind = 'salesSearch' | 'managerAssign' | 'caseworkerView' | 'qcAssign' | 'qcView' | 'unknown';
 
@@ -651,6 +656,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const assignUsersLoadKeyRef = React.useRef<string>('');
   const caseworkerOptionsLoadKeyRef = React.useRef<string>('');
   const assignableUsersCacheLoadKeyRef = React.useRef<string>('');
+  const assignableUsersCacheContextsRef = React.useRef<Set<string>>(new Set());
   const handleAssignPanelToggle = React.useCallback((isOpen: boolean) => {
     setAssignPanelOpen(isOpen);
     if (isOpen) {
@@ -672,6 +678,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const isAssignment = isManagerAssign || isQcAssign;
   const isPrefilterScreen = isManagerAssign || isCaseworkerView || isQcAssign || isQcView;
   const assignmentContextKey = isManagerAssign ? 'manager' : isQcAssign ? 'qa' : '';
+  const assignmentContextScreenName = React.useMemo(() => {
+    if (screenKind === 'managerAssign') return MANAGER_ASSIGNMENT_SCREEN_NAME;
+    if (screenKind === 'qcAssign') return QC_ASSIGNMENT_SCREEN_NAME;
+    return canvasScreenName ?? '';
+  }, [canvasScreenName, screenKind]);
+  const userMappingScreenName = QC_ASSIGNMENT_SCREEN_NAME;
   const currentUserId = React.useMemo(() => resolveAssignedByUserId(context), [context]);
   const [salesSearchApplied, setSalesSearchApplied] = React.useState(!isSalesSearch);
   const handlePrefilterDirty = React.useCallback(() => {
@@ -1212,11 +1224,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setSelectedCount(0);
       onSelectionCountChange?.(0);
       onSelectionChange?.({ selectedTaskIds: [], selectedSaleIds: [] });
-      try {
-        localStorage.removeItem(prefilterStorageKey);
-      } catch {
-        // ignore storage failures
-      }
       return;
     }
 
@@ -1267,7 +1274,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     setLoadErrorMessage(undefined);
     setApimLoading(true);
     void (async () => {
-      const requestedBy = isCaseworkerView ? currentUserId : undefined;
+      const requestedBy = isCaseworkerView && currentUserId ? currentUserId.toLowerCase() : undefined;
       const res = await loadGridData(context, {
         tableKey,
         filters: sanitizeFilters(mapSearchFiltersForApi(searchFilters)),
@@ -1316,7 +1323,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     }
 
     const customApiType = resolveCustomApiTypeForAssignableUsers();
-    const requestKey = `${assignmentContextKey}|${apiName}|${customApiType}|${canvasScreenName}`;
+    const cacheContextKey = buildAssignableUsersCacheKey(apiName, customApiType, assignmentContextScreenName);
+    const requestKey = `${assignmentContextKey}|${cacheContextKey}`;
     if (assignUsersLoadKeyRef.current === requestKey) {
       return;
     }
@@ -1332,7 +1340,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         const response = await executeUnboundCustomApi<{ Result?: string; result?: string }>(
           context,
           apiName,
-          { screenName: canvasScreenName ?? '' },
+          { screenName: assignmentContextScreenName },
           { operationType: customApiType },
         );
         const parsed = parseAssignableUsersResponse(response);
@@ -1348,6 +1356,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         }
 
         if (parsed.info) {
+          assignableUsersCacheContextsRef.current.add(cacheContextKey);
           setAssignUsers([]);
           setAssignUsersError(undefined);
           setAssignUsersInfo(parsed.info);
@@ -1355,6 +1364,10 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         }
 
         const filteredUsers = isQcAssign ? parsed.users.filter(isQcAssignableUser) : parsed.users;
+        if (parsed.users.length > 0) {
+          setAssignableUsersCache((prev) => mergeAssignableUsers(prev, parsed.users));
+          assignableUsersCacheContextsRef.current.add(cacheContextKey);
+        }
         if (isQcAssign && filteredUsers.length === 0) {
           setAssignUsers([]);
           setAssignUsersError(undefined);
@@ -1362,7 +1375,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           return;
         }
         setAssignUsers(filteredUsers);
-        setAssignableUsersCache((prev) => mergeAssignableUsers(prev, parsed.users));
         setAssignUsersError(undefined);
         setAssignUsersInfo(undefined);
       } catch (err) {
@@ -1379,7 +1391,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     assignPanelOpen,
     assignmentContextKey,
     assignTasksText.messages,
-    canvasScreenName,
+    assignmentContextScreenName,
     context,
     isQcAssign,
     isQcAssignableUser,
@@ -1430,7 +1442,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     }
 
     const customApiType = resolveCustomApiTypeForAssignableUsers();
-    const requestKey = `caseworkers|${assignmentContextKey}|${apiName}|${customApiType}|${canvasScreenName}`;
+    const cacheContextKey = buildAssignableUsersCacheKey(apiName, customApiType, assignmentContextScreenName);
+    const requestKey = `caseworkers|${assignmentContextKey}|${cacheContextKey}`;
     if (caseworkerOptionsLoadKeyRef.current === requestKey) {
       return;
     }
@@ -1450,7 +1463,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         const response = await executeUnboundCustomApi<{ Result?: string; result?: string }>(
           context,
           apiName,
-          { screenName: canvasScreenName ?? '' },
+          { screenName: assignmentContextScreenName },
           { operationType: customApiType },
         );
 
@@ -1480,6 +1493,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         }
 
         if (parsed.info) {
+          assignableUsersCacheContextsRef.current.add(cacheContextKey);
           if (fallbackCaseworkerOptions.length > 0) {
             setCaseworkerOptions(fallbackCaseworkerOptions);
             setCaseworkerOptionsError(undefined);
@@ -1511,6 +1525,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           setQcUserOptions(qcNames.length > 0 ? qcNames : fallbackQcUserOptions);
         }
         setAssignableUsersCache((prev) => mergeAssignableUsers(prev, parsed.users));
+        assignableUsersCacheContextsRef.current.add(cacheContextKey);
         setCaseworkerOptionsError(undefined);
         setQcUserOptionsError(undefined);
       } catch (err) {
@@ -1540,7 +1555,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   }, [
     assignmentContextKey,
     buildCaseworkerNames,
-    canvasScreenName,
+    assignmentContextScreenName,
     context,
     fallbackCaseworkerOptions,
     fallbackQcUserOptions,
@@ -1588,30 +1603,34 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   }, [apimItems]);
 
   React.useEffect(() => {
-    if (!requiresUserMapping || isManagerAssign) return;
-    if (assignableUsersCache.length > 0) return;
+    if (!requiresUserMapping) return;
     if (!hasGuidAssignments) return;
     const apiName = resolveAssignableUsersApiName();
     if (!apiName) return;
     const customApiType = resolveCustomApiTypeForAssignableUsers();
-    const requestKey = `assignable-users-cache|${apiName}|${customApiType}|${canvasScreenName}`;
-    if (assignableUsersCacheLoadKeyRef.current === requestKey) {
+    const cacheContextKey = buildAssignableUsersCacheKey(apiName, customApiType, userMappingScreenName);
+    if (assignableUsersCacheContextsRef.current.has(cacheContextKey)) return;
+    if (assignableUsersCacheLoadKeyRef.current === cacheContextKey) {
       return;
     }
-    assignableUsersCacheLoadKeyRef.current = requestKey;
+    assignableUsersCacheLoadKeyRef.current = cacheContextKey;
 
     void (async () => {
       try {
         const response = await executeUnboundCustomApi<{ Result?: string; result?: string }>(
           context,
           apiName,
-          { screenName: canvasScreenName ?? '' },
+          { screenName: userMappingScreenName },
           { operationType: customApiType },
         );
         const parsed = parseAssignableUsersResponse(response);
-        if (assignableUsersCacheLoadKeyRef.current !== requestKey) {
+        if (assignableUsersCacheLoadKeyRef.current !== cacheContextKey) {
           return;
         }
+        if (parsed.error) {
+          return;
+        }
+        assignableUsersCacheContextsRef.current.add(cacheContextKey);
         if (parsed.users && parsed.users.length > 0) {
           setAssignableUsersCache((prev) => mergeAssignableUsers(prev, parsed.users));
         }
@@ -1620,16 +1639,14 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       }
     })();
   }, [
-    assignableUsersCache.length,
-    canvasScreenName,
     context,
-    isManagerAssign,
+    hasGuidAssignments,
     mergeAssignableUsers,
     parseAssignableUsersResponse,
     requiresUserMapping,
-    hasGuidAssignments,
     resolveAssignableUsersApiName,
     resolveCustomApiTypeForAssignableUsers,
+    userMappingScreenName,
   ]);
 
   // Handlers

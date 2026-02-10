@@ -208,6 +208,42 @@ const SALE_ID_REGEX = /^S-\d+$/i;
 const TASK_ID_REGEX = /^\d+$/i;
 const BILLING_AUTHORITY_ALL_KEY = '__all__';
 const CASEWORKER_ALL_KEY = '__all__';
+const SELECT_ALL_KEY = '__select_all__';
+const MANAGER_SEARCH_BY_KEYS = new Set(MANAGER_SEARCH_BY_OPTIONS.map((opt) => String(opt.key)));
+const QC_SEARCH_BY_KEYS = new Set(QC_SEARCH_BY_OPTIONS.map((opt) => String(opt.key)));
+
+type StoredPrefilterState = Partial<ManagerPrefilterState> & { applied?: boolean };
+
+const normalizeOptionToken = (value: unknown): string => {
+  if (typeof value === 'string') return value.trim().toLowerCase();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).trim().toLowerCase();
+  return '';
+};
+const isAllToken = (value: unknown): boolean => normalizeOptionToken(value) === 'all';
+const isOtherToken = (value: unknown): boolean => {
+  const token = normalizeOptionToken(value);
+  return token === 'other' || token === 'others' || token === 'other(s)';
+};
+const hasAllOption = (options: IComboBoxOption[]): boolean =>
+  options.some((opt) => isAllToken(opt.key) || isAllToken(opt.text ?? opt.key));
+const hasOtherOption = (options: IComboBoxOption[]): boolean =>
+  options.some((opt) => isOtherToken(opt.key) || isOtherToken(opt.text ?? opt.key));
+const hasAllOrOtherOption = (options: IComboBoxOption[]): boolean => hasAllOption(options) || hasOtherOption(options);
+const resolveAllOptionKey = (options: IComboBoxOption[]): string | undefined => {
+  const match = options.find((opt) => isAllToken(opt.key) || isAllToken(opt.text ?? opt.key));
+  return match ? String(match.key) : undefined;
+};
+const normalizePrefilterSearchBy = (value: unknown, kind: GridScreenKind): ManagerSearchBy => {
+  const raw = typeof value === 'string' ? value : '';
+  if (kind === 'caseworkerView') return 'caseworker';
+  if (kind === 'qcView') return 'qcUser';
+  if (kind === 'qcAssign') {
+    return QC_SEARCH_BY_KEYS.has(raw) ? (raw as ManagerSearchBy) : QC_PREFILTER_DEFAULT.searchBy;
+  }
+  return MANAGER_SEARCH_BY_KEYS.has(raw) ? (raw as ManagerSearchBy) : MANAGER_PREFILTER_DEFAULT.searchBy;
+};
+const normalizePrefilterArray = (value: unknown): string[] =>
+  (Array.isArray(value) ? value.map((item) => String(item)) : []);
 
 const sanitizeAlphaNumHyphen = (value?: string, maxLength = ID_FIELD_MAX_LENGTH): string =>
   (value ?? '')
@@ -820,6 +856,10 @@ export const Grid = React.memo((props: GridProps) => {
     () => `voa-prefilters:${tableKey}:${screenName || 'default'}`,
     [screenName, tableKey],
   );
+  const prefilterAutoAppliedRef = React.useRef<string>('');
+  React.useEffect(() => {
+    prefilterAutoAppliedRef.current = '';
+  }, [prefilterStorageKey]);
 
   React.useEffect(() => {
     if (columnFilters) {
@@ -878,31 +918,16 @@ export const Grid = React.memo((props: GridProps) => {
       if (prev === 'salesSearch' && next === 'managerAssign') {
         setPrefilters(MANAGER_PREFILTER_DEFAULT);
         setPrefilterExpanded(true);
-        try {
-          localStorage.removeItem(prefilterStorageKey);
-        } catch {
-          // ignore storage failures
-        }
         onPrefilterClear?.();
       }
       if (next === 'qcAssign') {
         setPrefilters(QC_PREFILTER_DEFAULT);
         setPrefilterExpanded(true);
-        try {
-          localStorage.removeItem(prefilterStorageKey);
-        } catch {
-          // ignore storage failures
-        }
         onPrefilterClear?.();
       }
       if (next === 'qcView') {
         setPrefilters(QC_VIEW_PREFILTER_DEFAULT);
         setPrefilterExpanded(true);
-        try {
-          localStorage.removeItem(prefilterStorageKey);
-        } catch {
-          // ignore storage failures
-        }
         onPrefilterClear?.();
       }
     }
@@ -915,37 +940,75 @@ export const Grid = React.memo((props: GridProps) => {
   }, [derivedScreenKind]);
 
   React.useEffect(() => {
-    if (!isManagerAssign) return;
+    if (!useAssignmentLayout) return;
     try {
       const raw = localStorage.getItem(prefilterStorageKey);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<ManagerPrefilterState>;
+      const parsed = JSON.parse(raw) as StoredPrefilterState;
       const next: ManagerPrefilterState = {
-        searchBy: parsed.searchBy === 'caseworker' ? 'caseworker' : 'billingAuthority',
-        billingAuthorities: Array.isArray(parsed.billingAuthorities) ? parsed.billingAuthorities.map(String) : [],
-        caseworkers: Array.isArray(parsed.caseworkers) ? parsed.caseworkers.map(String) : [],
+        searchBy: normalizePrefilterSearchBy(parsed.searchBy, derivedScreenKind),
+        billingAuthorities: normalizePrefilterArray(parsed.billingAuthorities),
+        caseworkers: normalizePrefilterArray(parsed.caseworkers),
         workThat: parsed.workThat,
         completedFrom: typeof parsed.completedFrom === 'string' ? parsed.completedFrom : undefined,
         completedTo: typeof parsed.completedTo === 'string' ? parsed.completedTo : undefined,
       };
       setPrefilters(next);
+
+      const storedApplied = typeof parsed.applied === 'boolean' ? parsed.applied : undefined;
+      const needsCompleted = (isQcAssign || isQcView)
+        ? isQcCompletedWorkThat(next.workThat)
+        : isManagerCompletedWorkThat(next.workThat);
+      const hasOwner = (isCaseworkerView || isQcView)
+        ? next.caseworkers.length > 0
+        : isQcAssign
+          ? (next.searchBy === 'task' ? true : next.caseworkers.length > 0)
+          : next.searchBy === 'billingAuthority'
+            ? next.billingAuthorities.length > 0
+            : next.caseworkers.length > 0;
+      const hasWorkThat = !!next.workThat;
+      const hasFromDate = !needsCompleted || !!next.completedFrom;
+      const taskCaseworkersReadyNow = !caseworkerOptionsLoading && !caseworkerOptionsError && caseworkerOptions.length > 0;
+      const canAutoApply = hasOwner && hasWorkThat && hasFromDate
+        && (!isQcAssign || next.searchBy !== 'task' || taskCaseworkersReadyNow);
+      const shouldAutoApply = storedApplied === false ? false : canAutoApply;
+      if (shouldAutoApply && onPrefilterApply && !prefilterApplied) {
+        const autoKey = `${prefilterStorageKey}|${derivedScreenKind}`;
+        if (prefilterAutoAppliedRef.current !== autoKey) {
+          prefilterAutoAppliedRef.current = autoKey;
+          onPrefilterApply(next);
+        }
+      }
     } catch {
       // ignore parse errors
     }
-  }, [isManagerAssign, prefilterStorageKey]);
+  }, [
+    derivedScreenKind,
+    isCaseworkerView,
+    isQcAssign,
+    isQcView,
+    onPrefilterApply,
+    prefilterApplied,
+    prefilterStorageKey,
+    caseworkerOptions,
+    caseworkerOptionsError,
+    caseworkerOptionsLoading,
+    useAssignmentLayout,
+  ]);
 
   React.useEffect(() => {
-    if (!isManagerAssign) return;
+    if (!useAssignmentLayout) return;
     try {
-      if (isPrefilterDefault(prefilters)) {
+      if (isPrefilterDefault(prefilters) && !prefilterApplied) {
         localStorage.removeItem(prefilterStorageKey);
       } else {
-        localStorage.setItem(prefilterStorageKey, JSON.stringify(prefilters));
+        const payload: StoredPrefilterState = { ...prefilters, applied: !!prefilterApplied };
+        localStorage.setItem(prefilterStorageKey, JSON.stringify(payload));
       }
     } catch {
       // ignore storage failures
     }
-  }, [isManagerAssign, isPrefilterDefault, prefilterStorageKey, prefilters]);
+  }, [isPrefilterDefault, prefilterApplied, prefilterStorageKey, prefilters, useAssignmentLayout]);
 
   React.useEffect(() => {
     if (!useAssignmentLayout) return;
@@ -2255,8 +2318,9 @@ export const Grid = React.memo((props: GridProps) => {
         getDistinctOptions(cfg.optionFields).forEach(push);
       }
       let combined = deduped;
-      if (cfg.selectAll) {
-        combined = [{ key: 'all', text: commonText.selectionControls.selectAllText }, ...combined];
+      const hasAllOrOther = hasAllOrOtherOption(combined);
+      if (cfg.selectAll && !hasAllOrOther) {
+        combined = [{ key: SELECT_ALL_KEY, text: commonText.selectionControls.selectAllText }, ...combined];
       }
       return combined;
     },
@@ -2645,17 +2709,18 @@ export const Grid = React.memo((props: GridProps) => {
       const selected = getFilterField<string[]>(filters, cfg.stateKey);
       const searchText = comboSearchText[cfg.key] ?? '';
       const selectedKeys = (selected ?? []).map((key) => String(key));
+      const hasSelectAll = options.some((opt) => String(opt.key) === SELECT_ALL_KEY);
       const filteredOptions = filterComboOptions(options, searchText);
       const disambiguationHint = searchText.trim()
         ? getComboDisambiguationHint(filteredOptions, searchText)
         : undefined;
       const handleMultiSelectChange = (opt?: IComboBoxOption) => {
         if (!opt) return;
-        if (opt.key === 'all') {
+        if (hasSelectAll && String(opt.key) === SELECT_ALL_KEY) {
           const values =
             cfg.selectAllValues ??
             options
-              .filter((o) => o.key !== 'all')
+              .filter((o) => String(o.key) !== SELECT_ALL_KEY)
               .map((o) => String(o.key));
           updateFilters(cfg.stateKey, cfg.multiLimit ? values.slice(Math.max(0, values.length - cfg.multiLimit)) : values);
           setComboIgnoreNextInput(cfg.key);
@@ -2674,7 +2739,7 @@ export const Grid = React.memo((props: GridProps) => {
             allowFreeform={false}
             allowFreeInput
             autoComplete="on"
-            text={searchText.trim() ? searchText : ''}
+            text={searchText.trim() ? searchText : undefined}
             persistMenu
             options={filteredOptions}
             selectedKey={selectedKeys}
@@ -2837,11 +2902,15 @@ export const Grid = React.memo((props: GridProps) => {
       if (cfg?.selectAllValues) {
         const isSingleAll = cfg.selectAllValues.length === 1
           && String(cfg.selectAllValues[0] ?? '').toUpperCase() === 'ALL';
+        const hasAll = hasAllOption(opts);
+        const hasOther = hasOtherOption(opts);
         if (isSingleAll) {
-          const allKey = String(cfg.selectAllValues[0] ?? 'ALL');
-          opts.unshift({ key: allKey, text: 'All' });
-        } else {
-          opts.unshift({ key: 'all', text: 'Select all' });
+          if (!hasAll) {
+            const allKey = String(cfg.selectAllValues[0] ?? 'ALL');
+            opts.unshift({ key: allKey, text: 'All' });
+          }
+        } else if (!hasAll && !hasOther) {
+          opts.unshift({ key: SELECT_ALL_KEY, text: 'Select all' });
         }
       }
       return opts;
@@ -3462,11 +3531,14 @@ export const Grid = React.memo((props: GridProps) => {
             return (
               (() => {
                 const selectAllValues = cfg.selectAllValues ?? [];
-                const hasSelectAll = selectAllValues.length > 0;
+                const hasAll = hasAllOption(options);
+                const hasOther = hasOtherOption(options);
                 const isSingleAll = selectAllValues.length === 1
                   && String(selectAllValues[0] ?? '').toUpperCase() === 'ALL';
+                const hasSelectAll = selectAllValues.length > 0 && (isSingleAll || (!hasAll && !hasOther));
+                const allKey = isSingleAll ? (resolveAllOptionKey(options) ?? String(selectAllValues[0] ?? 'ALL')) : '';
                 const selectAllKey = hasSelectAll
-                  ? (isSingleAll ? String(selectAllValues[0] ?? 'ALL') : 'all')
+                  ? (isSingleAll ? allKey : SELECT_ALL_KEY)
                   : '';
                 const menuFilterKey = `menuFilter-${menuState.column.key ?? menuState.column.fieldName ?? 'column'}`;
                 const selectedKeys = Array.isArray(menuFilterValue) ? menuFilterValue.map((key) => String(key)) : [];
@@ -3479,7 +3551,9 @@ export const Grid = React.memo((props: GridProps) => {
                     return;
                   }
                   setMenuFilterValue((prev) => {
-                    const current = Array.isArray(prev) ? prev.slice().filter((key) => String(key) !== selectAllKey) : [];
+                    const current = Array.isArray(prev)
+                      ? prev.slice().filter((key) => !hasSelectAll || String(key) !== selectAllKey)
+                      : [];
                     const key = String(opt.key);
                     const idx = current.indexOf(key);
                     if (opt.selected) {
@@ -3505,7 +3579,7 @@ export const Grid = React.memo((props: GridProps) => {
                       allowFreeform={false}
                       allowFreeInput
                       autoComplete="off"
-                      text={menuFilterSearch.trim() ? menuFilterSearch : ''}
+                      text={menuFilterSearch.trim() ? menuFilterSearch : undefined}
                       persistMenu
                       selectedKey={selectedKeys}
                       onChange={(_, opt) => handleMenuFilterMultiChange(opt)}
@@ -3910,7 +3984,7 @@ export const Grid = React.memo((props: GridProps) => {
                         allowFreeform={false}
                         allowFreeInput
                         autoComplete="off"
-                        text={managerBillingSearch}
+                        text={managerBillingSearch.trim() ? managerBillingSearch : undefined}
                         persistMenu
                         onKeyDown={(event) => {
                           if (!managerBillingSearch.trim()) return;
@@ -3986,7 +4060,7 @@ export const Grid = React.memo((props: GridProps) => {
                         allowFreeform={false}
                         allowFreeInput
                         autoComplete="off"
-                        text={caseworkerSearch}
+                        text={caseworkerSearch.trim() ? caseworkerSearch : undefined}
                         persistMenu
                         onKeyDown={(event) => {
                           if (!caseworkerSearch.trim()) return;

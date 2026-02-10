@@ -52,14 +52,16 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
             var sortField = NormalizeSortField(SortField);
             var sortDirection = NormalizeSortDirection(SortDirection);
             var normalizedTaskStatus = NormalizeTaskStatus(TaskStatus);
-            var requestedBy = RequestedBy;
-            var preFilter = string.IsNullOrWhiteSpace(requestedBy) ? PreFilter : null;
+            var requestedBy = string.IsNullOrWhiteSpace(RequestedBy) ? null : RequestedBy.Trim().ToLowerInvariant();
+            var useRequestedBy = !string.IsNullOrWhiteSpace(requestedBy);
+            var preFilter = useRequestedBy ? null : PreFilter;
+            var searchBy = useRequestedBy ? null : SearchBy;
             var parameters = new Dictionary<string, string>
             {
                 ["page-number"] = PageNumber,
                 ["page-size"] = PageSize,
                 ["source"] = Source,
-                ["searchBy"] = SearchBy,
+                ["searchBy"] = searchBy,
                 ["preFilter"] = preFilter,
                 ["RequestedBy"] = requestedBy,
                 ["fromDate"] = FromDate,

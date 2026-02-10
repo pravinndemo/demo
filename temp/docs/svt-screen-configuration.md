@@ -9,6 +9,7 @@ The control derives behavior primarily from `canvasScreenName`. Resolution order
 3. `CONTROL_CONFIG.tableKey` default
 
 Important: assignment and manager prefilter behavior still depends on `canvasScreenName` tokens, so keep those tokens accurate even if you set `tableKey`.
+Note: the control now uses canonical screen names when calling the Assignable Users API. Assignment panels and prefilter dropdowns use the appropriate assignment context, while row display-name mapping uses the Quality Control assignment context (QA + SVT users) to resolve GUIDs consistently across all screens.
 
 ## Valid `tableKey` values
 Use one of the following values:
