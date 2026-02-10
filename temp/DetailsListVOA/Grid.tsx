@@ -233,6 +233,10 @@ const resolveAllOptionKey = (options: IComboBoxOption[]): string | undefined => 
   const match = options.find((opt) => isAllToken(opt.key) || isAllToken(opt.text ?? opt.key));
   return match ? String(match.key) : undefined;
 };
+const buildAriaDescribedBy = (...ids: (string | undefined)[]): string | undefined => {
+  const values = ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
+  return values.length > 0 ? values.join(' ') : undefined;
+};
 const normalizePrefilterSearchBy = (value: unknown, kind: GridScreenKind): ManagerSearchBy => {
   const raw = typeof value === 'string' ? value : '';
   if (kind === 'caseworkerView') return 'caseworker';
@@ -1546,6 +1550,9 @@ export const Grid = React.memo((props: GridProps) => {
     () => filterComboOptions(searchByOptions as IComboBoxOption[], searchBySearch),
     [searchByOptions, searchBySearch],
   );
+  const searchByHint = comboEditing.searchBy
+    ? getComboDisambiguationHint(filteredSearchByOptions, searchBySearch)
+    : undefined;
 
   const lengthErrors = React.useMemo(() => getLengthErrors(filters), [filters, getLengthErrors]);
   const addressError = lengthErrors.address;
@@ -1600,6 +1607,9 @@ export const Grid = React.memo((props: GridProps) => {
     () => filterComboOptions(managerBillingAuthorityOptions as IComboBoxOption[], managerBillingSearch),
     [managerBillingAuthorityOptions, managerBillingSearch],
   );
+  const prefilterBillingHint = managerBillingSearch.trim()
+    ? getComboDisambiguationHint(filteredManagerBillingAuthorityOptions, managerBillingSearch)
+    : undefined;
 
   const prefilterSearchByOptions = React.useMemo(
     () => (isQcAssign ? QC_SEARCH_BY_OPTIONS : MANAGER_SEARCH_BY_OPTIONS),
@@ -1612,6 +1622,9 @@ export const Grid = React.memo((props: GridProps) => {
     ),
     [prefilterSearchByOptions, prefilterSearchBySearch],
   );
+  const prefilterSearchByHint = comboEditing.prefilterSearchBy
+    ? getComboDisambiguationHint(filteredPrefilterSearchByOptions, prefilterSearchBySearch)
+    : undefined;
 
   const managerBillingSelectedKeys = React.useMemo<string[]>(() => {
     const selected = prefilters.billingAuthorities ?? [];
@@ -2375,16 +2388,18 @@ export const Grid = React.memo((props: GridProps) => {
         );
       }
 
-    if (filters.searchBy === 'billingAuthority') {
-      const authority = filters.billingAuthority?.[0] ?? '';
-      const billingAuthorityHint = comboEditing.salesBillingAuthority
-        ? getComboDisambiguationHint(filteredBillingAuthorityOptionsList, billingAuthoritySearch)
-        : undefined;
-      return (
-        <>
-          <Stack.Item styles={{ root: { minWidth: 240 } }}>
-            <ComboBox
+      if (filters.searchBy === 'billingAuthority') {
+        const authority = filters.billingAuthority?.[0] ?? '';
+        const billingAuthorityHint = comboEditing.salesBillingAuthority
+          ? getComboDisambiguationHint(filteredBillingAuthorityOptionsList, billingAuthoritySearch)
+          : undefined;
+        const billingAuthorityHintId = 'voa-sales-billingauthority-hint';
+        return (
+          <>
+            <Stack.Item styles={{ root: { minWidth: 240 } }}>
+              <ComboBox
                 label={salesSearchText.fields.billingAuthority}
+                aria-describedby={buildAriaDescribedBy(billingAuthorityHint ? billingAuthorityHintId : undefined)}
                 placeholder={salesSearchText.placeholders.billingAuthority}
                 options={filteredBillingAuthorityOptionsList}
                 selectedKey={comboEditing.salesBillingAuthority ? undefined : authority}
@@ -2445,7 +2460,7 @@ export const Grid = React.memo((props: GridProps) => {
                 }}
               />
               {billingAuthorityHint && (
-                <Text variant="small" styles={{ root: { marginTop: 4 } }}>
+                <Text id={billingAuthorityHintId} variant="small" styles={{ root: { marginTop: 4 } }}>
                   {billingAuthorityHint}
                 </Text>
               )}
@@ -2645,10 +2660,12 @@ export const Grid = React.memo((props: GridProps) => {
         searchText,
       );
       const disambiguationHint = isEditing ? getComboDisambiguationHint(filteredOptions, searchText) : undefined;
+      const hintId = `voa-search-${cfg.key}-hint`;
       return (
         <Stack.Item styles={{ root: { minWidth: 200 } }}>
           <ComboBox
             label={cfg.label}
+            aria-describedby={buildAriaDescribedBy(disambiguationHint ? hintId : undefined)}
             options={filteredOptions}
             selectedKey={isEditing ? undefined : selectedKey}
             allowFreeform={false}
@@ -2696,7 +2713,7 @@ export const Grid = React.memo((props: GridProps) => {
             }}
           />
           {disambiguationHint && (
-            <Text variant="small" styles={{ root: { marginTop: 4 } }}>
+            <Text id={hintId} variant="small" styles={{ root: { marginTop: 4 } }}>
               {disambiguationHint}
             </Text>
           )}
@@ -2714,6 +2731,7 @@ export const Grid = React.memo((props: GridProps) => {
       const disambiguationHint = searchText.trim()
         ? getComboDisambiguationHint(filteredOptions, searchText)
         : undefined;
+      const hintId = `voa-search-${cfg.key}-hint`;
       const handleMultiSelectChange = (opt?: IComboBoxOption) => {
         if (!opt) return;
         if (hasSelectAll && String(opt.key) === SELECT_ALL_KEY) {
@@ -2735,6 +2753,7 @@ export const Grid = React.memo((props: GridProps) => {
         <Stack.Item styles={{ root: { minWidth: 200 } }}>
           <ComboBox
             label={cfg.label}
+            aria-describedby={buildAriaDescribedBy(disambiguationHint ? hintId : undefined)}
             multiSelect
             allowFreeform={false}
             allowFreeInput
@@ -2777,7 +2796,7 @@ export const Grid = React.memo((props: GridProps) => {
             }}
           />
           {disambiguationHint && (
-            <Text variant="small" styles={{ root: { marginTop: 4 } }}>
+            <Text id={hintId} variant="small" styles={{ root: { marginTop: 4 } }}>
               {disambiguationHint}
             </Text>
           )}
@@ -3237,6 +3256,9 @@ export const Grid = React.memo((props: GridProps) => {
     ),
     [prefilterWorkThatOptions, prefilterWorkThatSearch],
   );
+  const prefilterWorkThatHint = comboEditing.prefilterWorkThat
+    ? getComboDisambiguationHint(filteredPrefilterWorkThatOptions, prefilterWorkThatSearch)
+    : undefined;
   React.useEffect(() => {
     if ((!isManagerAssign && !isCaseworkerView && !isQcAssign && !isQcView) || prefilters.workThat) return;
     const firstOption = prefilterWorkThatOptions.find((opt) => opt?.key !== undefined);
@@ -3265,6 +3287,9 @@ export const Grid = React.memo((props: GridProps) => {
   const prefilterUserOptionsFiltered = isQcAssign && prefilters.searchBy === 'qcUser'
     ? filteredQcUserOptionsList
     : filteredCaseworkerOptionsList;
+  const prefilterUserHint = caseworkerSearch.trim()
+    ? getComboDisambiguationHint(prefilterUserOptionsFiltered, caseworkerSearch)
+    : undefined;
   const prefilterUserOptionsDisabled = isQcAssign && prefilters.searchBy === 'qcUser'
     ? qcUserOptionsDisabled
     : caseworkerOptionsDisabled;
@@ -3285,8 +3310,9 @@ export const Grid = React.memo((props: GridProps) => {
   const taskCaseworkersReady = !caseworkerOptionsLoading
     && !caseworkerOptionsError
     && caseworkerOptions.length > 0;
+  const hasImplicitOwner = !!currentUserId?.trim();
   const prefilterHasOwner = (isCaseworkerView || isQcView)
-    ? prefilters.caseworkers.length > 0
+    ? prefilters.caseworkers.length > 0 || hasImplicitOwner
     : isQcAssign
       ? (prefilters.searchBy === 'task' ? true : prefilters.caseworkers.length > 0)
       : prefilters.searchBy === 'billingAuthority'
@@ -3459,11 +3485,14 @@ export const Grid = React.memo((props: GridProps) => {
             return (() => {
               const menuFilterKey = `menuFilter-${menuState.column.key ?? menuState.column.fieldName ?? 'column'}`;
               const isEditing = comboEditing[menuFilterKey] === true;
+              const menuHint = isEditing ? getComboDisambiguationHint(filteredColumnOptions, menuFilterSearch) : undefined;
+              const menuHintId = `${menuFilterKey}-hint`;
               return (
                 <>
                   <ComboBox
                     label={`Filter ${menuState.column.name}`}
                     placeholder={`Select ${menuState.column.name}`}
+                    aria-describedby={buildAriaDescribedBy(menuHint ? menuHintId : undefined)}
                     options={filteredColumnOptions}
                     allowFreeform={false}
                     allowFreeInput
@@ -3511,17 +3540,15 @@ export const Grid = React.memo((props: GridProps) => {
                     setComboEditingFor(menuFilterKey, false);
                     setMenuFilterSearch('');
                   }}
-                  styles={{
-                    root: { width: '100%' },
-                    callout: { minWidth: 240 },
-                    optionsContainer: { minWidth: 200 },
-                  }}
-                />
-                {isEditing
-                  && getComboDisambiguationHint(filteredColumnOptions, menuFilterSearch)
-                  && (
-                    <Text variant="small" styles={{ root: { marginTop: 4 } }}>
-                      {getComboDisambiguationHint(filteredColumnOptions, menuFilterSearch)}
+                    styles={{
+                      root: { width: '100%' },
+                      callout: { minWidth: 240 },
+                      optionsContainer: { minWidth: 200 },
+                    }}
+                  />
+                  {menuHint && (
+                    <Text id={menuHintId} variant="small" styles={{ root: { marginTop: 4 } }}>
+                      {menuHint}
                     </Text>
                   )}
                 </>
@@ -3541,6 +3568,10 @@ export const Grid = React.memo((props: GridProps) => {
                   ? (isSingleAll ? allKey : SELECT_ALL_KEY)
                   : '';
                 const menuFilterKey = `menuFilter-${menuState.column.key ?? menuState.column.fieldName ?? 'column'}`;
+                const menuHint = menuFilterSearch.trim()
+                  ? getComboDisambiguationHint(filteredColumnOptions, menuFilterSearch)
+                  : undefined;
+                const menuHintId = `${menuFilterKey}-hint`;
                 const selectedKeys = Array.isArray(menuFilterValue) ? menuFilterValue.map((key) => String(key)) : [];
                 const handleMenuFilterMultiChange = (opt?: IComboBoxOption) => {
                   if (!opt) return;
@@ -3574,6 +3605,7 @@ export const Grid = React.memo((props: GridProps) => {
                     <ComboBox
                       label={`Filter ${menuState.column.name}`}
                       placeholder={`Select ${menuState.column.name}`}
+                      aria-describedby={buildAriaDescribedBy(menuHint ? menuHintId : undefined)}
                       options={filteredColumnOptions}
                       multiSelect
                       allowFreeform={false}
@@ -3614,13 +3646,11 @@ export const Grid = React.memo((props: GridProps) => {
                         optionsContainer: { minWidth: 200 },
                       }}
                     />
-                    {menuFilterSearch.trim()
-                      && getComboDisambiguationHint(filteredColumnOptions, menuFilterSearch)
-                      && (
-                        <Text variant="small" styles={{ root: { marginTop: 4 } }}>
-                          {getComboDisambiguationHint(filteredColumnOptions, menuFilterSearch)}
-                        </Text>
-                      )}
+                    {menuHint && (
+                      <Text id={menuHintId} variant="small" styles={{ root: { marginTop: 4 } }}>
+                        {menuHint}
+                      </Text>
+                    )}
                   </>
                 );
               })()
@@ -3893,6 +3923,7 @@ export const Grid = React.memo((props: GridProps) => {
                   <ComboBox
                     id="prefilter-searchby"
                     ariaLabel={prefilterText.labels.searchBy}
+                    aria-describedby={buildAriaDescribedBy(prefilterSearchByHint ? 'prefilter-searchby-hint' : undefined)}
                     options={filteredPrefilterSearchByOptions}
                     selectedKey={comboEditing.prefilterSearchBy ? undefined : prefilters.searchBy}
                     onChange={(event, option) => {
@@ -3949,13 +3980,11 @@ export const Grid = React.memo((props: GridProps) => {
                       optionsContainer: { minWidth: 200 },
                     }}
                   />
-                  {comboEditing.prefilterSearchBy
-                    && getComboDisambiguationHint(filteredPrefilterSearchByOptions, prefilterSearchBySearch)
-                    && (
-                      <Text variant="small" styles={{ root: { marginTop: 4 } }}>
-                        {getComboDisambiguationHint(filteredPrefilterSearchByOptions, prefilterSearchBySearch)}
-                      </Text>
-                    )}
+                  {prefilterSearchByHint && (
+                    <Text id="prefilter-searchby-hint" variant="small" styles={{ root: { marginTop: 4 } }}>
+                      {prefilterSearchByHint}
+                    </Text>
+                  )}
                 </div>
               </Stack.Item>
               {isManagerAssign && prefilters.searchBy === 'billingAuthority' && (
@@ -3970,6 +3999,7 @@ export const Grid = React.memo((props: GridProps) => {
                       <ComboBox
                         id="prefilter-billing"
                         ariaLabel={managerText.prefilter.labels.billingAuthority}
+                        aria-describedby={buildAriaDescribedBy(prefilterBillingHint ? 'prefilter-billing-hint' : undefined)}
                         placeholder={managerText.prefilter.placeholders.billingAuthority}
                         multiSelect
                         options={filteredManagerBillingAuthorityOptions}
@@ -4017,19 +4047,11 @@ export const Grid = React.memo((props: GridProps) => {
                           optionsContainer: { minWidth: 240 },
                         }}
                       />
-                      {managerBillingSearch.trim()
-                        && getComboDisambiguationHint(
-                          filteredManagerBillingAuthorityOptions,
-                          managerBillingSearch,
-                        )
-                        && (
-                          <Text variant="small" styles={{ root: { marginTop: 4 } }}>
-                            {getComboDisambiguationHint(
-                              filteredManagerBillingAuthorityOptions,
-                              managerBillingSearch,
-                            )}
-                          </Text>
-                        )}
+                      {prefilterBillingHint && (
+                        <Text id="prefilter-billing-hint" variant="small" styles={{ root: { marginTop: 4 } }}>
+                          {prefilterBillingHint}
+                        </Text>
+                      )}
                     </div>
                   </Stack.Item>
                 </>
@@ -4046,6 +4068,10 @@ export const Grid = React.memo((props: GridProps) => {
                       <ComboBox
                         id={prefilterUserId}
                         ariaLabel={prefilterUserLabel}
+                        aria-describedby={buildAriaDescribedBy(
+                          prefilterUserHint ? 'prefilter-user-hint' : undefined,
+                          prefilterUserOptionsError ? 'prefilter-user-error' : undefined,
+                        )}
                         placeholder={prefilterUserPlaceholder}
                         multiSelect
                         options={prefilterUserOptionsFiltered}
@@ -4093,21 +4119,13 @@ export const Grid = React.memo((props: GridProps) => {
                           optionsContainer: { minWidth: 240 },
                         }}
                       />
-                      {caseworkerSearch.trim()
-                        && getComboDisambiguationHint(
-                          prefilterUserOptionsFiltered,
-                          caseworkerSearch,
-                        )
-                        && (
-                          <Text variant="small" styles={{ root: { marginTop: 4 } }}>
-                            {getComboDisambiguationHint(
-                              prefilterUserOptionsFiltered,
-                              caseworkerSearch,
-                            )}
-                          </Text>
-                        )}
+                      {prefilterUserHint && (
+                        <Text id="prefilter-user-hint" variant="small" styles={{ root: { marginTop: 4 } }}>
+                          {prefilterUserHint}
+                        </Text>
+                      )}
                       {prefilterUserOptionsError && (
-                        <Text variant="small" styles={{ root: { color: theme.palette.redDark, marginTop: 2 } }}>
+                        <Text id="prefilter-user-error" variant="small" styles={{ root: { color: theme.palette.redDark, marginTop: 2 } }}>
                           {prefilterUserOptionsError}
                         </Text>
                       )}
@@ -4127,6 +4145,7 @@ export const Grid = React.memo((props: GridProps) => {
               <ComboBox
                 id="prefilter-workthat"
                 ariaLabel={prefilterText.labels.workThat}
+                aria-describedby={buildAriaDescribedBy(prefilterWorkThatHint ? 'prefilter-workthat-hint' : undefined)}
                 placeholder={prefilterText.placeholders.workThat}
                 options={filteredPrefilterWorkThatOptions}
                 selectedKey={comboEditing.prefilterWorkThat ? undefined : prefilters.workThat}
@@ -4181,13 +4200,11 @@ export const Grid = React.memo((props: GridProps) => {
                   optionsContainer: { minWidth: 200 },
                 }}
               />
-              {comboEditing.prefilterWorkThat
-                && getComboDisambiguationHint(filteredPrefilterWorkThatOptions, prefilterWorkThatSearch)
-                && (
-                  <Text variant="small" styles={{ root: { marginTop: 4 } }}>
-                    {getComboDisambiguationHint(filteredPrefilterWorkThatOptions, prefilterWorkThatSearch)}
-                  </Text>
-                )}
+              {prefilterWorkThatHint && (
+                <Text id="prefilter-workthat-hint" variant="small" styles={{ root: { marginTop: 4 } }}>
+                  {prefilterWorkThatHint}
+                </Text>
+              )}
             </div>
           </Stack.Item>
           {prefilterNeedsCompletedDates && (
@@ -4273,6 +4290,7 @@ export const Grid = React.memo((props: GridProps) => {
           <Stack.Item styles={{ root: { minWidth: 200 } }}>
             <ComboBox
               label={salesSearchText.searchPanel.searchByLabel}
+              aria-describedby={buildAriaDescribedBy(searchByHint ? 'voa-searchby-hint' : undefined)}
               options={filteredSearchByOptions}
               selectedKey={comboEditing.searchBy ? undefined : filters.searchBy}
               onChange={(event, option) => {
@@ -4319,13 +4337,11 @@ export const Grid = React.memo((props: GridProps) => {
                 optionsContainer: { minWidth: 200 },
               }}
             />
-            {comboEditing.searchBy
-              && getComboDisambiguationHint(filteredSearchByOptions, searchBySearch)
-              && (
-                <Text variant="small" styles={{ root: { marginTop: 4 } }}>
-                  {getComboDisambiguationHint(filteredSearchByOptions, searchBySearch)}
-                </Text>
-              )}
+            {searchByHint && (
+              <Text id="voa-searchby-hint" variant="small" styles={{ root: { marginTop: 4 } }}>
+                {searchByHint}
+              </Text>
+            )}
           </Stack.Item>
           {renderSearchControl()}
           <Stack.Item className="voa-search-panel__actions">

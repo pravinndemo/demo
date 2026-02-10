@@ -933,6 +933,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const storageKeySort = React.useMemo(() => `voa-grid-sort:${tableKey}`, [tableKey]);
   const storageKeyPage = React.useMemo(() => `voa-grid-page:${tableKey}`, [tableKey]);
   const prefilterStorageKey = React.useMemo(() => `voa-prefilters:${tableKey}:${screenName || 'default'}`, [screenName, tableKey]);
+  const screenInstanceKey = React.useMemo(() => `${tableKey}:${screenName || 'default'}`, [screenName, tableKey]);
+  const salesSearchStorageKey = React.useMemo(
+    () => `voa-sales-search:${tableKey}:${screenName || 'default'}`,
+    [screenName, tableKey],
+  );
+  const salesSearchHydratedRef = React.useRef<string>('');
   // Some environments show keys without ':' in DevTools; support both forms for compatibility
   const storageKeyNC = React.useMemo(() => storageKey.replace(':', ''), [storageKey]);
   const storageKeySortNC = React.useMemo(() => storageKeySort.replace(':', ''), [storageKeySort]);
@@ -943,24 +949,55 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setSearchFilters(createDefaultGridFilters());
     }
   }, [isManagerAssign, isQcAssign]);
+
+  React.useEffect(() => {
+    if (!isSalesSearch) return;
+    if (salesSearchHydratedRef.current === salesSearchStorageKey) return;
+    salesSearchHydratedRef.current = salesSearchStorageKey;
+    try {
+      const raw = localStorage.getItem(salesSearchStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { filters?: GridFilterState; applied?: boolean } | undefined;
+      const merged = {
+        ...SALES_SEARCH_DEFAULT_FILTERS,
+        ...(parsed?.filters ?? {}),
+      } as GridFilterState;
+      const normalized = sanitizeFilters(merged);
+      const isDefault = isSalesSearchDefaultFilters(normalized);
+      const shouldApply = parsed?.applied === false ? false : !isDefault;
+      setSearchFilters(normalized);
+      setSalesSearchApplied(shouldApply);
+      if (shouldApply) {
+        setSearchNonce((n) => n + 1);
+      }
+    } catch {
+      // ignore restore failures
+    }
+  }, [isSalesSearch, salesSearchStorageKey]);
   // Hydrate from localStorage on table change (URL persistence disabled by policy)
   React.useEffect(() => {
     try {
+      let shouldRestoreFilters = false;
+      try {
+        shouldRestoreFilters = sessionStorage.getItem('voa-last-screen') === screenInstanceKey;
+      } catch {
+        // ignore session storage failures
+      }
       // Filters (disabled for now to avoid auto-prefill from localStorage)
       const rawLocalFilters = localStorage.getItem(storageKey) ?? localStorage.getItem(storageKeyNC);
-      // if (rawLocalFilters) {
-      //   // Stored as arrays for every field; coerce to proper types per lookup/text
-      //   const parsed = JSON.parse(rawLocalFilters) as Record<string, string[]>;
-      //   const normalized: Record<string, ColumnFilterValue> = {};
-      //   Object.entries(parsed).forEach(([k, v]) => {
-      //     const keyLower = k.toLowerCase();
-      //     const isLookup = isLookupFieldFor(String(tableKey), keyLower);
-      //     normalized[keyLower] = isLookup ? (Array.isArray(v) ? v : [String(v ?? '')]) : (Array.isArray(v) ? (v[0] ?? '') : String(v ?? ''));
-      //   });
-      //   lastAppliedFiltersRef.current = normalized;
-      //   setHeaderFilters(normalized);
-      //   try { onColumnFiltersApply?.(toApiHeaderFilters(normalized)); } catch { /* ignore */ }
-      // }
+      if (rawLocalFilters && shouldRestoreFilters) {
+        // Stored as arrays for every field; coerce to proper types per lookup/text
+        const parsed = JSON.parse(rawLocalFilters) as Record<string, string[]>;
+        const normalized: Record<string, ColumnFilterValue> = {};
+        Object.entries(parsed).forEach(([k, v]) => {
+          const keyLower = k.toLowerCase();
+          const isLookup = isLookupFieldFor(String(tableKey), keyLower);
+          normalized[keyLower] = isLookup ? (Array.isArray(v) ? v : [String(v ?? '')]) : (Array.isArray(v) ? (v[0] ?? '') : String(v ?? ''));
+        });
+        lastAppliedFiltersRef.current = normalized;
+        setHeaderFilters(normalized);
+        try { onColumnFiltersApply?.(toApiHeaderFilters(mapColumnFiltersForApi(normalized))); } catch { /* ignore */ }
+      }
       // Sort
       const rawLocalSort = localStorage.getItem(storageKeySort) ?? localStorage.getItem(storageKeySortNC);
       if (rawLocalSort) {
@@ -977,12 +1014,29 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         const n = Number(rawLocalPage);
         if (!Number.isNaN(n) && n >= 0) setCurrentPage(n);
       }
+      try {
+        sessionStorage.setItem('voa-last-screen', screenInstanceKey);
+      } catch {
+        // ignore session storage failures
+      }
     } catch {
       // ignore hydrate failures
     }
     // Mark hydration complete so persistence can begin on subsequent changes
     setHydrated(true);
-  }, [storageKey, storageKeyNC, storageKeySort, storageKeySortNC, storageKeyPage, storageKeyPageNC]);
+  }, [
+    mapColumnFiltersForApi,
+    onColumnFiltersApply,
+    screenInstanceKey,
+    storageKey,
+    storageKeyNC,
+    storageKeySort,
+    storageKeySortNC,
+    storageKeyPage,
+    storageKeyPageNC,
+    tableKey,
+    toApiHeaderFilters,
+  ]);
   // Persist to localStorage whenever filters/page/sort change
   React.useEffect(() => {
     if (!hydrated) return; // skip initial mount until hydration finishes
@@ -1019,6 +1073,23 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       // ignore persist failures
     }
   }, [headerFilters, clientSort, currentPage, storageKey, storageKeyNC, storageKeySort, storageKeySortNC, storageKeyPage, storageKeyPageNC, hydrated]);
+
+  React.useEffect(() => {
+    if (!isSalesSearch) return;
+    try {
+      const isDefault = isSalesSearchDefaultFilters(searchFilters);
+      if (isDefault && !salesSearchApplied) {
+        localStorage.removeItem(salesSearchStorageKey);
+      } else {
+        localStorage.setItem(
+          salesSearchStorageKey,
+          JSON.stringify({ filters: searchFilters, applied: salesSearchApplied }),
+        );
+      }
+    } catch {
+      // ignore storage failures
+    }
+  }, [isSalesSearch, salesSearchApplied, salesSearchStorageKey, searchFilters]);
 
   // Build columns from defined config only (no auto-add from API fields).
   const datasetColumns = React.useMemo(() => {
@@ -2200,7 +2271,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           resolved = { ...next, caseworkers: mapCaseworkerNamesToIds(next.caseworkers ?? []) };
         }
       } else if (next.searchBy === 'caseworker') {
-        resolved = { ...next, caseworkers: mapCaseworkerNamesToIds(next.caseworkers ?? []) };
+        const nextCaseworkers = next.caseworkers ?? [];
+        if (isCaseworkerView && nextCaseworkers.length === 0 && currentUserId) {
+          resolved = { ...next, caseworkers: [currentUserId] };
+        } else {
+          resolved = { ...next, caseworkers: mapCaseworkerNamesToIds(nextCaseworkers) };
+        }
       }
       setPrefilters(resolved);
       setPrefilterApplied(true);
