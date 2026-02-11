@@ -1471,7 +1471,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   ]);
 
   React.useEffect(() => {
-    const shouldLoad = isManagerAssign || isQcAssign;
+    const shouldLoad = isManagerAssign || isQcAssign || isCaseworkerView;
     if (!shouldLoad) {
       caseworkerOptionsLoadKeyRef.current = '';
       setCaseworkerOptions([]);
@@ -1631,6 +1631,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     fallbackCaseworkerOptions,
     fallbackQcUserOptions,
     isCaseworkerAssignableUser,
+    isCaseworkerView,
     isManagerAssign,
     isQcAssign,
     isQcAssignableUser,

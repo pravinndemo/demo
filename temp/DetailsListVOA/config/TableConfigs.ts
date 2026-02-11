@@ -75,6 +75,7 @@ const SALES_COLUMN_FILTERS: Record<string, ColumnFilterConfig> = {
     ],
   },
   summaryflag: { control: 'textContains', minLength: 3 },
+  summaryflags: { control: 'textContains', minLength: 3 },
   taskstatus: { control: 'multiSelect', optionFields: ['taskstatus', 'status', 'statuscode'], selectAllValues: ['ALL'], minLength: 1 },
   assignedto: { control: 'singleSelect', optionFields: ['assignedto'], minLength: 1 },
   assigneddate: { control: 'dateRange', minLength: 1 },

@@ -2408,17 +2408,40 @@ export const Grid = React.memo((props: GridProps) => {
                 autoComplete="on"
                 text={comboEditing.salesBillingAuthority ? billingAuthoritySearch : undefined}
                 disabled={billingAuthorityOptionsLoading}
-                onChange={(_, opt) => {
+                onChange={(event, opt, _index, value) => {
                   if (consumeComboIgnoreNextChange('salesBillingAuthority')) return;
                   if (shouldIgnoreComboChange('salesBillingAuthority', opt)) return;
+                  const searchValue = typeof value === 'string' ? value : billingAuthoritySearch;
+                  const resolvedOptions = filterComboOptions(billingAuthorityOptionsList, searchValue);
                   const resolvedKey = comboEditing.salesBillingAuthority
-                    ? resolveComboKeyFromSearch(filteredBillingAuthorityOptionsList, billingAuthoritySearch)
+                    ? resolveComboKeyFromSearch(resolvedOptions, searchValue, authority)
                     : opt?.key;
                   if (!resolvedKey || resolvedKey === '__loading__' || resolvedKey === '__error__') return;
                   const next = String(resolvedKey ?? '');
                   updateFilters('billingAuthority', next ? [next] : undefined);
                   setComboEditingFor('salesBillingAuthority', false);
                   setBillingAuthoritySearch('');
+                }}
+                onKeyDownCapture={(event) => {
+                  const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
+                  if (!isEnter) return;
+                  const inputValue = getComboInputValue(event) || billingAuthoritySearch;
+                  if (!inputValue.trim()) return;
+                  const resolvedOptions = filterComboOptions(billingAuthorityOptionsList, inputValue);
+                  commitComboSingleSelect(
+                    event,
+                    inputValue,
+                    resolvedOptions,
+                    authority,
+                    (opt) => {
+                      if (!opt || opt.key === '__loading__' || opt.key === '__error__') return;
+                      const next = String(opt.key ?? '');
+                      updateFilters('billingAuthority', next ? [next] : undefined);
+                      setComboEditingFor('salesBillingAuthority', false);
+                      setBillingAuthoritySearch('');
+                    },
+                    'salesBillingAuthority',
+                  );
                 }}
                 onInputValueChange={(value) => {
                   const next = normalizeComboSearchText(value);
@@ -2431,12 +2454,14 @@ export const Grid = React.memo((props: GridProps) => {
                   setBillingAuthoritySearch(next);
                 }}
                 onKeyDown={(event) => {
-                  if (!billingAuthoritySearch.trim()) return;
+                  if (event.defaultPrevented) return;
                   const inputValue = getComboInputValue(event) || billingAuthoritySearch;
+                  if (!inputValue.trim()) return;
+                  const resolvedOptions = filterComboOptions(billingAuthorityOptionsList, inputValue);
                   commitComboSingleSelect(
                     event,
                     inputValue,
-                    filteredBillingAuthorityOptionsList,
+                    resolvedOptions,
                     authority,
                     (opt) => {
                       if (!opt || opt.key === '__loading__' || opt.key === '__error__') return;
@@ -2672,16 +2697,30 @@ export const Grid = React.memo((props: GridProps) => {
             allowFreeInput
             autoComplete="on"
             text={isEditing ? searchText : undefined}
-            onChange={(_, opt) => {
+            onChange={(event, opt, _index, value) => {
               if (consumeComboIgnoreNextChange(cfg.key)) return;
               if (shouldIgnoreComboChange(cfg.key, opt)) return;
+              const searchValue = typeof value === 'string' ? value : searchText;
+              const resolvedOptions = filterComboOptions(options, searchValue);
               const resolvedKey = isEditing
-                ? resolveComboKeyFromSearch(filteredOptions, searchText)
+                ? resolveComboKeyFromSearch(resolvedOptions, searchValue, selectedKey)
                 : opt?.key;
               if (!resolvedKey) return;
               updateFilters(cfg.stateKey, String(resolvedKey));
               setComboEditingFor(cfg.key, false);
               setComboSearchTextFor(cfg.key, '');
+            }}
+            onKeyDownCapture={(event) => {
+              const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
+              if (!isEnter) return;
+              const inputValue = getComboInputValue(event) || searchText;
+              if (!inputValue.trim()) return;
+              const resolvedOptions = filterComboOptions(options, inputValue);
+              commitComboSingleSelect(event, inputValue, resolvedOptions, selectedKey, (opt) => {
+                updateSingleSelect(cfg.stateKey, opt);
+                setComboEditingFor(cfg.key, false);
+                setComboSearchTextFor(cfg.key, '');
+              }, cfg.key);
             }}
             onInputValueChange={(value) => {
               const next = normalizeComboSearchText(value);
@@ -2694,9 +2733,11 @@ export const Grid = React.memo((props: GridProps) => {
               setComboSearchTextFor(cfg.key, next);
             }}
             onKeyDown={(event) => {
-              if (!searchText.trim()) return;
+              if (event.defaultPrevented) return;
               const inputValue = getComboInputValue(event) || searchText;
-              commitComboSingleSelect(event, inputValue, filteredOptions, selectedKey, (opt) => {
+              if (!inputValue.trim()) return;
+              const resolvedOptions = filterComboOptions(options, inputValue);
+              commitComboSingleSelect(event, inputValue, resolvedOptions, selectedKey, (opt) => {
                 updateSingleSelect(cfg.stateKey, opt);
                 setComboEditingFor(cfg.key, false);
                 setComboSearchTextFor(cfg.key, '');
@@ -3499,16 +3540,37 @@ export const Grid = React.memo((props: GridProps) => {
                     autoComplete="off"
                     text={isEditing ? menuFilterSearch : undefined}
                     selectedKey={isEditing ? undefined : typeof menuFilterValue === 'string' ? menuFilterValue : undefined}
-                    onChange={(_, opt) => {
+                    onChange={(event, opt, _index, value) => {
                       if (consumeComboIgnoreNextChange(menuFilterKey)) return;
                       if (shouldIgnoreComboChange(menuFilterKey, opt)) return;
+                      const searchValue = typeof value === 'string' ? value : menuFilterSearch;
+                      const resolvedOptions = filterComboOptions(options, searchValue);
                       const resolvedKey = isEditing
-                        ? resolveComboKeyFromSearch(filteredColumnOptions, menuFilterSearch)
+                        ? resolveComboKeyFromSearch(resolvedOptions, searchValue, typeof menuFilterValue === 'string' ? menuFilterValue : undefined)
                         : opt?.key;
                       if (!resolvedKey) return;
                       setMenuFilterValue(String(resolvedKey));
                       setComboEditingFor(menuFilterKey, false);
                       setMenuFilterSearch('');
+                    }}
+                    onKeyDownCapture={(event) => {
+                      const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
+                      if (!isEnter) return;
+                      const inputValue = getComboInputValue(event) || menuFilterSearch;
+                      if (!inputValue.trim()) return;
+                      const resolvedOptions = filterComboOptions(options, inputValue);
+                      commitComboSingleSelect(
+                        event,
+                        inputValue,
+                        resolvedOptions,
+                        typeof menuFilterValue === 'string' ? menuFilterValue : undefined,
+                        (opt) => {
+                          setMenuFilterValue((opt?.key as string) ?? '');
+                          setComboEditingFor(menuFilterKey, false);
+                          setMenuFilterSearch('');
+                        },
+                        menuFilterKey,
+                      );
                     }}
                     onInputValueChange={(value) => {
                       const next = normalizeComboSearchText(value);
@@ -3521,12 +3583,14 @@ export const Grid = React.memo((props: GridProps) => {
                       setMenuFilterSearch(next);
                     }}
                     onKeyDown={(event) => {
-                      if (!menuFilterSearch.trim()) return;
+                      if (event.defaultPrevented) return;
                       const inputValue = getComboInputValue(event) || menuFilterSearch;
+                      if (!inputValue.trim()) return;
+                      const resolvedOptions = filterComboOptions(options, inputValue);
                       commitComboSingleSelect(
                         event,
                         inputValue,
-                        filteredColumnOptions,
+                        resolvedOptions,
                         typeof menuFilterValue === 'string' ? menuFilterValue : undefined,
                         (opt) => {
                           setMenuFilterValue((opt?.key as string) ?? '');
@@ -3926,19 +3990,43 @@ export const Grid = React.memo((props: GridProps) => {
                     aria-describedby={buildAriaDescribedBy(prefilterSearchByHint ? 'prefilter-searchby-hint' : undefined)}
                     options={filteredPrefilterSearchByOptions}
                     selectedKey={comboEditing.prefilterSearchBy ? undefined : prefilters.searchBy}
-                    onChange={(event, option) => {
+                    onChange={(event, option, _index, value) => {
                       if (consumeComboIgnoreNextChange('prefilterSearchBy')) return;
                       if (shouldIgnoreComboChange('prefilterSearchBy', option)) return;
+                      const searchValue = typeof value === 'string' ? value : prefilterSearchBySearch;
+                      const resolvedOptions = filterComboOptions(
+                        prefilterSearchByOptions as IComboBoxOption[],
+                        searchValue,
+                      );
                       const resolvedKey = comboEditing.prefilterSearchBy
-                        ? resolveComboKeyFromSearch(
-                          prefilterSearchByOptions as IComboBoxOption[],
-                          prefilterSearchBySearch,
-                        )
+                        ? resolveComboKeyFromSearch(resolvedOptions, searchValue, prefilters.searchBy)
                         : option?.key;
                       if (!resolvedKey) return;
                       onPrefilterSearchByChange(event, { key: resolvedKey } as IComboBoxOption);
                       setComboEditingFor('prefilterSearchBy', false);
                       setPrefilterSearchBySearch('');
+                    }}
+                    onKeyDownCapture={(event) => {
+                      const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
+                      if (!isEnter) return;
+                      const inputValue = getComboInputValue(event) || prefilterSearchBySearch;
+                      if (!inputValue.trim()) return;
+                      const resolvedOptions = filterComboOptions(
+                        prefilterSearchByOptions as IComboBoxOption[],
+                        inputValue,
+                      );
+                      commitComboSingleSelect(
+                        event,
+                        inputValue,
+                        resolvedOptions,
+                        prefilters.searchBy,
+                        (opt) => {
+                          onPrefilterSearchByChange(event as unknown as React.FormEvent<IComboBox>, opt);
+                          setComboEditingFor('prefilterSearchBy', false);
+                          setPrefilterSearchBySearch('');
+                        },
+                        'prefilterSearchBy',
+                      );
                     }}
                     allowFreeform={false}
                     allowFreeInput
@@ -3955,12 +4043,17 @@ export const Grid = React.memo((props: GridProps) => {
                       setPrefilterSearchBySearch(next);
                     }}
                     onKeyDown={(event) => {
-                      if (!prefilterSearchBySearch.trim()) return;
+                      if (event.defaultPrevented) return;
                       const inputValue = getComboInputValue(event) || prefilterSearchBySearch;
+                      if (!inputValue.trim()) return;
+                      const resolvedOptions = filterComboOptions(
+                        prefilterSearchByOptions as IComboBoxOption[],
+                        inputValue,
+                      );
                       commitComboSingleSelect(
                         event,
                         inputValue,
-                        prefilterSearchByOptions as IComboBoxOption[],
+                        resolvedOptions,
                         prefilters.searchBy,
                         (opt) => {
                           onPrefilterSearchByChange(event as unknown as React.FormEvent<IComboBox>, opt);
@@ -4149,11 +4242,16 @@ export const Grid = React.memo((props: GridProps) => {
                 placeholder={prefilterText.placeholders.workThat}
                 options={filteredPrefilterWorkThatOptions}
                 selectedKey={comboEditing.prefilterWorkThat ? undefined : prefilters.workThat}
-                onChange={(event, option) => {
+                onChange={(event, option, _index, value) => {
                   if (consumeComboIgnoreNextChange('prefilterWorkThat')) return;
                   if (shouldIgnoreComboChange('prefilterWorkThat', option)) return;
+                  const searchValue = typeof value === 'string' ? value : prefilterWorkThatSearch;
+                  const resolvedOptions = filterComboOptions(
+                    prefilterWorkThatOptions as IComboBoxOption[],
+                    searchValue,
+                  );
                   const resolvedKey = comboEditing.prefilterWorkThat
-                    ? resolveComboKeyFromSearch(filteredPrefilterWorkThatOptions, prefilterWorkThatSearch)
+                    ? resolveComboKeyFromSearch(resolvedOptions, searchValue, prefilters.workThat)
                     : option?.key;
                   if (!resolvedKey) return;
                   onPrefilterWorkThatChange(event, { key: resolvedKey } as IComboBoxOption);
@@ -4164,6 +4262,28 @@ export const Grid = React.memo((props: GridProps) => {
                 allowFreeInput
                 autoComplete="on"
                 text={comboEditing.prefilterWorkThat ? prefilterWorkThatSearch : undefined}
+                onKeyDownCapture={(event) => {
+                  const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
+                  if (!isEnter) return;
+                  const inputValue = getComboInputValue(event) || prefilterWorkThatSearch;
+                  if (!inputValue.trim()) return;
+                  const resolvedOptions = filterComboOptions(
+                    prefilterWorkThatOptions as IComboBoxOption[],
+                    inputValue,
+                  );
+                  commitComboSingleSelect(
+                    event,
+                    inputValue,
+                    resolvedOptions,
+                    prefilters.workThat,
+                    (opt) => {
+                      onPrefilterWorkThatChange(event as unknown as React.FormEvent<IComboBox>, opt);
+                      setComboEditingFor('prefilterWorkThat', false);
+                      setPrefilterWorkThatSearch('');
+                    },
+                    'prefilterWorkThat',
+                  );
+                }}
                 onInputValueChange={(value) => {
                   const next = normalizeComboSearchText(value);
                   if (!next) {
@@ -4175,12 +4295,28 @@ export const Grid = React.memo((props: GridProps) => {
                   setPrefilterWorkThatSearch(next);
                 }}
                 onKeyDown={(event) => {
-                  if (!prefilterWorkThatSearch.trim()) return;
+                  if (event.defaultPrevented) return;
                   const inputValue = getComboInputValue(event) || prefilterWorkThatSearch;
+                  if (!inputValue.trim()) return;
+                  const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
+                  if (isEnter) {
+                    const enabledOptions = filteredPrefilterWorkThatOptions.filter((opt) => !opt.disabled);
+                    if (enabledOptions.length === 1) {
+                      event.preventDefault();
+                      onPrefilterWorkThatChange(event as unknown as React.FormEvent<IComboBox>, enabledOptions[0]);
+                      setComboEditingFor('prefilterWorkThat', false);
+                      setPrefilterWorkThatSearch('');
+                      return;
+                    }
+                  }
+                  const resolvedOptions = filterComboOptions(
+                    prefilterWorkThatOptions as IComboBoxOption[],
+                    inputValue,
+                  );
                   commitComboSingleSelect(
                     event,
                     inputValue,
-                    filteredPrefilterWorkThatOptions,
+                    resolvedOptions,
                     prefilters.workThat,
                     (opt) => {
                       onPrefilterWorkThatChange(event as unknown as React.FormEvent<IComboBox>, opt);
@@ -4293,16 +4429,30 @@ export const Grid = React.memo((props: GridProps) => {
               aria-describedby={buildAriaDescribedBy(searchByHint ? 'voa-searchby-hint' : undefined)}
               options={filteredSearchByOptions}
               selectedKey={comboEditing.searchBy ? undefined : filters.searchBy}
-              onChange={(event, option) => {
+              onChange={(event, option, _index, value) => {
                 if (consumeComboIgnoreNextChange('searchBy')) return;
                 if (shouldIgnoreComboChange('searchBy', option)) return;
+                const searchValue = typeof value === 'string' ? value : searchBySearch;
+                const resolvedOptions = filterComboOptions(searchByOptions as IComboBoxOption[], searchValue);
                 const resolvedKey = comboEditing.searchBy
-                  ? resolveComboKeyFromSearch(filteredSearchByOptions, searchBySearch)
+                  ? resolveComboKeyFromSearch(resolvedOptions, searchValue, filters.searchBy)
                   : option?.key;
                 if (!resolvedKey) return;
                 onSearchByChange(event, { key: resolvedKey } as IComboBoxOption);
                 setComboEditingFor('searchBy', false);
                 setSearchBySearch('');
+              }}
+              onKeyDownCapture={(event) => {
+                const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
+                if (!isEnter) return;
+                const inputValue = getComboInputValue(event) || searchBySearch;
+                if (!inputValue.trim()) return;
+                const resolvedOptions = filterComboOptions(searchByOptions as IComboBoxOption[], inputValue);
+                commitComboSingleSelect(event, inputValue, resolvedOptions, filters.searchBy, (opt) => {
+                  onSearchByChange(event as unknown as React.FormEvent<IComboBox>, opt);
+                  setComboEditingFor('searchBy', false);
+                  setSearchBySearch('');
+                }, 'searchBy');
               }}
               allowFreeform={false}
               allowFreeInput
@@ -4319,9 +4469,11 @@ export const Grid = React.memo((props: GridProps) => {
                 setSearchBySearch(next);
               }}
               onKeyDown={(event) => {
-                if (!searchBySearch.trim()) return;
+                if (event.defaultPrevented) return;
                 const inputValue = getComboInputValue(event) || searchBySearch;
-                commitComboSingleSelect(event, inputValue, filteredSearchByOptions, filters.searchBy, (opt) => {
+                if (!inputValue.trim()) return;
+                const resolvedOptions = filterComboOptions(searchByOptions as IComboBoxOption[], inputValue);
+                commitComboSingleSelect(event, inputValue, resolvedOptions, filters.searchBy, (opt) => {
                   onSearchByChange(event as unknown as React.FormEvent<IComboBox>, opt);
                   setComboEditingFor('searchBy', false);
                   setSearchBySearch('');
