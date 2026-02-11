@@ -14,7 +14,7 @@ namespace VOA.SVT.Plugins.CustomAPI
         /// <summary>
         /// Name of the API configuration returned by voa_CredentialProvider
         /// </summary>
-        private const string CONFIGURATION_NAME = "SVTGetViewSaleRecordById";
+        private const string CONFIGURATION_NAME = "SVTGetSalesRecord";
 
         public GetViewSaleRecordById(string unsecureConfiguration, string secureConfiguration)
             : base(typeof(GetViewSaleRecordById))
@@ -61,7 +61,7 @@ namespace VOA.SVT.Plugins.CustomAPI
 
             if (string.IsNullOrWhiteSpace(apiConfig.Address))
             {
-                throw new InvalidPluginExecutionException("SVTGetViewSaleRecordById configuration missing Address.");
+                throw new InvalidPluginExecutionException("SVTGetSalesRecord configuration missing Address.");
             }
 
             localPluginContext.TracingService.Trace("SVT GetViewSaleRecordById started.");

@@ -978,8 +978,16 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   React.useEffect(() => {
     try {
       let shouldRestoreFilters = false;
+      let sessionScreens: Record<string, boolean> = {};
       try {
-        shouldRestoreFilters = sessionStorage.getItem('voa-last-screen') === screenInstanceKey;
+        const rawScreens = sessionStorage.getItem('voa-session-screens');
+        if (rawScreens) {
+          sessionScreens = JSON.parse(rawScreens) as Record<string, boolean>;
+        }
+        shouldRestoreFilters = !!sessionScreens[screenInstanceKey];
+        if (!shouldRestoreFilters) {
+          shouldRestoreFilters = sessionStorage.getItem('voa-last-screen') === screenInstanceKey;
+        }
       } catch {
         // ignore session storage failures
       }
@@ -1015,6 +1023,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         if (!Number.isNaN(n) && n >= 0) setCurrentPage(n);
       }
       try {
+        sessionScreens[screenInstanceKey] = true;
+        sessionStorage.setItem('voa-session-screens', JSON.stringify(sessionScreens));
         sessionStorage.setItem('voa-last-screen', screenInstanceKey);
       } catch {
         // ignore session storage failures
@@ -2263,7 +2273,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     prefilterApplied,
     onPrefilterDirty: handlePrefilterDirty,
     onSearchDirty: handleSalesSearchDirty,
-    onPrefilterApply: (next) => {
+    onPrefilterApply: (next, options) => {
+      const isAuto = options?.source === 'auto';
       let resolved = next;
       if (isQcAssign) {
         if (next.searchBy === 'task') {
@@ -2283,19 +2294,21 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setPrefilterApplied(true);
       setCurrentPage(0);
       setSearchFilters(createDefaultGridFilters());
-      setClientSort({ name: 'saleid', sortDirection: 0 });
-      setHeaderFilters({});
-      lastAppliedFiltersRef.current = {};
+      if (!isAuto) {
+        setClientSort({ name: 'saleid', sortDirection: 0 });
+        setHeaderFilters({});
+        lastAppliedFiltersRef.current = {};
+        try {
+          localStorage.removeItem(storageKey);
+          localStorage.removeItem(storageKeyNC);
+        } catch {
+          // ignore storage failures
+        }
+      }
       selection.setAllSelected(false);
       setSelectedCount(0);
       onSelectionCountChange?.(0);
       onSelectionChange?.({ selectedTaskIds: [], selectedSaleIds: [] });
-      try {
-        localStorage.removeItem(storageKey);
-        localStorage.removeItem(storageKeyNC);
-      } catch {
-        // ignore storage failures
-      }
       setSearchNonce((n) => n + 1);
     },
     onPrefilterClear: () => {

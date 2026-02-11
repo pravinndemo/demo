@@ -16,9 +16,9 @@ Notes:
 
 | Column Display Name | Internal Key Name | Sort Param (Custom API) | Sort Name (Custom API) | Sort Param (APIM) | Sort Name (APIM) | Filter Param (Custom API) | Filter Name (Custom API) | Filter Param (APIM) | Filter Name (APIM) | Filter Operator(s) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Sale ID | saleid | sortField | saleId | sort-field | saleId | SearchQuery | saleId | columnFilter | saleId | `eq` |
-| Task ID | taskid | sortField | taskId | sort-field | taskId | SearchQuery | taskId | columnFilter | taskId | `eq` |
-| UPRN | uprn | sortField | uprn | sort-field | uprn | SearchQuery | uprn | columnFilter | uprn | `eq` |
+| Sale ID | saleid | sortField | saleId | sort-field | saleId | SearchQuery | saleId | columnFilter | saleId | `like` |
+| Task ID | taskid | sortField | taskId | sort-field | taskId | SearchQuery | taskId | columnFilter | taskId | `like` |
+| UPRN | uprn | sortField | uprn | sort-field | uprn | SearchQuery | uprn | columnFilter | uprn | `like` |
 | Address | address | sortField | address | sort-field | address | SearchQuery | address | columnFilter | address | `like` |
 | Postcode | postcode | sortField | postcode | sort-field | postcode | SearchQuery | postCode | columnFilter | postCode | `like` |
 | Billing Authority | billingauthority | sortField | billingauthority | sort-field | billingauthority | SearchQuery | billingAuthority | columnFilter | billingAuthority | `in` |

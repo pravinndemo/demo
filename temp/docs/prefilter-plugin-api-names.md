@@ -6,6 +6,8 @@ Notes:
 - Prefilter parameter names are constant across screens: `searchBy`, `preFilter`, `taskStatus`, `fromDate`, `toDate`.
 - Value separators: comma (`,`) for both `preFilter` and `taskStatus`.
 - Dates are formatted as `dd/MM/yyyy` when sent to the API.
+- Column header filters use `columnFilter` query params. For string fields, the operator is currently `like` unless the control is `singleSelect` (then `eq`).
+- In the current build, these fields use `like`: `saleid`, `taskid`, `uprn`, `address`, `postcode`.
 - If “All” is selected, `preFilter=ALL`.
 
 **Manager Assignment / Manager Dashboard (tableKey: `manager`)**

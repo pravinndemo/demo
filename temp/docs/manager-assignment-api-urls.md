@@ -14,8 +14,8 @@ This document lists the exact URL shapes produced for Manager Assignment, includ
 - SearchQuery format: repeated `columnFilter=<field>~<op>~<value>` joined with `&`
 - columnFilter separators: condition `~`, value `,` (configurable via `COLUMN_FILTER_CONDITION_SEPARATOR` and `COLUMN_FILTER_VALUE_SEPARATOR` in `DetailsListVOA/config/PrefilterConfigs.ts`)
 - Column filter operators:
-  - `eq` for singleSelect and exact text fields (saleId, taskId, uprn)
-  - `like` for text contains/prefix (address, postCode, summaryFlags)
+  - `eq` for singleSelect (flaggedForReview, assignedTo, qcAssignedTo)
+  - `like` for text fields (saleId, taskId, uprn, address, postCode, summaryFlags)
   - `in` for multiSelect (billingAuthority, dwellingType, reviewFlag, taskStatus, overallFlag)
   - `GTE` / `LTE` / `between` for numeric (salesPrice, ratio, outlierRatio)
   - `between` for dateRange (transactionDate, assignedDate, taskCompletedDate, qcAssignedDate, qcCompletedDate)

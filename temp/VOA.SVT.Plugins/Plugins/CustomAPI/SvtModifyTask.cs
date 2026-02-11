@@ -12,15 +12,15 @@ using VOA.SVT.Plugins.Helpers;
 
 namespace VOA.SVT.Plugins.CustomAPI
 {
-    public class SvtManualTaskCreation : PluginBase
+    public class SvtModifyTask : PluginBase
     {
         /// <summary>
         /// Name of the API configuration returned by voa_CredentialProvider
         /// </summary>
-        private const string CONFIGURATION_NAME = "SVTGetSalesRecord";
+        private const string CONFIGURATION_NAME = "SVTTaskAssignment";
 
-        public SvtManualTaskCreation(string unsecureConfiguration, string secureConfiguration)
-            : base(typeof(SvtManualTaskCreation))
+        public SvtModifyTask(string unsecureConfiguration, string secureConfiguration)
+            : base(typeof(SvtModifyTask))
         {
             // Custom API plugin -> generally no secure/unsecure config usage.
         }
@@ -33,35 +33,40 @@ namespace VOA.SVT.Plugins.CustomAPI
             }
 
             var context = localPluginContext.PluginExecutionContext;
+            var trace = localPluginContext.TracingService;
             var userContext = UserContextResolver.Resolve(
                 localPluginContext.SystemUserService,
                 context.InitiatingUserId,
-                localPluginContext.TracingService);
-            if (userContext.Persona != UserPersona.Manager)
+                trace);
+            if (userContext.Persona != UserPersona.User)
             {
-                localPluginContext.TracingService.Trace(
-                    $"SVT ManualTaskCreation denied. User={context.InitiatingUserId}, Persona={userContext.Persona}");
-                context.OutputParameters["Result"] = BuildResult(false, "SVT manual task creation is restricted to SVT Managers.", string.Empty);
-                return;
-            }
-            var saleId = GetInput(context, "saleId");
-            var sourceType = GetInput(context, "sourceType");
-            var createdBy = GetInput(context, "createdBy");
-
-            if (string.IsNullOrWhiteSpace(saleId))
-            {
-                context.OutputParameters["Result"] = BuildResult(false, "saleId is required.", string.Empty);
-                return;
+                trace?.Trace(
+                    $"SvtModifyTask denied. User={context.InitiatingUserId}, Persona={userContext.Persona}");
+                throw new InvalidPluginExecutionException("Modify SVT task is restricted to caseworker role/team.");
             }
 
-            if (string.IsNullOrWhiteSpace(sourceType))
+            var source = GetInput(context, "source");
+            var taskStatus = GetInput(context, "taskStatus");
+            var taskListRaw = GetInput(context, "taskList");
+            var requestedBy = GetInput(context, "requestedBy");
+            var taskIds = ParseTaskIds(taskListRaw);
+
+            if (string.IsNullOrWhiteSpace(source))
             {
-                sourceType = "M";
+                source = "VSRT";
             }
 
-            if (string.IsNullOrWhiteSpace(createdBy))
+            if (string.IsNullOrWhiteSpace(requestedBy))
             {
-                createdBy = context.InitiatingUserId.ToString();
+                var fallbackId = context.InitiatingUserId != Guid.Empty
+                    ? context.InitiatingUserId
+                    : context.UserId;
+                requestedBy = fallbackId == Guid.Empty ? string.Empty : fallbackId.ToString();
+            }
+
+            if (string.IsNullOrWhiteSpace(taskStatus) || taskIds.Count == 0)
+            {
+                throw new InvalidPluginExecutionException("taskStatus and taskList are required.");
             }
 
             // 1) Read secrets/config from credential provider action
@@ -70,7 +75,7 @@ namespace VOA.SVT.Plugins.CustomAPI
                 ["ConfigurationName"] = CONFIGURATION_NAME
             };
 
-            localPluginContext.TracingService.Trace("Retrieving configuration from voa_CredentialProvider...");
+            trace?.Trace("Retrieving configuration from voa_CredentialProvider...");
 
             var getSecretsResponse = localPluginContext.SystemUserService.Execute(getSecretsRequest);
 
@@ -86,26 +91,27 @@ namespace VOA.SVT.Plugins.CustomAPI
 
             if (string.IsNullOrWhiteSpace(apiConfig.Address))
             {
-                context.OutputParameters["Result"] = BuildResult(false, "SVTGetSalesRecord configuration missing Address.", string.Empty);
-                return;
+                throw new InvalidPluginExecutionException("SVTTaskAssignment configuration missing Address.");
             }
 
-            localPluginContext.TracingService.Trace("SVT ManualTaskCreation started.");
+            trace?.Trace("SvtModifyTask started.");
 
             // 2) OAuth token (if needed)
-            localPluginContext.TracingService.Trace("Generating authentication token...");
+            trace?.Trace("Generating authentication token...");
             var auth = new Authentication(localPluginContext, apiConfig);
             var authResult = auth.GenerateAuthentication();
 
-            var fullUrl = BuildUrl(apiConfig.Address, saleId);
-            var payload = new Dictionary<string, string>
+            var payload = new Dictionary<string, object>
             {
-                ["sourceType"] = sourceType ?? string.Empty,
-                ["createdBy"] = createdBy ?? string.Empty
+                ["source"] = source ?? string.Empty,
+                ["taskStatus"] = taskStatus ?? string.Empty,
+                ["taskList"] = taskIds,
+                ["requestedBy"] = requestedBy ?? string.Empty
             };
+
             var jsonBody = JsonSerializer.Serialize(payload);
 
-            localPluginContext.TracingService.Trace($"Posting manual task creation to APIM. Url={Truncate(fullUrl, 300)} Payload={Truncate(jsonBody, 500)}");
+            trace?.Trace($"Posting SvtModifyTask to APIM. Payload={Truncate(jsonBody, 500)}");
 
             using (var httpClient = new HttpClient())
             {
@@ -128,7 +134,7 @@ namespace VOA.SVT.Plugins.CustomAPI
                         new AuthenticationHeaderValue("Bearer", authResult.AccessToken);
                 }
 
-                using (var request = new HttpRequestMessage(HttpMethod.Post, fullUrl))
+                using (var request = new HttpRequestMessage(HttpMethod.Post, apiConfig.Address))
                 {
                     request.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
                     HttpResponseMessage response = null;
@@ -141,23 +147,23 @@ namespace VOA.SVT.Plugins.CustomAPI
 
                         if (!response.IsSuccessStatusCode)
                         {
-                            localPluginContext.TracingService.Trace(
+                            trace?.Trace(
                                 $"APIM call failed. Status={(int)response.StatusCode} {response.ReasonPhrase}. BodySnippet={Truncate(body, 500)}");
-
-                            context.OutputParameters["Result"] = BuildResult(false, "Manual task creation failed.", body);
-                            return;
+                            throw new InvalidPluginExecutionException(
+                                $"Modify SVT task failed ({(int)response.StatusCode} {response.ReasonPhrase}).");
                         }
 
-                        var successMessage = string.IsNullOrWhiteSpace(body)
-                            ? "Manual task creation succeeded. No response body returned."
-                            : "Manual task creation succeeded.";
-                        context.OutputParameters["Result"] = BuildResult(true, successMessage, body);
-                        localPluginContext.TracingService.Trace("SVT ManualTaskCreation completed successfully.");
+                        context.OutputParameters["Result"] = string.IsNullOrWhiteSpace(body) ? "success" : body;
+                        trace?.Trace("SvtModifyTask completed successfully.");
                     }
                     catch (Exception ex)
                     {
-                        localPluginContext.TracingService.Trace($"APIM call exception: {ex}");
-                        context.OutputParameters["Result"] = BuildResult(false, "Manual task creation failed.", ex.Message);
+                        trace?.Trace($"APIM call exception: {ex}");
+                        if (ex is InvalidPluginExecutionException)
+                        {
+                            throw;
+                        }
+                        throw new InvalidPluginExecutionException("Modify SVT task failed.");
                     }
                     finally
                     {
@@ -170,42 +176,71 @@ namespace VOA.SVT.Plugins.CustomAPI
         private static string GetInput(IPluginExecutionContext context, string key)
             => context.InputParameters.Contains(key) ? context.InputParameters[key]?.ToString() : null;
 
-        private static string BuildUrl(string baseAddress, string saleId)
+        private static List<string> ParseTaskIds(string raw)
         {
-            if (string.IsNullOrWhiteSpace(baseAddress))
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(raw))
             {
-                return baseAddress;
+                return result;
             }
 
-            var trimmed = baseAddress.TrimEnd('/');
-
-            if (trimmed.Contains("{saleId}", StringComparison.Ordinal))
+            var trimmed = raw.Trim();
+            if (trimmed.StartsWith("["))
             {
-                return trimmed.Replace("{saleId}", saleId);
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<string[]>(trimmed);
+                    if (parsed != null)
+                    {
+                        foreach (var item in parsed)
+                        {
+                            AddTaskId(result, item);
+                        }
+                        return result;
+                    }
+                }
+                catch
+                {
+                    // fall back to simple parsing
+                }
             }
 
-            if (trimmed.Contains("{id}", StringComparison.Ordinal))
+            if (trimmed.Contains(","))
             {
-                return trimmed.Replace("{id}", saleId);
+                foreach (var part in trimmed.Split(','))
+                {
+                    AddTaskId(result, part);
+                }
+                return result;
             }
 
-            if (trimmed.EndsWith("/sales", StringComparison.OrdinalIgnoreCase))
-            {
-                return $"{trimmed}/{saleId}/task";
-            }
-
-            return $"{trimmed}/sales/{saleId}/task";
+            AddTaskId(result, trimmed);
+            return result;
         }
 
-        private static string BuildResult(bool success, string message, string payload)
+        private static void AddTaskId(ICollection<string> list, string value)
         {
-            var safeMessage = (message ?? string.Empty).Replace("\"", "'");
-            var safePayload = (payload ?? string.Empty).Replace("\"", "'");
-            return "{" +
-                   "\"success\":" + (success ? "true" : "false") + "," +
-                   "\"message\":\"" + safeMessage + "\"," +
-                   "\"payload\":\"" + safePayload + "\"" +
-                   "}";
+            if (string.IsNullOrWhiteSpace(value)) return;
+            var normalized = NormalizeTaskId(value);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                list.Add(normalized);
+            }
+        }
+
+        private static string NormalizeTaskId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            var sb = new StringBuilder();
+            foreach (var ch in value)
+            {
+                if (char.IsDigit(ch))
+                {
+                    sb.Append(ch);
+                }
+            }
+            var digits = sb.ToString();
+            return string.IsNullOrWhiteSpace(digits) ? value.Trim() : digits;
         }
 
         private static string Truncate(string s, int maxLen)

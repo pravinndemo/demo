@@ -131,7 +131,7 @@ export interface GridProps {
   statusMessage?: { text: string; type: MessageBarType };
   onStatusMessageDismiss?: () => void;
   prefilterApplied?: boolean;
-  onPrefilterApply?: (prefilters: ManagerPrefilterState) => void;
+  onPrefilterApply?: (prefilters: ManagerPrefilterState, options?: { source?: 'auto' | 'user' }) => void;
   onPrefilterClear?: () => void;
   onPrefilterDirty?: () => void;
   onSearchDirty?: () => void;
@@ -980,7 +980,7 @@ export const Grid = React.memo((props: GridProps) => {
         const autoKey = `${prefilterStorageKey}|${derivedScreenKind}`;
         if (prefilterAutoAppliedRef.current !== autoKey) {
           prefilterAutoAppliedRef.current = autoKey;
-          onPrefilterApply(next);
+          onPrefilterApply(next, { source: 'auto' });
         }
       }
     } catch {
@@ -1373,7 +1373,7 @@ export const Grid = React.memo((props: GridProps) => {
       completedFrom: needsCompleted ? prefilters.completedFrom : undefined,
       completedTo: needsCompleted ? prefilters.completedTo : undefined,
     };
-    onPrefilterApply(normalized);
+    onPrefilterApply(normalized, { source: 'user' });
     if (isPrefilterNarrow) {
       setPrefilterExpanded(false);
     }
