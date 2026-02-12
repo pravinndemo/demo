@@ -55,7 +55,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
             this.selectedTaskId = args?.taskId;
             this.selectedSaleId = args?.saleId;
             console.log('[DetailsListVOA] Row invoke:', { taskId: args?.taskId, saleId: args?.saleId });
-            void this.onTaskClick(args?.taskId, args?.saleId);
+            return this.onTaskClick(args?.taskId, args?.saleId);
           },
           onSelectionChange: (args) => {
             // Selection should only emit IDs and not fetch details

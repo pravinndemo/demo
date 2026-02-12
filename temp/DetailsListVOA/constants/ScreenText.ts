@@ -146,6 +146,7 @@ export const SCREEN_TEXT = {
       metadataApiNotConfigured: 'Metadata API name is not configured.',
       billingAuthoritiesMissing: 'No billing authorities returned.',
       billingAuthoritiesLoadFailed: 'Unable to load Billing Authorities.',
+      loadingSaleRecord: 'Loading sale record...',
     },
     hints: {
       postcodePartial: 'Partial postcodes return all matching entries.',

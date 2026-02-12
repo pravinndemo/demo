@@ -22,7 +22,7 @@ import { logPerf } from '../../utils/Perf';
 
 export interface DetailsListHostProps {
   context: ComponentFramework.Context<IInputs>;
-  onRowInvoke?: (args: { taskId?: string; saleId?: string }) => void;
+  onRowInvoke?: (args: { taskId?: string; saleId?: string }) => void | Promise<void>;
   // Emit IDs on selection (single or multi); arrays support multi-select
   onSelectionChange?: (args: { taskId?: string; saleId?: string; selectedTaskIds?: string[]; selectedSaleIds?: string[] }) => void;
   // Emit count of selected rows (even if IDs are missing)
@@ -1846,14 +1846,14 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   }));
   const componentRef = React.createRef<IDetailsList>();
 
-  const onNavigate = (item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord): void => {
+  const onNavigate = (item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord): void | Promise<void> => {
     if (!item) return;
     // Records are normalized to lower‑case keys during mapping; prefer lower‑case, fall back to camelCase
     const rec = item as unknown as { taskid?: string; taskId?: string; saleid?: string; saleId?: string };
     const taskId = rec.taskid ?? rec.taskId;
     const saleId = rec.saleid ?? rec.saleId;
     // Emit only. Navigation is handled in Canvas via PCF OnChange.
-    onRowInvoke?.({ taskId, saleId });
+    return onRowInvoke?.({ taskId, saleId });
   };
 
   const onSort = (name: string, desc: boolean): void => {
