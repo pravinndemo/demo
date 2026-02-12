@@ -296,6 +296,27 @@ const normalizeMultiSelectSearchText = (
   return normalizeComboSearchText(raw);
 };
 
+const normalizeSingleSelectSearchText = (
+  value: string | undefined,
+  options: IComboBoxOption[],
+  selectedKey: string | number | boolean | undefined,
+): string => {
+  const raw = value ?? '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (selectedKey !== undefined) {
+    const selected = options.find((opt) => String(opt.key) === String(selectedKey));
+    const selectedText = String(selected?.text ?? selected?.key ?? '');
+    const selectedTextLower = selectedText.trim().toLowerCase();
+    const trimmedLower = trimmed.toLowerCase();
+    if ((selectedTextLower && trimmedLower === selectedTextLower)
+      || trimmedLower === String(selectedKey).trim().toLowerCase()) {
+      return '';
+    }
+  }
+  return normalizeComboSearchText(raw);
+};
+
 const formatTemplate = (template: string, tokens: Record<string, string | number>): string =>
   template.replace(/\{(\w+)\}/g, (match: string, key: string) => (
     Object.prototype.hasOwnProperty.call(tokens, key) ? String(tokens[key]) : match
@@ -676,11 +697,19 @@ export const Grid = React.memo((props: GridProps) => {
   const setComboIgnoreNextChange = React.useCallback((key: string) => {
     comboIgnoreNextChangeRef.current[key] = true;
   }, []);
-  const consumeComboIgnoreNextChange = React.useCallback((key: string) => {
-    if (comboIgnoreNextChangeRef.current[key]) {
-      comboIgnoreNextChangeRef.current[key] = false;
+  const consumeComboIgnoreNextChange = React.useCallback((key: string, option?: IComboBoxOption) => {
+    if (!comboIgnoreNextChangeRef.current[key]) return false;
+    comboIgnoreNextChangeRef.current[key] = false;
+    const expected = comboExpectedSelectionRef.current[key];
+    const optKey = option?.key !== undefined ? String(option.key) : '';
+    if (!expected) {
+      return optKey === '';
+    }
+    if (optKey === '' || optKey === expected.key) {
+      delete comboExpectedSelectionRef.current[key];
       return true;
     }
+    delete comboExpectedSelectionRef.current[key];
     return false;
   }, []);
   const setComboExpectedSelection = React.useCallback((key: string, expectedKey: string) => {
@@ -869,8 +898,10 @@ export const Grid = React.memo((props: GridProps) => {
     [screenName, tableKey],
   );
   const prefilterAutoAppliedRef = React.useRef<string>('');
+  const prefilterDirtyRef = React.useRef(false);
   React.useEffect(() => {
     prefilterAutoAppliedRef.current = '';
+    prefilterDirtyRef.current = false;
   }, [prefilterStorageKey]);
 
   React.useEffect(() => {
@@ -953,6 +984,7 @@ export const Grid = React.memo((props: GridProps) => {
 
   React.useEffect(() => {
     if (!useAssignmentLayout) return;
+    if (prefilterDirtyRef.current) return;
     try {
       const raw = localStorage.getItem(prefilterStorageKey);
       if (!raw) return;
@@ -1223,6 +1255,7 @@ export const Grid = React.memo((props: GridProps) => {
       }
       setComboEditingFor('prefilterWorkThat', false);
       setPrefilterWorkThatSearch('');
+      prefilterDirtyRef.current = true;
       onPrefilterDirty?.();
     },
     [isQcAssign, onPrefilterDirty, setComboEditingFor],
@@ -1318,6 +1351,7 @@ export const Grid = React.memo((props: GridProps) => {
           ...prev,
           caseworkers: option.selected ? [CASEWORKER_ALL_KEY] : [],
         }));
+        prefilterDirtyRef.current = true;
         onPrefilterDirty?.();
         return;
       }
@@ -1327,6 +1361,7 @@ export const Grid = React.memo((props: GridProps) => {
         const next = option.selected ? [...current, key] : current.filter((v) => v !== key);
         return { ...prev, caseworkers: next };
       });
+      prefilterDirtyRef.current = true;
       onPrefilterDirty?.();
     },
     [onPrefilterDirty],
@@ -1352,6 +1387,7 @@ export const Grid = React.memo((props: GridProps) => {
         completedFrom: needsCompleted ? prev.completedFrom : undefined,
         completedTo: needsCompleted ? prev.completedTo : undefined,
       }));
+      prefilterDirtyRef.current = true;
       onPrefilterDirty?.();
     },
     [isCaseworkerView, isQcAssign, isQcView, onPrefilterDirty, prefilters.searchBy],
@@ -1366,6 +1402,7 @@ export const Grid = React.memo((props: GridProps) => {
         completedFrom: fromIso,
         completedTo: toIso,
       }));
+      prefilterDirtyRef.current = true;
       onPrefilterDirty?.();
     },
     [computeCompletedToDate, onPrefilterDirty, toISODateString],
@@ -1382,12 +1419,14 @@ export const Grid = React.memo((props: GridProps) => {
       completedTo: needsCompleted ? prefilters.completedTo : undefined,
     };
     onPrefilterApply(normalized, { source: 'user' });
+    prefilterDirtyRef.current = false;
     if (isPrefilterNarrow) {
       setPrefilterExpanded(false);
     }
   }, [isPrefilterNarrow, onPrefilterApply, prefilters]);
 
   const handlePrefilterClear = React.useCallback(() => {
+    prefilterDirtyRef.current = true;
     if (isCaseworkerView) {
       setPrefilters(caseworkerPrefilterDefaults);
     } else if (isQcView) {
@@ -1397,8 +1436,22 @@ export const Grid = React.memo((props: GridProps) => {
     } else {
       setPrefilters(MANAGER_PREFILTER_DEFAULT);
     }
+    setComboEditingFor('prefilterSearchBy', false);
+    setComboEditingFor('prefilterWorkThat', false);
+    setPrefilterSearchBySearch('');
+    setPrefilterWorkThatSearch('');
+    setManagerBillingSearch('');
+    setCaseworkerSearch('');
     onPrefilterClear?.();
-  }, [caseworkerPrefilterDefaults, isCaseworkerView, isQcAssign, isQcView, onPrefilterClear, qcViewPrefilterDefaults]);
+  }, [
+    caseworkerPrefilterDefaults,
+    isCaseworkerView,
+    isQcAssign,
+    isQcView,
+    onPrefilterClear,
+    qcViewPrefilterDefaults,
+    setComboEditingFor,
+  ]);
 
   const getLengthErrors = React.useCallback(
     (fs: GridFilterState) => {
@@ -1672,6 +1725,7 @@ export const Grid = React.memo((props: GridProps) => {
           ...prev,
           billingAuthorities: option.selected ? [BILLING_AUTHORITY_ALL_KEY] : [],
         }));
+        prefilterDirtyRef.current = true;
         onPrefilterDirty?.();
         return;
       }
@@ -1680,6 +1734,7 @@ export const Grid = React.memo((props: GridProps) => {
         const next = option.selected ? [...current, key] : current.filter((v) => v !== key);
         return { ...prev, billingAuthorities: next };
       });
+      prefilterDirtyRef.current = true;
       onPrefilterDirty?.();
     },
     [onPrefilterDirty],
@@ -1953,7 +2008,7 @@ export const Grid = React.memo((props: GridProps) => {
     async (
       item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
       column?: IColumn,
-      forceLoader: boolean = false,
+      forceLoader = false,
     ) => {
       if (!item) return;
       const rec = item as { saleid?: string; saleId?: string };
@@ -2447,13 +2502,11 @@ export const Grid = React.memo((props: GridProps) => {
                 text={comboEditing.salesBillingAuthority ? billingAuthoritySearch : undefined}
                 disabled={billingAuthorityOptionsLoading}
                 onChange={(event, opt, _index, value) => {
-                  if (consumeComboIgnoreNextChange('salesBillingAuthority')) return;
+                  if (consumeComboIgnoreNextChange('salesBillingAuthority', opt)) return;
                   if (shouldIgnoreComboChange('salesBillingAuthority', opt)) return;
                   const searchValue = typeof value === 'string' ? value : billingAuthoritySearch;
                   const resolvedOptions = filterComboOptions(billingAuthorityOptionsList, searchValue);
-                  const resolvedKey = comboEditing.salesBillingAuthority
-                    ? resolveComboKeyFromSearch(resolvedOptions, searchValue, authority)
-                    : opt?.key;
+                  const resolvedKey = opt?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, authority);
                   if (!resolvedKey || resolvedKey === '__loading__' || resolvedKey === '__error__') return;
                   const next = String(resolvedKey ?? '');
                   updateFilters('billingAuthority', next ? [next] : undefined);
@@ -2482,7 +2535,7 @@ export const Grid = React.memo((props: GridProps) => {
                   );
                 }}
                 onInputValueChange={(value) => {
-                  const next = normalizeComboSearchText(value);
+                  const next = normalizeSingleSelectSearchText(value, billingAuthorityOptionsList, authority);
                   if (!next) {
                     setComboEditingFor('salesBillingAuthority', false);
                     setBillingAuthoritySearch('');
@@ -2736,13 +2789,11 @@ export const Grid = React.memo((props: GridProps) => {
             autoComplete="off"
             text={isEditing ? searchText : undefined}
             onChange={(event, opt, _index, value) => {
-              if (consumeComboIgnoreNextChange(cfg.key)) return;
+              if (consumeComboIgnoreNextChange(cfg.key, opt)) return;
               if (shouldIgnoreComboChange(cfg.key, opt)) return;
               const searchValue = typeof value === 'string' ? value : searchText;
               const resolvedOptions = filterComboOptions(options, searchValue);
-              const resolvedKey = isEditing
-                ? resolveComboKeyFromSearch(resolvedOptions, searchValue, selectedKey)
-                : opt?.key;
+              const resolvedKey = opt?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, selectedKey);
               if (!resolvedKey) return;
               updateFilters(cfg.stateKey, String(resolvedKey));
               setComboEditingFor(cfg.key, false);
@@ -2761,7 +2812,7 @@ export const Grid = React.memo((props: GridProps) => {
               }, cfg.key);
             }}
             onInputValueChange={(value) => {
-              const next = normalizeComboSearchText(value);
+              const next = normalizeSingleSelectSearchText(value, options, selectedKey);
               if (!next) {
                 setComboEditingFor(cfg.key, false);
                 setComboSearchTextFor(cfg.key, '');
@@ -3579,13 +3630,15 @@ export const Grid = React.memo((props: GridProps) => {
                     text={isEditing ? menuFilterSearch : undefined}
                     selectedKey={isEditing ? undefined : typeof menuFilterValue === 'string' ? menuFilterValue : undefined}
                     onChange={(event, opt, _index, value) => {
-                      if (consumeComboIgnoreNextChange(menuFilterKey)) return;
+                      if (consumeComboIgnoreNextChange(menuFilterKey, opt)) return;
                       if (shouldIgnoreComboChange(menuFilterKey, opt)) return;
                       const searchValue = typeof value === 'string' ? value : menuFilterSearch;
                       const resolvedOptions = filterComboOptions(options, searchValue);
-                      const resolvedKey = isEditing
-                        ? resolveComboKeyFromSearch(resolvedOptions, searchValue, typeof menuFilterValue === 'string' ? menuFilterValue : undefined)
-                        : opt?.key;
+                      const resolvedKey = opt?.key ?? resolveComboKeyFromSearch(
+                        resolvedOptions,
+                        searchValue,
+                        typeof menuFilterValue === 'string' ? menuFilterValue : undefined,
+                      );
                       if (!resolvedKey) return;
                       setMenuFilterValue(String(resolvedKey));
                       setComboEditingFor(menuFilterKey, false);
@@ -3611,7 +3664,11 @@ export const Grid = React.memo((props: GridProps) => {
                       );
                     }}
                     onInputValueChange={(value) => {
-                      const next = normalizeComboSearchText(value);
+                      const next = normalizeSingleSelectSearchText(
+                        value,
+                        options,
+                        typeof menuFilterValue === 'string' ? menuFilterValue : undefined,
+                      );
                       if (!next) {
                         setComboEditingFor(menuFilterKey, false);
                         setMenuFilterSearch('');
@@ -4035,16 +4092,14 @@ export const Grid = React.memo((props: GridProps) => {
                     options={filteredPrefilterSearchByOptions}
                     selectedKey={comboEditing.prefilterSearchBy ? undefined : prefilters.searchBy}
                     onChange={(event, option, _index, value) => {
-                      if (consumeComboIgnoreNextChange('prefilterSearchBy')) return;
+                      if (consumeComboIgnoreNextChange('prefilterSearchBy', option)) return;
                       if (shouldIgnoreComboChange('prefilterSearchBy', option)) return;
                       const searchValue = typeof value === 'string' ? value : prefilterSearchBySearch;
                       const resolvedOptions = filterComboOptions(
                         prefilterSearchByOptions as IComboBoxOption[],
                         searchValue,
                       );
-                      const resolvedKey = comboEditing.prefilterSearchBy
-                        ? resolveComboKeyFromSearch(resolvedOptions, searchValue, prefilters.searchBy)
-                        : option?.key;
+                      const resolvedKey = option?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, prefilters.searchBy);
                       if (!resolvedKey) return;
                       onPrefilterSearchByChange(event, { key: resolvedKey } as IComboBoxOption);
                       setComboEditingFor('prefilterSearchBy', false);
@@ -4077,7 +4132,11 @@ export const Grid = React.memo((props: GridProps) => {
                     autoComplete="off"
                     text={comboEditing.prefilterSearchBy ? prefilterSearchBySearch : undefined}
                     onInputValueChange={(value) => {
-                      const next = normalizeComboSearchText(value);
+                      const next = normalizeSingleSelectSearchText(
+                        value,
+                        prefilterSearchByOptions as IComboBoxOption[],
+                        prefilters.searchBy,
+                      );
                       if (!next) {
                         setComboEditingFor('prefilterSearchBy', false);
                         setPrefilterSearchBySearch('');
@@ -4287,16 +4346,14 @@ export const Grid = React.memo((props: GridProps) => {
                 options={filteredPrefilterWorkThatOptions}
                 selectedKey={comboEditing.prefilterWorkThat ? undefined : prefilters.workThat}
                 onChange={(event, option, _index, value) => {
-                  if (consumeComboIgnoreNextChange('prefilterWorkThat')) return;
+                  if (consumeComboIgnoreNextChange('prefilterWorkThat', option)) return;
                   if (shouldIgnoreComboChange('prefilterWorkThat', option)) return;
                   const searchValue = typeof value === 'string' ? value : prefilterWorkThatSearch;
                   const resolvedOptions = filterComboOptions(
                     prefilterWorkThatOptions as IComboBoxOption[],
                     searchValue,
                   );
-                  const resolvedKey = option?.key ?? (comboEditing.prefilterWorkThat
-                    ? resolveComboKeyFromSearch(resolvedOptions, searchValue, prefilters.workThat)
-                    : undefined);
+                  const resolvedKey = option?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, prefilters.workThat);
                   if (!resolvedKey) return;
                   onPrefilterWorkThatChange(event, { key: resolvedKey } as IComboBoxOption);
                   setComboEditingFor('prefilterWorkThat', false);
@@ -4329,7 +4386,11 @@ export const Grid = React.memo((props: GridProps) => {
                   );
                 }}
                 onInputValueChange={(value) => {
-                  const next = normalizeComboSearchText(value);
+                  const next = normalizeSingleSelectSearchText(
+                    value,
+                    prefilterWorkThatOptions as IComboBoxOption[],
+                    prefilters.workThat,
+                  );
                   if (!next) {
                     setComboEditingFor('prefilterWorkThat', false);
                     setPrefilterWorkThatSearch('');
@@ -4474,13 +4535,11 @@ export const Grid = React.memo((props: GridProps) => {
               options={filteredSearchByOptions}
               selectedKey={comboEditing.searchBy ? undefined : filters.searchBy}
               onChange={(event, option, _index, value) => {
-                if (consumeComboIgnoreNextChange('searchBy')) return;
+                if (consumeComboIgnoreNextChange('searchBy', option)) return;
                 if (shouldIgnoreComboChange('searchBy', option)) return;
                 const searchValue = typeof value === 'string' ? value : searchBySearch;
                 const resolvedOptions = filterComboOptions(searchByOptions as IComboBoxOption[], searchValue);
-                const resolvedKey = comboEditing.searchBy
-                  ? resolveComboKeyFromSearch(resolvedOptions, searchValue, filters.searchBy)
-                  : option?.key;
+                const resolvedKey = option?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, filters.searchBy);
                 if (!resolvedKey) return;
                 onSearchByChange(event, { key: resolvedKey } as IComboBoxOption);
                 setComboEditingFor('searchBy', false);
@@ -4503,7 +4562,11 @@ export const Grid = React.memo((props: GridProps) => {
               autoComplete="off"
               text={comboEditing.searchBy ? searchBySearch : undefined}
               onInputValueChange={(value) => {
-                const next = normalizeComboSearchText(value);
+                const next = normalizeSingleSelectSearchText(
+                  value,
+                  searchByOptions as IComboBoxOption[],
+                  filters.searchBy,
+                );
                 if (!next) {
                   setComboEditingFor('searchBy', false);
                   setSearchBySearch('');
