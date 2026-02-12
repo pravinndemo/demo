@@ -1949,6 +1949,36 @@ export const Grid = React.memo((props: GridProps) => {
     return filters.searchBy === 'postcode' || filters.searchBy === 'address';
   }, [filters.postcode, filters.searchBy, isSalesSearch]);
 
+  const handleNavigate = React.useCallback(
+    async (
+      item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
+      column?: IColumn,
+      forceLoader: boolean = false,
+    ) => {
+      if (!item) return;
+      const rec = item as { saleid?: string; saleId?: string };
+      const saleId = rec.saleid ?? rec.saleId;
+      const rawField = (column?.fieldName ?? column?.key ?? '').toString();
+      const normalizedField = rawField.replace(/[^a-z0-9]/gi, '').toLowerCase();
+      const isSaleIdColumn = normalizedField === 'saleid';
+      const shouldShowLoader = forceLoader ? true : (isSaleIdColumn && !!saleId);
+      let requestId = 0;
+      if (shouldShowLoader) {
+        viewSaleRequestSeq.current += 1;
+        requestId = viewSaleRequestSeq.current;
+        setViewSaleLoading(true);
+      }
+      try {
+        await Promise.resolve(onNavigate(item));
+      } finally {
+        if (shouldShowLoader && viewSaleRequestSeq.current === requestId) {
+          setViewSaleLoading(false);
+        }
+      }
+    },
+    [onNavigate],
+  );
+
   React.useEffect(() => {
     setColumns(
       datasetColumns.map((c) => {
@@ -2922,37 +2952,7 @@ export const Grid = React.memo((props: GridProps) => {
     }
   }, []);
 
-  const handleNavigate = React.useCallback(
-    async (
-      item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
-      column?: IColumn,
-      forceLoader = false,
-    ) => {
-      if (!item) return;
-      const rec = item as { saleid?: string; saleId?: string };
-      const saleId = rec.saleid ?? rec.saleId;
-      const rawField = (column?.fieldName ?? column?.key ?? '').toString();
-      const normalizedField = rawField.replace(/[^a-z0-9]/gi, '').toLowerCase();
-      const isSaleIdColumn = normalizedField === 'saleid';
-      const shouldShowLoader = forceLoader || (isSaleIdColumn && !!saleId);
-      let requestId = 0;
-      if (shouldShowLoader) {
-        viewSaleRequestSeq.current += 1;
-        requestId = viewSaleRequestSeq.current;
-        setViewSaleLoading(true);
-      }
-      try {
-        await Promise.resolve(onNavigate(item));
-      } finally {
-        if (shouldShowLoader && viewSaleRequestSeq.current === requestId) {
-          setViewSaleLoading(false);
-        }
-      }
-    },
-    [onNavigate],
-  );
-
-  const onViewSelected = React.useCallback(async () => {
+  const onViewSelected = React.useCallback(() => {
     if (disableViewSalesRecordAction) {
       return;
     }
@@ -2960,7 +2960,7 @@ export const Grid = React.memo((props: GridProps) => {
     if (selected.length !== 1) return;
     const first = selected[0] as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord | undefined;
     if (first) {
-      await handleNavigate(first, undefined, true);
+      void handleNavigate(first, undefined, true);
     }
   }, [disableViewSalesRecordAction, handleNavigate, selection]);
 
@@ -3921,7 +3921,7 @@ export const Grid = React.memo((props: GridProps) => {
         ref={topRef}
         tabIndex={-1}
         aria-label={commonText.aria.resultsTable}
-        aria-busy={viewSaleLoading ? 'true' : 'false'}
+        data-view-sale-loading={viewSaleLoading ? 'true' : 'false'}
       >
         <div className="voa-skip-links">
           <a href="#voa-grid-results">{commonText.aria.skipToResults}</a>
