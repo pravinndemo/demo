@@ -3921,7 +3921,7 @@ export const Grid = React.memo((props: GridProps) => {
         ref={topRef}
         tabIndex={-1}
         aria-label={commonText.aria.resultsTable}
-        aria-busy={viewSaleLoading}
+        aria-busy={viewSaleLoading ? 'true' : 'false'}
       >
         <div className="voa-skip-links">
           <a href="#voa-grid-results">{commonText.aria.skipToResults}</a>
