@@ -43,6 +43,53 @@ interface AssignableUsersResult {
   users?: AssignUser[];
 }
 
+const resolveAssignmentStatusValidation = (
+  records: Record<string, unknown>[],
+  screenKind: ScreenKind,
+  assignmentConfig: { allowedStatusesManager: string[]; allowedStatusesQc: string[]; allowedStatuses: string[] },
+  invalidStatusMessage: string,
+): { error?: string; assignmentTaskStatus?: string } => {
+  const allowedStatuses = (
+    screenKind === 'managerAssign'
+      ? assignmentConfig.allowedStatusesManager
+      : screenKind === 'qcAssign'
+        ? assignmentConfig.allowedStatusesQc
+        : assignmentConfig.allowedStatuses
+  ).map((s) => s.toLowerCase());
+
+  const normalizedStatuses: string[] = [];
+  for (const rec of records) {
+    const statusRaw = (rec.taskstatus ?? rec.taskStatus ?? '') as string;
+    const normalized = String(statusRaw ?? '').trim().toLowerCase();
+    if (normalized) {
+      normalizedStatuses.push(normalized);
+    }
+    if (allowedStatuses.length > 0 && normalized && !allowedStatuses.includes(normalized)) {
+      return { error: invalidStatusMessage };
+    }
+  }
+
+  let assignmentTaskStatus: string | undefined;
+  if (screenKind === 'managerAssign') {
+    const hasNew = normalizedStatuses.includes('new');
+    const hasNonNew = normalizedStatuses.some((status) => status !== 'new');
+    if (hasNew && hasNonNew) {
+      return { error: invalidStatusMessage };
+    }
+    assignmentTaskStatus = hasNew ? 'New' : 'NULL';
+  }
+  if (screenKind === 'qcAssign') {
+    const hasQcRequested = normalizedStatuses.includes('qc requested');
+    const hasNonQcRequested = normalizedStatuses.some((status) => status !== 'qc requested');
+    if (hasQcRequested && hasNonQcRequested) {
+      return { error: invalidStatusMessage };
+    }
+    assignmentTaskStatus = hasQcRequested ? 'QC Requested' : 'NULL';
+  }
+
+  return { assignmentTaskStatus };
+};
+
 const SSU_APP_ID = 'cdb5343c-51c1-ec11-983e-002248438fff';
 const KNOWN_TABLE_KEYS: TableKey[] = ['sales', 'allsales', 'myassignment', 'manager', 'qa', 'qaassign', 'qaview'];
 const SOURCE_CODES: Record<TableKey, string> = {
@@ -529,6 +576,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const managerText = SCREEN_TEXT.managerAssignment;
   const qcText = SCREEN_TEXT.qcAssignment;
   const assignTasksText = SCREEN_TEXT.assignTasks;
+  const assignmentConfig = CONTROL_CONFIG.taskAssignment ?? {
+    maxBatchSize: 500,
+    allowedStatusesManager: [] as string[],
+    allowedStatusesQc: [] as string[],
+    allowedStatuses: [] as string[],
+  };
   const isLocalHost = React.useMemo(() => {
     if (typeof window === 'undefined') return false;
     const host = window.location?.hostname ?? '';
@@ -657,15 +710,34 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const caseworkerOptionsLoadKeyRef = React.useRef<string>('');
   const assignableUsersCacheLoadKeyRef = React.useRef<string>('');
   const assignableUsersCacheContextsRef = React.useRef<Set<string>>(new Set());
-  const handleAssignPanelToggle = React.useCallback((isOpen: boolean) => {
-    setAssignPanelOpen(isOpen);
-    if (isOpen) {
-      setAssignUsers([]);
-      setAssignUsersError(undefined);
-      setAssignUsersInfo(undefined);
-      setAssignUsersLoading(true);
+  const handleAssignPanelToggle = React.useCallback((isOpen: boolean): boolean => {
+    if (!isOpen) {
+      setAssignPanelOpen(false);
+      return true;
     }
-  }, []);
+
+    const selected = selection.getSelection() as Record<string, unknown>[];
+    const isAssignmentScreen = screenKind === 'managerAssign' || screenKind === 'qcAssign';
+    if (isAssignmentScreen && selected.length > 0) {
+      const statusCheck = resolveAssignmentStatusValidation(
+        selected,
+        screenKind,
+        assignmentConfig,
+        assignTasksText.messages.invalidStatus,
+      );
+      if (statusCheck.error) {
+        setAssignMessage({ text: statusCheck.error, type: MessageBarType.error });
+        return false;
+      }
+    }
+
+    setAssignPanelOpen(true);
+    setAssignUsers([]);
+    setAssignUsersError(undefined);
+    setAssignUsersInfo(undefined);
+    setAssignUsersLoading(true);
+    return true;
+  }, [assignmentConfig, assignTasksText.messages.invalidStatus, screenKind]);
   // Defer persistence until after initial hydration to avoid add/remove flicker in localStorage
   const [hydrated, setHydrated] = React.useState(false);
   const allowColumnReorder = (context.parameters as unknown as Record<string, { raw?: string | boolean }>).allowColumnReorder?.raw === true ||
@@ -1943,12 +2015,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         setAssignMessage({ text: assignTasksText.messages.selectTasksWarning, type: MessageBarType.warning });
         return false;
       }
-      const assignmentConfig = CONTROL_CONFIG.taskAssignment ?? {
-        maxBatchSize: 500,
-        allowedStatusesManager: [] as string[],
-        allowedStatusesQc: [] as string[],
-        allowedStatuses: [] as string[],
-      };
       const maxBatchSize = assignmentConfig.maxBatchSize ?? 500;
       if (selected.length > maxBatchSize) {
         const template = assignTasksText.messages.tooManyTasks;
@@ -1970,47 +2036,17 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         const digitsOnly = raw.replace(/\D/g, '');
         return digitsOnly || raw;
       };
-      const allowedStatuses = (
-        screenKind === 'managerAssign'
-          ? assignmentConfig.allowedStatusesManager
-          : screenKind === 'qcAssign'
-            ? assignmentConfig.allowedStatusesQc
-            : assignmentConfig.allowedStatuses
-      ).map((s) => s.toLowerCase());
-      const normalizedStatuses: string[] = [];
-      for (const rec of selected) {
-        const statusRaw = (rec.taskstatus ?? rec.taskStatus ?? '') as string;
-        const normalized = String(statusRaw ?? '').trim().toLowerCase();
-        if (normalized) {
-          normalizedStatuses.push(normalized);
-        }
-        if (allowedStatuses.length > 0 && normalized && !allowedStatuses.includes(normalized)) {
-          const message = assignTasksText.messages.invalidStatus;
-          setAssignMessage({ text: message, type: MessageBarType.error });
-          return false;
-        }
+      const statusCheck = resolveAssignmentStatusValidation(
+        selected,
+        screenKind,
+        assignmentConfig,
+        assignTasksText.messages.invalidStatus,
+      );
+      if (statusCheck.error) {
+        setAssignMessage({ text: statusCheck.error, type: MessageBarType.error });
+        return false;
       }
-      let assignmentTaskStatus: string | undefined;
-      if (screenKind === 'managerAssign') {
-        const hasNew = normalizedStatuses.includes('new');
-        const hasNonNew = normalizedStatuses.some((status) => status !== 'new');
-        if (hasNew && hasNonNew) {
-          const message = assignTasksText.messages.invalidStatus;
-          setAssignMessage({ text: message, type: MessageBarType.error });
-          return false;
-        }
-        assignmentTaskStatus = hasNew ? 'New' : 'NULL';
-      }
-      if (screenKind === 'qcAssign') {
-        const hasQcRequested = normalizedStatuses.includes('qc requested');
-        const hasNonQcRequested = normalizedStatuses.some((status) => status !== 'qc requested');
-        if (hasQcRequested && hasNonQcRequested) {
-          const message = assignTasksText.messages.invalidStatus;
-          setAssignMessage({ text: message, type: MessageBarType.error });
-          return false;
-        }
-        assignmentTaskStatus = hasQcRequested ? 'QC Requested' : 'NULL';
-      }
+      const assignmentTaskStatus = statusCheck.assignmentTaskStatus;
       const taskIds = selected
         .map((rec) => toNumericTaskId(rec.taskid ?? rec.taskId ?? ''))
         .map((value) => value.trim())

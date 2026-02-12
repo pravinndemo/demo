@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Project containing your PowerApps Component Framework (PCF) control.",
   "scripts": {
-    "build": "pcf-scripts build",
+    "build": "set NODE_ENV=production&& pcf-scripts build",
     "clean": "pcf-scripts clean",
     "lint": "pcf-scripts lint",
     "lint:fix": "pcf-scripts lint fix",

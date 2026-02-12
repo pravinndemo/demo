@@ -142,7 +142,7 @@ export interface GridProps {
   assignUsersLoading?: boolean;
   assignUsersError?: string;
   assignUsersInfo?: string;
-  onAssignPanelToggle?: (isOpen: boolean) => void;
+  onAssignPanelToggle?: (isOpen: boolean) => boolean | void;
   currentUserId?: string;
 }
 
@@ -699,7 +699,11 @@ export const Grid = React.memo((props: GridProps) => {
       delete comboExpectedSelectionRef.current[key];
       return true;
     }
-    return true;
+    if (!optKey) {
+      return true;
+    }
+    delete comboExpectedSelectionRef.current[key];
+    return false;
   }, []);
   const commitPrefilterMultiSelect = React.useCallback(
     (
@@ -779,9 +783,10 @@ export const Grid = React.memo((props: GridProps) => {
     setDismissedAssignUsersError(false);
   }, [assignUsersError]);
   const openAssignPanel = React.useCallback(() => {
+    const allowOpen = onAssignPanelToggle?.(true);
+    if (allowOpen === false) return;
     setAssignSelectedUserId(undefined);
     setAssignPanelOpen(true);
-    onAssignPanelToggle?.(true);
   }, [onAssignPanelToggle]);
   const closeAssignPanel = React.useCallback(() => {
     setAssignSelectedUserId(undefined);
@@ -2405,7 +2410,7 @@ export const Grid = React.memo((props: GridProps) => {
                 selectedKey={comboEditing.salesBillingAuthority ? undefined : authority}
                 allowFreeform={false}
                 allowFreeInput
-                autoComplete="on"
+                autoComplete="off"
                 text={comboEditing.salesBillingAuthority ? billingAuthoritySearch : undefined}
                 disabled={billingAuthorityOptionsLoading}
                 onChange={(event, opt, _index, value) => {
@@ -2612,7 +2617,7 @@ export const Grid = React.memo((props: GridProps) => {
               ]}
               selectedKey={mode}
               allowFreeform={false}
-              autoComplete="on"
+              autoComplete="off"
               onChange={(_, o) =>
                 updateNumericFilter(numericKey, 'mode', typeof o?.key === 'string' ? o.key : mode)
               }
@@ -2695,7 +2700,7 @@ export const Grid = React.memo((props: GridProps) => {
             selectedKey={isEditing ? undefined : selectedKey}
             allowFreeform={false}
             allowFreeInput
-            autoComplete="on"
+            autoComplete="off"
             text={isEditing ? searchText : undefined}
             onChange={(event, opt, _index, value) => {
               if (consumeComboIgnoreNextChange(cfg.key)) return;
@@ -3731,7 +3736,7 @@ export const Grid = React.memo((props: GridProps) => {
                 ]}
                 selectedKey={numVal.mode ?? '>='}
                 allowFreeform={false}
-                autoComplete="on"
+                autoComplete="off"
                 onChange={(_, opt) =>
                   setMenuFilterValue((prev) => {
                     const current = (prev as NumericFilter) ?? { mode: '>=' };
@@ -4030,7 +4035,7 @@ export const Grid = React.memo((props: GridProps) => {
                     }}
                     allowFreeform={false}
                     allowFreeInput
-                    autoComplete="on"
+                    autoComplete="off"
                     text={comboEditing.prefilterSearchBy ? prefilterSearchBySearch : undefined}
                     onInputValueChange={(value) => {
                       const next = normalizeComboSearchText(value);
@@ -4250,9 +4255,9 @@ export const Grid = React.memo((props: GridProps) => {
                     prefilterWorkThatOptions as IComboBoxOption[],
                     searchValue,
                   );
-                  const resolvedKey = comboEditing.prefilterWorkThat
+                  const resolvedKey = option?.key ?? (comboEditing.prefilterWorkThat
                     ? resolveComboKeyFromSearch(resolvedOptions, searchValue, prefilters.workThat)
-                    : option?.key;
+                    : undefined);
                   if (!resolvedKey) return;
                   onPrefilterWorkThatChange(event, { key: resolvedKey } as IComboBoxOption);
                   setComboEditingFor('prefilterWorkThat', false);
@@ -4260,7 +4265,7 @@ export const Grid = React.memo((props: GridProps) => {
                 }}
                 allowFreeform={false}
                 allowFreeInput
-                autoComplete="on"
+                autoComplete="off"
                 text={comboEditing.prefilterWorkThat ? prefilterWorkThatSearch : undefined}
                 onKeyDownCapture={(event) => {
                   const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
@@ -4456,7 +4461,7 @@ export const Grid = React.memo((props: GridProps) => {
               }}
               allowFreeform={false}
               allowFreeInput
-              autoComplete="on"
+              autoComplete="off"
               text={comboEditing.searchBy ? searchBySearch : undefined}
               onInputValueChange={(value) => {
                 const next = normalizeComboSearchText(value);

@@ -310,7 +310,7 @@ export const SCREEN_TEXT = {
       assignedSuccessWithUserMultiple: 'Assigned {count} tasks to {user}.',
       alreadyAssigned: 'One or more of the selected tasks has already been assigned. Please refresh the page and try again.',
       assignmentFailed: 'Technical error. Please try again in some time.',
-      invalidStatus: 'One or more selected tasks cannot be assigned based on status.',
+      invalidStatus: 'Assignment is not available for the selected status. Check the task status and try this option again.',
       tooManyTasks: 'Please select {max} tasks or fewer for batch assignment.',
     },
     aria: {
