@@ -1420,6 +1420,9 @@ export const Grid = React.memo((props: GridProps) => {
     };
     onPrefilterApply(normalized, { source: 'user' });
     prefilterDirtyRef.current = false;
+    comboIgnoreNextInputRef.current = {};
+    comboIgnoreNextChangeRef.current = {};
+    comboExpectedSelectionRef.current = {};
     if (isPrefilterNarrow) {
       setPrefilterExpanded(false);
     }
@@ -1427,6 +1430,9 @@ export const Grid = React.memo((props: GridProps) => {
 
   const handlePrefilterClear = React.useCallback(() => {
     prefilterDirtyRef.current = true;
+    comboIgnoreNextInputRef.current = {};
+    comboIgnoreNextChangeRef.current = {};
+    comboExpectedSelectionRef.current = {};
     if (isCaseworkerView) {
       setPrefilters(caseworkerPrefilterDefaults);
     } else if (isQcView) {
@@ -2495,7 +2501,7 @@ export const Grid = React.memo((props: GridProps) => {
                 aria-describedby={buildAriaDescribedBy(billingAuthorityHint ? billingAuthorityHintId : undefined)}
                 placeholder={salesSearchText.placeholders.billingAuthority}
                 options={filteredBillingAuthorityOptionsList}
-                selectedKey={comboEditing.salesBillingAuthority ? undefined : authority}
+                selectedKey={comboEditing.salesBillingAuthority ? null : authority}
                 allowFreeform={false}
                 allowFreeInput
                 autoComplete="off"
@@ -2783,7 +2789,7 @@ export const Grid = React.memo((props: GridProps) => {
             label={cfg.label}
             aria-describedby={buildAriaDescribedBy(disambiguationHint ? hintId : undefined)}
             options={filteredOptions}
-            selectedKey={isEditing ? undefined : selectedKey}
+            selectedKey={isEditing ? null : selectedKey}
             allowFreeform={false}
             allowFreeInput
             autoComplete="off"
@@ -3628,7 +3634,7 @@ export const Grid = React.memo((props: GridProps) => {
                     allowFreeInput
                     autoComplete="off"
                     text={isEditing ? menuFilterSearch : undefined}
-                    selectedKey={isEditing ? undefined : typeof menuFilterValue === 'string' ? menuFilterValue : undefined}
+                    selectedKey={isEditing ? null : typeof menuFilterValue === 'string' ? menuFilterValue : undefined}
                     calloutProps={{ directionalHint: DirectionalHint.bottomLeftEdge, directionalHintFixed: true }}
                     onChange={(event, opt, _index, value) => {
                       if (consumeComboIgnoreNextChange(menuFilterKey, opt)) return;
@@ -4092,7 +4098,7 @@ export const Grid = React.memo((props: GridProps) => {
                     ariaLabel={prefilterText.labels.searchBy}
                     aria-describedby={buildAriaDescribedBy(prefilterSearchByHint ? 'prefilter-searchby-hint' : undefined)}
                     options={filteredPrefilterSearchByOptions}
-                    selectedKey={comboEditing.prefilterSearchBy ? undefined : prefilters.searchBy}
+                    selectedKey={comboEditing.prefilterSearchBy ? null : prefilters.searchBy}
                     onChange={(event, option, _index, value) => {
                       if (consumeComboIgnoreNextChange('prefilterSearchBy', option)) return;
                       if (shouldIgnoreComboChange('prefilterSearchBy', option)) return;
@@ -4346,7 +4352,8 @@ export const Grid = React.memo((props: GridProps) => {
                 aria-describedby={buildAriaDescribedBy(prefilterWorkThatHint ? 'prefilter-workthat-hint' : undefined)}
                 placeholder={prefilterText.placeholders.workThat}
                 options={filteredPrefilterWorkThatOptions}
-                selectedKey={comboEditing.prefilterWorkThat ? undefined : prefilters.workThat}
+                selectedKey={comboEditing.prefilterWorkThat ? null : prefilters.workThat}
+                calloutProps={{ setInitialFocus: false }}
                 onChange={(event, option, _index, value) => {
                   if (consumeComboIgnoreNextChange('prefilterWorkThat', option)) return;
                   if (shouldIgnoreComboChange('prefilterWorkThat', option)) return;
@@ -4535,7 +4542,7 @@ export const Grid = React.memo((props: GridProps) => {
               label={salesSearchText.searchPanel.searchByLabel}
               aria-describedby={buildAriaDescribedBy(searchByHint ? 'voa-searchby-hint' : undefined)}
               options={filteredSearchByOptions}
-              selectedKey={comboEditing.searchBy ? undefined : filters.searchBy}
+              selectedKey={comboEditing.searchBy ? null : filters.searchBy}
               onChange={(event, option, _index, value) => {
                 if (consumeComboIgnoreNextChange('searchBy', option)) return;
                 if (shouldIgnoreComboChange('searchBy', option)) return;
