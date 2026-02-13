@@ -3629,6 +3629,7 @@ export const Grid = React.memo((props: GridProps) => {
                     autoComplete="off"
                     text={isEditing ? menuFilterSearch : undefined}
                     selectedKey={isEditing ? undefined : typeof menuFilterValue === 'string' ? menuFilterValue : undefined}
+                    calloutProps={{ directionalHint: DirectionalHint.bottomLeftEdge, directionalHintFixed: true }}
                     onChange={(event, opt, _index, value) => {
                       if (consumeComboIgnoreNextChange(menuFilterKey, opt)) return;
                       if (shouldIgnoreComboChange(menuFilterKey, opt)) return;
@@ -3773,6 +3774,7 @@ export const Grid = React.memo((props: GridProps) => {
                       text={menuFilterSearch.trim() ? menuFilterSearch : undefined}
                       persistMenu
                       selectedKey={selectedKeys}
+                      calloutProps={{ directionalHint: DirectionalHint.bottomLeftEdge, directionalHintFixed: true }}
                       onChange={(_, opt) => handleMenuFilterMultiChange(opt)}
                       onInputValueChange={(value) => {
                         if (consumeComboIgnoreNextInput(menuFilterKey)) {
