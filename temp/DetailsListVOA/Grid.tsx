@@ -205,7 +205,8 @@ const UPRN_MAX_LENGTH = 12;
 const ADDRESS_FIELD_MAX_LENGTH = 150;
 const MIN_ADDRESS_TEXT_LENGTH = 3;
 const SALE_ID_REGEX = /^S-\d+$/i;
-const TASK_ID_REGEX = /^\d+$/i;
+const TASK_ID_REGEX = /^(?:\d+|[AM]-\d+)$/i;
+const TASK_ID_MIN_LENGTH = 3;
 const BILLING_AUTHORITY_ALL_KEY = '__all__';
 const CASEWORKER_ALL_KEY = '__all__';
 const SELECT_ALL_KEY = '__select_all__';
@@ -253,6 +254,12 @@ const sanitizeAlphaNumHyphen = (value?: string, maxLength = ID_FIELD_MAX_LENGTH)
   (value ?? '')
     .toUpperCase()
     .replace(/[^A-Z0-9-]/g, '')
+    .slice(0, maxLength);
+
+const sanitizeTaskIdInput = (value?: string, maxLength = ID_FIELD_MAX_LENGTH): string =>
+  (value ?? '')
+    .toUpperCase()
+    .replace(/[^AM0-9-]/g, '')
     .slice(0, maxLength);
 
 const sanitizeDigits = (value?: string, maxLength = UPRN_MAX_LENGTH): string =>
@@ -409,9 +416,9 @@ const SEARCH_FIELD_CONFIGS: Record<SearchByOption, SearchFieldConfig> = {
     label: 'Task ID',
     control: 'text',
     stateKey: 'taskId',
-    placeholder: '1000001',
-    inputMode: 'numeric',
-    transform: (v) => (v ?? '').replace(/\D/g, ''),
+    placeholder: 'A-1000001',
+    minLength: TASK_ID_MIN_LENGTH,
+    transform: (v) => sanitizeTaskIdInput(v, ID_FIELD_MAX_LENGTH),
   },
   uprn: {
     key: 'uprn',
@@ -1463,7 +1470,7 @@ export const Grid = React.memo((props: GridProps) => {
     (fs: GridFilterState) => {
       if (isSalesSearch) {
         const saleId = sanitizeAlphaNumHyphen(fs.saleId, ID_FIELD_MAX_LENGTH).trim();
-        const taskId = sanitizeDigits(fs.taskId, ID_FIELD_MAX_LENGTH).trim();
+        const taskId = sanitizeTaskIdInput(fs.taskId, ID_FIELD_MAX_LENGTH).trim();
         const uprn = sanitizeDigits(fs.uprn, UPRN_MAX_LENGTH).trim();
         const building = (fs.buildingNameNumber ?? '').trim();
         const street = (fs.street ?? '').trim();
@@ -1477,8 +1484,12 @@ export const Grid = React.memo((props: GridProps) => {
             ? 'Please enter a valid Sale ID'
             : undefined;
         const taskIdError =
-          fs.searchBy === 'taskId' && taskId.length > 0 && !TASK_ID_REGEX.test(taskId)
-            ? 'Please enter a valid Task ID'
+          fs.searchBy === 'taskId' && taskId.length > 0
+            ? taskId.length < TASK_ID_MIN_LENGTH
+              ? `Enter at least ${TASK_ID_MIN_LENGTH} characters`
+              : !TASK_ID_REGEX.test(taskId)
+                ? 'Use A- or M- prefix (e.g. A-1000001) or numbers only.'
+                : undefined
             : undefined;
         const uprnError =
           fs.searchBy === 'uprn' && (fs.uprn ?? '').trim().length > 0 && uprn.length === 0
@@ -1543,6 +1554,15 @@ export const Grid = React.memo((props: GridProps) => {
           searchField = `Enter at least ${cfg.minLength} characters`;
         }
       }
+      const taskId = sanitizeTaskIdInput(fs.taskId, ID_FIELD_MAX_LENGTH).trim();
+      const taskIdError =
+        fs.searchBy === 'taskId' && taskId.length > 0
+          ? taskId.length < TASK_ID_MIN_LENGTH
+            ? `Enter at least ${TASK_ID_MIN_LENGTH} characters`
+            : !TASK_ID_REGEX.test(taskId)
+              ? 'Use A- or M- prefix (e.g. A-1000001) or numbers only.'
+              : undefined
+          : undefined;
       const address = (fs.address ?? '').trim();
       const postcode = normalizeUkPostcode(fs.postcode ?? '');
       const summary = (fs.summaryFlag ?? '').trim();
@@ -1557,6 +1577,7 @@ export const Grid = React.memo((props: GridProps) => {
         address: fs.searchBy === 'address' && address.length > 0 && address.length < 3 ? 'Enter at least 3 characters' : undefined,
         postcode: postcodeError,
         summaryFlag: fs.searchBy === 'summaryFlag' && summary.length > 0 && summary.length < 3 ? 'Enter at least 3 characters' : undefined,
+        taskId: taskIdError,
         searchField,
       };
     },
@@ -1854,7 +1875,7 @@ export const Grid = React.memo((props: GridProps) => {
   const salesSearchCanSearch = React.useMemo(() => {
     if (!isSalesSearch) return true;
     const saleId = sanitizeAlphaNumHyphen(filters.saleId, ID_FIELD_MAX_LENGTH).trim();
-    const taskId = sanitizeDigits(filters.taskId, ID_FIELD_MAX_LENGTH).trim();
+    const taskId = sanitizeTaskIdInput(filters.taskId, ID_FIELD_MAX_LENGTH).trim();
     const uprn = sanitizeDigits(filters.uprn, UPRN_MAX_LENGTH).trim();
     const billingAuthority = (filters.billingAuthority?.[0] ?? '').trim();
     const billingAuthorityReference = (filters.bacode ?? '').trim();
@@ -1867,7 +1888,7 @@ export const Grid = React.memo((props: GridProps) => {
       case 'saleId':
         return saleId.length >= 3 && SALE_ID_REGEX.test(saleId);
       case 'taskId':
-        return taskId.length > 0 && TASK_ID_REGEX.test(taskId);
+        return taskId.length >= TASK_ID_MIN_LENGTH && TASK_ID_REGEX.test(taskId);
       case 'uprn':
         return uprn.length > 0 && uprn.length <= UPRN_MAX_LENGTH;
       case 'billingAuthority':
@@ -1920,7 +1941,7 @@ export const Grid = React.memo((props: GridProps) => {
       if (isSalesSearch) {
         return salesSearchHasErrors || !salesSearchCanSearch;
       }
-      return !!uprnError || !!addressError || !!postcodeError || !!summaryFlagError || !!searchFieldError;
+      return !!uprnError || !!addressError || !!postcodeError || !!summaryFlagError || !!taskIdError || !!searchFieldError;
     },
     [
       addressError,
@@ -1930,6 +1951,7 @@ export const Grid = React.memo((props: GridProps) => {
       salesSearchHasErrors,
       searchFieldError,
       summaryFlagError,
+      taskIdError,
       uprnError,
     ],
   );
@@ -1948,7 +1970,7 @@ export const Grid = React.memo((props: GridProps) => {
         next.saleId = sanitizeAlphaNumHyphen(filters.saleId, ID_FIELD_MAX_LENGTH).trim() || undefined;
       }
       if (filters.searchBy === 'taskId') {
-        next.taskId = sanitizeDigits(filters.taskId, ID_FIELD_MAX_LENGTH).trim() || undefined;
+        next.taskId = sanitizeTaskIdInput(filters.taskId, ID_FIELD_MAX_LENGTH).trim() || undefined;
       }
       if (filters.searchBy === 'uprn') {
         next.uprn = sanitizeDigits(filters.uprn, UPRN_MAX_LENGTH).trim() || undefined;
@@ -1969,7 +1991,7 @@ export const Grid = React.memo((props: GridProps) => {
       return;
     }
 
-    if (uprnError || addressError || postcodeError || summaryFlagError || searchFieldError) {
+    if (uprnError || addressError || postcodeError || summaryFlagError || taskIdError || searchFieldError) {
       return;
     }
     const sanitized = sanitizeFilters(filters);
@@ -1989,6 +2011,7 @@ export const Grid = React.memo((props: GridProps) => {
     salesSearchHasErrors,
     searchFieldError,
     summaryFlagError,
+    taskIdError,
     uprnError,
   ]);
 
@@ -2478,7 +2501,10 @@ export const Grid = React.memo((props: GridProps) => {
               <TextField
                 label={salesSearchText.fields.postcode}
                 value={filters.postcode ?? ''}
-                onChange={(_, v) => updateFilters('postcode', normalizeUkPostcode((v ?? '').slice(0, 12)))}
+                onChange={(_, v) => {
+                  const next = (v ?? '').toUpperCase().slice(0, 12);
+                  updateFilters('postcode', next);
+                }}
                 errorMessage={postcodeError}
                 maxLength={12}
               />
@@ -2620,10 +2646,10 @@ export const Grid = React.memo((props: GridProps) => {
             <TextField
               label={salesSearchText.fields.taskId}
               value={filters.taskId ?? ''}
-              onChange={(_, v) => updateFilters('taskId', sanitizeDigits(v, ID_FIELD_MAX_LENGTH))}
+              onChange={(_, v) => updateFilters('taskId', sanitizeTaskIdInput(v, ID_FIELD_MAX_LENGTH))}
               errorMessage={taskIdError}
               maxLength={ID_FIELD_MAX_LENGTH}
-              inputMode="numeric"
+              placeholder="A-1000001"
             />
           </Stack.Item>
         );
@@ -3079,6 +3105,7 @@ export const Grid = React.memo((props: GridProps) => {
         return;
       }
       const fieldName = (gridCol.fieldName ?? gridCol.key) ?? '';
+      const menuFilterKey = `menuFilter-${gridCol.key ?? gridCol.fieldName ?? 'column'}`;
       const cfg = getColumnFilterConfigFor(tableKey, fieldName);
       const existing = columnFiltersState[fieldName];
       let initialValue: ColumnFilterValue = '';
@@ -3110,6 +3137,10 @@ export const Grid = React.memo((props: GridProps) => {
       }
       setMenuFilterValue(initialValue);
       setMenuFilterText(typeof initialValue === 'string' ? initialValue : '');
+      setMenuFilterSearch('');
+      comboIgnoreNextInputRef.current[menuFilterKey] = false;
+      comboIgnoreNextChangeRef.current[menuFilterKey] = false;
+      delete comboExpectedSelectionRef.current[menuFilterKey];
       setMenuFilterError(undefined);
       setMenuState({ target, column: gridCol });
     },
@@ -3154,6 +3185,17 @@ export const Grid = React.memo((props: GridProps) => {
         return;
       }
     }
+    if (normalizedField === 'taskid') {
+      const trimmed = sanitizeTaskIdInput(menuFilterText, ID_FIELD_MAX_LENGTH).trim();
+      if (trimmed && trimmed.length < TASK_ID_MIN_LENGTH) {
+        setMenuFilterError(`Enter at least ${TASK_ID_MIN_LENGTH} characters`);
+        return;
+      }
+      if (trimmed && !TASK_ID_REGEX.test(trimmed)) {
+        setMenuFilterError('Use A- or M- prefix (e.g. A-1000001) or numbers only.');
+        return;
+      }
+    }
     const cfg: ColumnFilterConfig | undefined = getColumnFilterConfigFor(tableKey, fieldName);
     if (menuFilterError) {
       setMenuFilterError(undefined);
@@ -3172,8 +3214,10 @@ export const Grid = React.memo((props: GridProps) => {
         case 'textPrefix':
         case 'textContains': {
           const trimmed = normalizedField === 'taskid'
-            ? sanitizeDigits(menuFilterText, ID_FIELD_MAX_LENGTH).trim()
-            : String(menuFilterText ?? '').trim();
+            ? sanitizeTaskIdInput(menuFilterText, ID_FIELD_MAX_LENGTH).trim()
+            : normalizedField === 'postcode'
+              ? normalizeUkPostcode(String(menuFilterText ?? ''))
+              : String(menuFilterText ?? '').trim();
           if (trimmed === '') delete updated[fieldName];
           else updated[fieldName] = trimmed;
           break;
@@ -3530,14 +3574,18 @@ export const Grid = React.memo((props: GridProps) => {
 
     const isApplyDisabled = () => {
       if (!cfg) {
-        const len = (menuFilterText ?? '').trim().length;
+        const len = isPostcodeField
+          ? normalizeUkPostcode(String(menuFilterText ?? '')).length
+          : (menuFilterText ?? '').trim().length;
         return len < minLen && !hasExistingFilter;
       }
       switch (cfg.control) {
         case 'textEq':
         case 'textPrefix':
         case 'textContains': {
-          const len = (menuFilterText ?? '').trim().length;
+          const len = isPostcodeField
+            ? normalizeUkPostcode(String(menuFilterText ?? '')).length
+            : (menuFilterText ?? '').trim().length;
           return len < minLen && !hasExistingFilter;
         }
         case 'singleSelect': {
@@ -3575,17 +3623,16 @@ export const Grid = React.memo((props: GridProps) => {
               placeholder={`Filter ${menuState.column.name}`}
               value={textVal}
               onChange={(_, v) => {
-                const next = isTaskIdField ? sanitizeDigits(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
+                const next = isTaskIdField ? sanitizeTaskIdInput(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
                 setMenuFilterValue(next);
                 setMenuFilterText(next);
                 if (menuFilterError) setMenuFilterError(undefined);
               }}
-              errorMessage={isPostcodeField ? menuFilterError : undefined}
-              inputMode={isTaskIdField ? 'numeric' : undefined}
+              errorMessage={(isPostcodeField || isTaskIdField) ? menuFilterError : undefined}
             />
             {isTaskIdField && (
               <Text variant="small" styles={{ root: { marginTop: 4 } }}>
-                Please enter only numeric.
+                Use A- or M- prefix (e.g. A-1000001) or numbers only.
               </Text>
             )}
           </>
@@ -3602,17 +3649,16 @@ export const Grid = React.memo((props: GridProps) => {
                   placeholder={`Filter ${menuState.column.name}`}
                   value={textVal}
                   onChange={(_, v) => {
-                    const next = isTaskIdField ? sanitizeDigits(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
+                    const next = isTaskIdField ? sanitizeTaskIdInput(v, ID_FIELD_MAX_LENGTH) : (v ?? '');
                     setMenuFilterValue(next);
                     setMenuFilterText(next);
                     if (menuFilterError) setMenuFilterError(undefined);
                   }}
-                  errorMessage={isPostcodeField ? menuFilterError : undefined}
-                  inputMode={isTaskIdField ? 'numeric' : undefined}
+                  errorMessage={(isPostcodeField || isTaskIdField) ? menuFilterError : undefined}
                 />
                 {isTaskIdField && (
                   <Text variant="small" styles={{ root: { marginTop: 4 } }}>
-                    Please enter only numeric.
+                    Use A- or M- prefix (e.g. A-1000001) or numbers only.
                   </Text>
                 )}
               </>
@@ -3734,11 +3780,45 @@ export const Grid = React.memo((props: GridProps) => {
                   ? (isSingleAll ? allKey : SELECT_ALL_KEY)
                   : '';
                 const menuFilterKey = `menuFilter-${menuState.column.key ?? menuState.column.fieldName ?? 'column'}`;
-                const menuHint = menuFilterSearch.trim()
-                  ? getComboDisambiguationHint(filteredColumnOptions, menuFilterSearch)
+                const selectedKeys = Array.isArray(menuFilterValue) ? menuFilterValue.map((key) => String(key)) : [];
+                const rawSearch = menuFilterSearch ?? '';
+                const normalizedSearch = normalizeMultiSelectSearchText(
+                  rawSearch,
+                  options,
+                  selectedKeys,
+                );
+                const filteredMultiOptions = filterComboOptions(
+                  options,
+                  normalizedSearch,
+                );
+                const exactMatchKey = normalizedSearch.trim()
+                  ? resolveComboOptionKey(options, normalizedSearch)
+                  : undefined;
+                const highlightBorder = theme.semanticColors.focusBorder ?? theme.palette.themePrimary;
+                const exactMatchOptions = exactMatchKey
+                  ? filteredMultiOptions.map((opt) => {
+                    if (String(opt.key) !== String(exactMatchKey)) return opt;
+                    const highlight = {
+                      backgroundColor: theme.semanticColors.menuItemBackgroundHovered,
+                      outline: `1px solid ${highlightBorder}`,
+                      outlineOffset: '-1px',
+                    };
+                    return {
+                      ...opt,
+                      styles: {
+                        ...opt.styles,
+                        root: [opt.styles?.root, highlight],
+                        rootHovered: [opt.styles?.rootHovered, highlight],
+                        rootFocused: [opt.styles?.rootFocused, highlight],
+                        rootPressed: [opt.styles?.rootPressed, highlight],
+                      },
+                    };
+                  })
+                  : filteredMultiOptions;
+                const menuHint = normalizedSearch.trim()
+                  ? getComboDisambiguationHint(filteredMultiOptions, normalizedSearch)
                   : undefined;
                 const menuHintId = `${menuFilterKey}-hint`;
-                const selectedKeys = Array.isArray(menuFilterValue) ? menuFilterValue.map((key) => String(key)) : [];
                 const handleMenuFilterMultiChange = (opt?: IComboBoxOption) => {
                   if (!opt) return;
                   if (hasSelectAll && String(opt.key) === selectAllKey) {
@@ -3772,12 +3852,12 @@ export const Grid = React.memo((props: GridProps) => {
                       label={`Filter ${menuState.column.name}`}
                       placeholder={`Select ${menuState.column.name}`}
                       aria-describedby={buildAriaDescribedBy(menuHint ? menuHintId : undefined)}
-                      options={filteredColumnOptions}
+                      options={exactMatchOptions}
                       multiSelect
                       allowFreeform={false}
                       allowFreeInput
                       autoComplete="off"
-                      text={menuFilterSearch.trim() ? menuFilterSearch : undefined}
+                      text={normalizedSearch.trim() ? normalizedSearch : undefined}
                       persistMenu
                       selectedKey={selectedKeys}
                       calloutProps={{ directionalHint: DirectionalHint.bottomLeftEdge, directionalHintFixed: true }}
@@ -3786,20 +3866,19 @@ export const Grid = React.memo((props: GridProps) => {
                         if (consumeComboIgnoreNextInput(menuFilterKey)) {
                           return;
                         }
-                        setMenuFilterSearch(
-                          normalizeMultiSelectSearchText(
-                            value,
-                            options,
-                            selectedKeys,
-                          ),
+                        const next = normalizeMultiSelectSearchText(
+                          value,
+                          options,
+                          selectedKeys,
                         );
+                        setMenuFilterSearch(next);
                       }}
                       onKeyDown={(event) => {
-                        if (!menuFilterSearch.trim()) return;
+                        if (!normalizedSearch.trim()) return;
                         commitPrefilterMultiSelect(
                           event,
-                          menuFilterSearch,
-                          filteredColumnOptions,
+                          normalizedSearch,
+                          filteredMultiOptions,
                           selectedKeys,
                           (_, opt) => handleMenuFilterMultiChange(opt),
                           menuFilterKey,

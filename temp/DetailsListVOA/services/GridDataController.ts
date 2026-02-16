@@ -42,6 +42,7 @@ const normalizeSortField = (value?: string): string | undefined => {
   const normalized = trimmed.replace(/[^a-z0-9]/gi, '').toLowerCase();
   if (normalized === 'saleid') return 'saleId';
   if (normalized === 'taskid') return 'taskId';
+  if (normalized === 'saleprice' || normalized === 'salesprice') return 'salesPrice';
   return trimmed;
 };
 

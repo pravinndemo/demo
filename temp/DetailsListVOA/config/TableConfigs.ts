@@ -48,7 +48,7 @@ const salesLookupFields = new Set<string>([
 
 const SALES_COLUMN_FILTERS: Record<string, ColumnFilterConfig> = {
   saleid: { control: 'textEq', minLength: 1 },
-  taskid: { control: 'textEq', minLength: 1 },
+  taskid: { control: 'textEq', minLength: 3 },
   uprn: { control: 'textEq', minLength: 1 },
   address: { control: 'textContains', minLength: 3 },
   postcode: { control: 'textPrefix', minLength: 2 },

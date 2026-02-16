@@ -52,7 +52,12 @@ namespace VOA.SVT.Plugins.CustomAPI
                 throw new InvalidPluginExecutionException("saleId is required.");
             }
 
-            var payloadOverride = GetInput(context, "payload");
+            var payloadOverride = GetInput(context, "saleSubmitPayload");
+            if (string.IsNullOrWhiteSpace(payloadOverride))
+            {
+                payloadOverride = GetInput(context, "payload");
+            }
+            var saleSubmitRemarks = GetInput(context, "saleSubmitRemarks");
 
             // 1) Read secrets/config from credential provider action
             var getSecretsRequest = new OrganizationRequest("voa_CredentialProvider")
@@ -87,7 +92,7 @@ namespace VOA.SVT.Plugins.CustomAPI
             var authResult = auth.GenerateAuthentication();
 
             var fullUrl = BuildUrl(apiConfig.Address, saleId);
-            var jsonBody = BuildRequestBody(context, payloadOverride);
+            var jsonBody = BuildRequestBody(context, payloadOverride, saleSubmitRemarks);
 
             trace?.Trace($"Submitting sales verification. Url={Truncate(fullUrl, 300)} Payload={Truncate(jsonBody, 500)}");
 
@@ -154,18 +159,40 @@ namespace VOA.SVT.Plugins.CustomAPI
         private static string GetInput(IPluginExecutionContext context, string key)
             => context.InputParameters.Contains(key) ? context.InputParameters[key]?.ToString() : null;
 
-        private static string BuildRequestBody(IPluginExecutionContext context, string payloadOverride)
+        private static string BuildRequestBody(IPluginExecutionContext context, string payloadOverride, string saleSubmitRemarks)
         {
+            var remarksOverride = NormalizeOptionalString(saleSubmitRemarks);
             if (!string.IsNullOrWhiteSpace(payloadOverride))
             {
-                return payloadOverride.Trim();
+                var trimmed = payloadOverride.Trim();
+                if (string.IsNullOrWhiteSpace(remarksOverride))
+                {
+                    return trimmed;
+                }
+
+                try
+                {
+                    var root = JsonSerializer.Deserialize<Dictionary<string, object>>(trimmed);
+                    if (root == null)
+                    {
+                        return trimmed;
+                    }
+                    var details = EnsureObject(root, "salesVerificationDetails");
+                    details["remarks"] = remarksOverride;
+                    root["salesVerificationDetails"] = details;
+                    return JsonSerializer.Serialize(root);
+                }
+                catch
+                {
+                    return trimmed;
+                }
             }
 
             var payload = new Dictionary<string, object>
             {
                 ["salesVerificationTaskDetails"] = BuildSalesVerificationTaskDetails(context),
                 ["salesParticularDetails"] = BuildSalesParticularDetails(context),
-                ["salesVerificationDetails"] = BuildSalesVerificationDetails(context)
+                ["salesVerificationDetails"] = BuildSalesVerificationDetails(context, remarksOverride)
             };
 
             return JsonSerializer.Serialize(payload);
@@ -202,19 +229,49 @@ namespace VOA.SVT.Plugins.CustomAPI
             };
         }
 
-        private static Dictionary<string, object> BuildSalesVerificationDetails(IPluginExecutionContext context)
+        private static Dictionary<string, object> BuildSalesVerificationDetails(IPluginExecutionContext context, string remarksOverride)
         {
+            var remarks = !string.IsNullOrWhiteSpace(remarksOverride)
+                ? remarksOverride
+                : NormalizeOptionalString(GetInput(context, "remarks"));
             return new Dictionary<string, object>
             {
                 ["isSaleUseful"] = NormalizeOptionalString(GetInput(context, "isSaleUseful")),
                 ["whyNotUseful"] = NormalizeOptionalString(GetInput(context, "whyNotUseful")),
                 ["additionalNotes"] = NormalizeOptionalString(GetInput(context, "additionalNotes")),
-                ["remarks"] = NormalizeOptionalString(GetInput(context, "remarks"))
+                ["remarks"] = remarks
             };
         }
 
         private static object NormalizeOptionalString(string value)
             => string.IsNullOrWhiteSpace(value) ? null : value;
+
+        private static Dictionary<string, object> EnsureObject(Dictionary<string, object> root, string key)
+        {
+            if (root != null && root.TryGetValue(key, out var value))
+            {
+                if (value is Dictionary<string, object> dict)
+                {
+                    return dict;
+                }
+                if (value is JsonElement element && element.ValueKind == JsonValueKind.Object)
+                {
+                    try
+                    {
+                        var parsed = JsonSerializer.Deserialize<Dictionary<string, object>>(element.GetRawText());
+                        if (parsed != null)
+                        {
+                            return parsed;
+                        }
+                    }
+                    catch
+                    {
+                        // ignore parse errors
+                    }
+                }
+            }
+            return new Dictionary<string, object>();
+        }
 
         private static string BuildUrl(string baseAddress, string saleId)
         {
