@@ -19,6 +19,7 @@ namespace VOA.SVT.Plugins.Helpers
         public UserPersona Persona { get; set; }
         public string ResolutionSource { get; set; }
         public string MatchedTeamName { get; set; }
+        public IReadOnlyList<string> MatchedTeamNames { get; set; }
         public string MatchedRoleName { get; set; }
         public IReadOnlyList<string> MatchedRoleNames { get; set; }
     }
@@ -47,24 +48,25 @@ namespace VOA.SVT.Plugins.Helpers
             if (service == null) throw new ArgumentNullException(nameof(service));
 
             var teamResult = ResolveFromTeams(service, userId, trace);
-            if (teamResult.Persona != UserPersona.None)
-            {
-                return teamResult;
-            }
-
             var roleResult = ResolveFromRoles(service, userId, trace);
-            if (roleResult.Persona != UserPersona.None)
-            {
-                return roleResult;
-            }
+
+            var persona = teamResult.Persona != UserPersona.None
+                ? teamResult.Persona
+                : roleResult.Persona;
+            var source = teamResult.Persona != UserPersona.None
+                ? teamResult.ResolutionSource
+                : roleResult.Persona != UserPersona.None
+                    ? roleResult.ResolutionSource
+                    : UserContextConfig.SourceNone;
 
             return new UserContextResult
             {
-                Persona = UserPersona.None,
-                ResolutionSource = UserContextConfig.SourceNone,
-                MatchedTeamName = string.Empty,
-                MatchedRoleName = string.Empty,
-                MatchedRoleNames = Array.Empty<string>()
+                Persona = persona,
+                ResolutionSource = source,
+                MatchedTeamName = teamResult.MatchedTeamName ?? string.Empty,
+                MatchedTeamNames = teamResult.MatchedTeamNames ?? Array.Empty<string>(),
+                MatchedRoleName = roleResult.MatchedRoleName ?? string.Empty,
+                MatchedRoleNames = roleResult.MatchedRoleNames ?? Array.Empty<string>()
             };
         }
 
@@ -94,6 +96,7 @@ namespace VOA.SVT.Plugins.Helpers
                 return new UserContextResult
                 {
                     Persona = UserPersona.None,
+                    MatchedTeamNames = Array.Empty<string>(),
                     MatchedRoleNames = Array.Empty<string>()
                 };
             }
@@ -108,6 +111,10 @@ namespace VOA.SVT.Plugins.Helpers
                 }
             }
 
+            var matchedTeams = teamNames
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
             if (teamNames.Contains(UserContextConfig.TeamNameSvtManager))
             {
                 return new UserContextResult
@@ -115,6 +122,7 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.Manager,
                     ResolutionSource = UserContextConfig.SourceTeam,
                     MatchedTeamName = UserContextConfig.TeamNameSvtManager,
+                    MatchedTeamNames = matchedTeams,
                     MatchedRoleName = string.Empty,
                     MatchedRoleNames = Array.Empty<string>()
                 };
@@ -127,6 +135,7 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.QA,
                     ResolutionSource = UserContextConfig.SourceTeam,
                     MatchedTeamName = UserContextConfig.TeamNameSvtQa,
+                    MatchedTeamNames = matchedTeams,
                     MatchedRoleName = string.Empty,
                     MatchedRoleNames = Array.Empty<string>()
                 };
@@ -139,6 +148,7 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.User,
                     ResolutionSource = UserContextConfig.SourceTeam,
                     MatchedTeamName = UserContextConfig.TeamNameSvtUser,
+                    MatchedTeamNames = matchedTeams,
                     MatchedRoleName = string.Empty,
                     MatchedRoleNames = Array.Empty<string>()
                 };
@@ -147,6 +157,7 @@ namespace VOA.SVT.Plugins.Helpers
             return new UserContextResult
             {
                 Persona = UserPersona.None,
+                MatchedTeamNames = matchedTeams,
                 MatchedRoleNames = Array.Empty<string>()
             };
         }
@@ -175,6 +186,7 @@ namespace VOA.SVT.Plugins.Helpers
                 return new UserContextResult
                 {
                     Persona = UserPersona.None,
+                    MatchedTeamNames = Array.Empty<string>(),
                     MatchedRoleNames = Array.Empty<string>()
                 };
             }
@@ -200,6 +212,7 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.Manager,
                     ResolutionSource = UserContextConfig.SourceRole,
                     MatchedTeamName = string.Empty,
+                    MatchedTeamNames = Array.Empty<string>(),
                     MatchedRoleName = UserContextConfig.RoleNameSvtManager,
                     MatchedRoleNames = matchedRoles
                 };
@@ -212,6 +225,7 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.QA,
                     ResolutionSource = UserContextConfig.SourceRole,
                     MatchedTeamName = string.Empty,
+                    MatchedTeamNames = Array.Empty<string>(),
                     MatchedRoleName = UserContextConfig.RoleNameSvtQa,
                     MatchedRoleNames = matchedRoles
                 };
@@ -224,6 +238,7 @@ namespace VOA.SVT.Plugins.Helpers
                     Persona = UserPersona.User,
                     ResolutionSource = UserContextConfig.SourceRole,
                     MatchedTeamName = string.Empty,
+                    MatchedTeamNames = Array.Empty<string>(),
                     MatchedRoleName = UserContextConfig.RoleNameSvtUser,
                     MatchedRoleNames = matchedRoles
                 };
@@ -232,8 +247,41 @@ namespace VOA.SVT.Plugins.Helpers
             return new UserContextResult
             {
                 Persona = UserPersona.None,
+                MatchedTeamNames = Array.Empty<string>(),
                 MatchedRoleNames = matchedRoles
             };
+        }
+
+        public static bool HasCaseworkerAccess(UserContextResult result)
+        {
+            if (result == null) return false;
+            if (result.Persona == UserPersona.User) return true;
+
+            if (!string.IsNullOrWhiteSpace(result.MatchedTeamName)
+                && string.Equals(result.MatchedTeamName, UserContextConfig.TeamNameSvtUser, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (result.MatchedTeamNames != null
+                && result.MatchedTeamNames.Any(name => string.Equals(name, UserContextConfig.TeamNameSvtUser, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            if (result.MatchedRoleNames != null
+                && result.MatchedRoleNames.Any(name => string.Equals(name, UserContextConfig.RoleNameSvtUser, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.MatchedRoleName)
+                && string.Equals(result.MatchedRoleName, UserContextConfig.RoleNameSvtUser, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }

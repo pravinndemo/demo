@@ -1,7 +1,7 @@
 # voa_SvtSubmitSalesVerification Custom API (Submit Sales Verification)
 
 ## Purpose
-`voa_SvtSubmitSalesVerification` is an **unbound** Dataverse Custom API that submits sales verification details to APIM using a **PUT** to `/sales/{id}`. The plugin can accept either a full JSON `payload` or individual fields that it assembles into the required request body.
+`voa_SvtSubmitSalesVerification` is an **unbound** Dataverse Custom API that submits sales verification details to APIM using a **PUT** to `/sales/{id}`. The plugin can accept either a full JSON payload (`saleSubmitPayload` or `payload`) or individual fields that it assembles into the required request body.
 
 ---
 
@@ -12,7 +12,9 @@ Recommended setup (adjust names to your prefix):
 - Is Function: **No** (Action)
 - Request parameters:
   - `saleId` (String, required)
-  - `payload` (String, optional JSON; when provided, the plugin forwards it as-is)
+  - `saleSubmitPayload` (String, optional JSON; when provided, the plugin forwards it as-is)
+  - `payload` (String, optional JSON; legacy alias for `saleSubmitPayload`)
+  - `saleSubmitRemarks` (String, optional; overrides `salesVerificationDetails.remarks`)
   - `taskId` (String, optional)
   - `taskStatus` (String, optional)
   - `salesSource` (String, optional)
@@ -40,7 +42,7 @@ Recommended setup (adjust names to your prefix):
 ---
 
 ## Request body
-If `payload` is provided, it is used directly. Otherwise the plugin builds:
+If `saleSubmitPayload` (or `payload`) is provided, it is used directly. If `saleSubmitRemarks` is also provided, the plugin attempts to set `salesVerificationDetails.remarks` to that value. Otherwise the plugin builds:
 
 ```
 {
@@ -82,8 +84,8 @@ If `payload` is provided, it is used directly. Otherwise the plugin builds:
 ---
 
 ## Backend plugin behavior
-Implemented in `VOA.SVT.Plugins/Plugins/CustomAPI/SubmitSalesVerification.cs` (class `SvtSubmitSalesVerification`):
-1. Validates **caseworker-only** access via `UserContextResolver`.
+Implemented in `VOA.SVT.Plugins/Plugins/CustomAPI/SvtSubmitSalesVerification.cs` (class `SvtSubmitSalesVerification`):
+1. Validates **caseworker-only** access via `UserContextResolver` (SVT User persona, or Manager/QA with SVT User membership).
 2. Validates `saleId`.
 3. Reads config from `voa_CredentialProvider` using `SVTSubmitSalesVerification`.
 4. Builds the APIM URL and executes **PUT**.

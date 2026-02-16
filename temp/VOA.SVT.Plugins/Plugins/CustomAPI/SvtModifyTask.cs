@@ -38,7 +38,7 @@ namespace VOA.SVT.Plugins.CustomAPI
                 localPluginContext.SystemUserService,
                 context.InitiatingUserId,
                 trace);
-            if (userContext.Persona != UserPersona.User)
+            if (!UserContextResolver.HasCaseworkerAccess(userContext))
             {
                 trace?.Trace(
                     $"SvtModifyTask denied. User={context.InitiatingUserId}, Persona={userContext.Persona}");

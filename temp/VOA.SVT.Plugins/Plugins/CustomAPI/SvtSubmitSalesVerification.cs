@@ -39,7 +39,7 @@ namespace VOA.SVT.Plugins.CustomAPI
                 localPluginContext.SystemUserService,
                 context.InitiatingUserId,
                 trace);
-            if (userContext.Persona != UserPersona.User)
+            if (!UserContextResolver.HasCaseworkerAccess(userContext))
             {
                 trace?.Trace(
                     $"SvtSubmitSalesVerification denied. User={context.InitiatingUserId}, Persona={userContext.Persona}");
@@ -161,7 +161,7 @@ namespace VOA.SVT.Plugins.CustomAPI
 
         private static string BuildRequestBody(IPluginExecutionContext context, string payloadOverride, string saleSubmitRemarks)
         {
-            var remarksOverride = NormalizeOptionalString(saleSubmitRemarks);
+            var remarksOverride = NormalizeOptionalStringValue(saleSubmitRemarks);
             if (!string.IsNullOrWhiteSpace(payloadOverride))
             {
                 var trimmed = payloadOverride.Trim();
@@ -233,7 +233,7 @@ namespace VOA.SVT.Plugins.CustomAPI
         {
             var remarks = !string.IsNullOrWhiteSpace(remarksOverride)
                 ? remarksOverride
-                : NormalizeOptionalString(GetInput(context, "remarks"));
+                : NormalizeOptionalStringValue(GetInput(context, "remarks"));
             return new Dictionary<string, object>
             {
                 ["isSaleUseful"] = NormalizeOptionalString(GetInput(context, "isSaleUseful")),
@@ -244,6 +244,9 @@ namespace VOA.SVT.Plugins.CustomAPI
         }
 
         private static object NormalizeOptionalString(string value)
+            => string.IsNullOrWhiteSpace(value) ? null : value;
+
+        private static string NormalizeOptionalStringValue(string value)
             => string.IsNullOrWhiteSpace(value) ? null : value;
 
         private static Dictionary<string, object> EnsureObject(Dictionary<string, object> root, string key)

@@ -1,7 +1,7 @@
 # voa_SvtModifyTask Custom API (Modify SVT Task)
 
 ## Purpose
-`voa_SvtModifyTask` is an **unbound** Dataverse Custom API used to update SVT task status by calling APIM. The plugin enforces **caseworker-only** access, posts the request to APIM, and returns a single `Result` string on success.
+`voa_SvtModifyTask` is an **unbound** Dataverse Custom API used to update SVT task status by calling APIM. The plugin enforces **caseworker-only** access (SVT User persona, or Manager/QA with SVT User membership), posts the request to APIM, and returns a single `Result` string on success.
 
 ---
 
@@ -26,8 +26,8 @@ Recommended setup (adjust names to your prefix):
 ---
 
 ## Backend plugin behavior
-Implemented in `VOA.SVT.Plugins/Plugins/CustomAPI/ModifySvtTask.cs` (class `SvtModifyTask`):
-1. Validates **caseworker-only** access via `UserContextResolver`.
+Implemented in `VOA.SVT.Plugins/Plugins/CustomAPI/SvtModifyTask.cs` (class `SvtModifyTask`):
+1. Validates **caseworker-only** access via `UserContextResolver` (SVT User persona, or Manager/QA with SVT User membership).
 2. Validates `taskStatus` and `taskList`.
 3. Reads config from `voa_CredentialProvider` using `SVTModifyTask`.
 4. POSTs to APIM with JSON body:
