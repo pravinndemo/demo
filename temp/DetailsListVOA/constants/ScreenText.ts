@@ -66,6 +66,38 @@ export const MANAGER_CASEWORKER_OPTIONS: IDropdownOption[] = [
   { key: 'Emma Wilson', text: 'Emma Wilson' },
 ];
 
+export const PREFILTER_API_PARAMS = {
+  managerAssignment: {
+    source: 'MA',
+    searchBy: {
+      billingAuthority: 'BA',
+      caseworker: 'CW',
+    },
+  },
+  qcAssignment: {
+    source: 'QCA',
+    searchBy: {
+      qcUser: 'QC',
+      task: 'Tk',
+      caseworker: 'CW',
+    },
+  },
+  qcView: {
+    source: 'QCV',
+    searchBy: {
+      qcUser: 'QC',
+      task: 'Tk',
+      caseworker: 'CW',
+    },
+  },
+  caseworkerView: {
+    source: 'CWV',
+    searchBy: {
+      caseworker: 'CW',
+    },
+  },
+} as const;
+
 export const SCREEN_TEXT = {
   common: {
     buttons: {
@@ -156,6 +188,7 @@ export const SCREEN_TEXT = {
     title: 'Manager Assignment',
     assignActionText: 'Assign Tasks',
     assignUserListTitle: 'SVT Users',
+    apiParams: PREFILTER_API_PARAMS.managerAssignment,
     errors: {
       assignableUsersApiNotConfigured: 'Assignable users API name is not configured.',
       caseworkersLoadFailed: 'Unable to load caseworkers.',
@@ -171,11 +204,20 @@ export const SCREEN_TEXT = {
         toDate: 'To date',
       },
       placeholders: {
+        searchBy: 'Select a filter',
         billingAuthority: 'Select Billing Authorities',
         caseworker: 'Select User',
         workThat: 'Select a option',
         completedFrom: 'Select a From date...',
         completedTo: 'Select a To date...',
+      },
+      tooltips: {
+        searchBy: 'Choose how to prefilter tasks.',
+        billingAuthority: 'Select one or more billing authorities.',
+        caseworker: 'Select one or more caseworkers.',
+        workThat: 'Choose a task status bucket.',
+        fromDate: 'Select the start date for completed tasks.',
+        toDate: 'End date is set automatically based on the start date.',
       },
       buttons: {
         search: 'Search',
@@ -194,6 +236,7 @@ export const SCREEN_TEXT = {
     title: 'QC Assignment',
     assignActionText: 'Assign QC Tasks',
     assignUserListTitle: 'QC Users',
+    apiParams: PREFILTER_API_PARAMS.qcAssignment,
     errors: {
       assignableUsersApiNotConfigured: 'Assignable users API name is not configured.',
       caseworkersLoadFailed: 'Unable to load users.',
@@ -209,11 +252,20 @@ export const SCREEN_TEXT = {
         toDate: 'To date',
       },
       placeholders: {
+        searchBy: 'Select a filter',
         qcUser: 'Select User',
         caseworker: 'Select User',
         workThat: 'Select a option',
         completedFrom: 'Select a From date...',
         completedTo: 'Select a To date...',
+      },
+      tooltips: {
+        searchBy: 'Choose how to prefilter tasks.',
+        qcUser: 'Select one or more QC users.',
+        caseworker: 'Select one or more caseworkers.',
+        workThat: 'Choose a task status bucket.',
+        fromDate: 'Select the start date for completed tasks.',
+        toDate: 'End date is set automatically based on the start date.',
       },
       buttons: {
         search: 'Search',
@@ -233,6 +285,7 @@ export const SCREEN_TEXT = {
   },
   caseworkerView: {
     title: 'My Allocated Sales',
+    apiParams: PREFILTER_API_PARAMS.caseworkerView,
     emptyState: {
       title: 'No results found',
       message: '',
@@ -240,6 +293,7 @@ export const SCREEN_TEXT = {
   },
   qcView: {
     title: 'Quality Control View',
+    apiParams: PREFILTER_API_PARAMS.qcView,
     emptyState: {
       title: 'No results found',
       message: '',
@@ -255,11 +309,20 @@ export const SCREEN_TEXT = {
         toDate: 'To date',
       },
       placeholders: {
+        searchBy: 'Select a filter',
         qcUser: 'Select User',
         caseworker: 'Select User',
         workThat: 'Select a option',
         completedFrom: 'Select a From date...',
         completedTo: 'Select a To date...',
+      },
+      tooltips: {
+        searchBy: 'Choose how to prefilter tasks.',
+        qcUser: 'Select one or more QC users.',
+        caseworker: 'Select one or more caseworkers.',
+        workThat: 'Choose a task status bucket.',
+        fromDate: 'Select the start date for completed tasks.',
+        toDate: 'End date is set automatically based on the start date.',
       },
       buttons: {
         search: 'Search',
@@ -288,6 +351,25 @@ export const SCREEN_TEXT = {
     },
     placeholders: {
       billingAuthority: 'Select Billing Authority',
+      buildingNameNumber: 'e.g. 10 or The Oaks',
+      street: 'e.g. High Street',
+      townCity: 'e.g. Cardiff',
+      postcode: 'e.g. CF10 1AA',
+      billingAuthorityReference: 'e.g. BA12345',
+      saleId: 'S-1000001',
+      taskId: 'A-1000001 or 1000001',
+      uprn: '12345678',
+    },
+    tooltips: {
+      buildingNameNumber: 'Enter a building name or number.',
+      street: 'Enter street name.',
+      townCity: 'Enter town or city.',
+      postcode: 'Use a full or partial UK postcode.',
+      billingAuthority: 'Select a billing authority from the list.',
+      billingAuthorityReference: 'Enter the billing authority reference code.',
+      saleId: 'Format: S-1234567.',
+      taskId: 'Use A- or M- prefix (e.g. A-1000001) or numbers only.',
+      uprn: 'Digits only.',
     },
   },
   assignTasks: {

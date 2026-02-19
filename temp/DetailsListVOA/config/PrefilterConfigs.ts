@@ -11,6 +11,7 @@ import {
   QC_WORKTHAT_TASK_OPTIONS as QC_WORKTHAT_TASK_OPTIONS_CONST,
   MANAGER_BILLING_AUTHORITY_OPTIONS as MANAGER_BILLING_AUTHORITY_OPTIONS_CONST,
   MANAGER_CASEWORKER_OPTIONS as MANAGER_CASEWORKER_OPTIONS_CONST,
+  PREFILTER_API_PARAMS,
 } from '../constants/FilterConstants';
 
 export type QcSearchBy = 'qcUser' | 'caseworker' | 'task';
@@ -181,7 +182,9 @@ export const mapManagerPrefiltersToApi = (prefilters?: ManagerPrefilterState): R
     return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
   };
 
-  params.searchBy = prefilters.searchBy === 'caseworker' ? 'CW' : 'BA';
+  params.searchBy = prefilters.searchBy === 'caseworker'
+    ? PREFILTER_API_PARAMS.managerAssignment.searchBy.caseworker
+    : PREFILTER_API_PARAMS.managerAssignment.searchBy.billingAuthority;
 
   if (prefilters.searchBy === 'billingAuthority') {
     const joined = joinValues(prefilters.billingAuthorities ?? []);
@@ -224,13 +227,13 @@ export const mapQcPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record
 
   switch (prefilters.searchBy) {
     case 'qcUser':
-      params.searchBy = 'QC';
+      params.searchBy = PREFILTER_API_PARAMS.qcAssignment.searchBy.qcUser;
       break;
     case 'caseworker':
-      params.searchBy = 'CW';
+      params.searchBy = PREFILTER_API_PARAMS.qcAssignment.searchBy.caseworker;
       break;
     case 'task':
-      params.searchBy = 'TK';
+      params.searchBy = PREFILTER_API_PARAMS.qcView.searchBy.task;
       break;
     default:
       break;
@@ -273,14 +276,14 @@ export const mapQcViewPrefiltersToApi = (prefilters?: ManagerPrefilterState): Re
 
   switch (prefilters.searchBy) {
     case 'caseworker':
-      params.searchBy = 'CW';
+      params.searchBy = PREFILTER_API_PARAMS.qcView.searchBy.caseworker;
       break;
     case 'task':
-      params.searchBy = 'TK';
+      params.searchBy = PREFILTER_API_PARAMS.qcAssignment.searchBy.task;
       break;
     case 'qcUser':
     default:
-      params.searchBy = 'QC';
+      params.searchBy = PREFILTER_API_PARAMS.qcView.searchBy.qcUser;
       break;
   }
 

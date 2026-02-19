@@ -232,17 +232,7 @@ namespace VOA.SVT.Plugins.CustomAPI
 
         private static string NormalizeTaskId(string value)
         {
-            if (string.IsNullOrWhiteSpace(value)) return null;
-            var sb = new StringBuilder();
-            foreach (var ch in value)
-            {
-                if (char.IsDigit(ch))
-                {
-                    sb.Append(ch);
-                }
-            }
-            var digits = sb.ToString();
-            return string.IsNullOrWhiteSpace(digits) ? value.Trim() : digits;
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
         private static string ResolveSource(string screenName, AssignmentContext context)

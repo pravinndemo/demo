@@ -2235,7 +2235,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     sortedRecordIds: pageIds,
     shimmer: apimLoading,
     itemsLoading: apimLoading,
-    selectionType: SelectionMode.multiple,
+    selectionType: (isSalesSearch || isCaseworkerView) ? SelectionMode.single : SelectionMode.multiple,
     selection,
     onNavigate,
     onSort,
