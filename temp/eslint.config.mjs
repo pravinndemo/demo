@@ -8,7 +8,14 @@ import typescriptEslint from "typescript-eslint";
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
-    ignores: ["**/generated"],
+    ignores: [
+      "**/generated",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "DetailsListVOA/tests/**",
+    ],
   },
   eslintjs.configs.recommended,
   ...typescriptEslint.configs.recommendedTypeChecked,

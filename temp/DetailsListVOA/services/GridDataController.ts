@@ -1,4 +1,3 @@
-import { buildApiParamsFor } from '../config/TableConfigs';
 import { CONTROL_CONFIG } from '../config/ControlConfig';
 import { TaskSearchItem, TaskSearchResponse } from '../data/TaskSearchSample';
 import { SAMPLE_TASK_RESULTS } from '../data/TaskSearchSample';
@@ -6,11 +5,7 @@ import { SAMPLE_RECORDS } from '../data/SampleData';
 import { IInputs } from '../generated/ManifestTypes';
 import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from './CustomApi';
 import { normalizeSearchResponse, SalesApiResponse, unwrapCustomApiPayload } from './DataService';
-
-export interface ClientSortState {
-  name: string;
-  sortDirection: number; // 0 asc, 1 desc
-}
+import { buildGridApiParams, type ClientSortState } from '../utils/GridDataParams';
 
 export interface LoadResult {
   items: TaskSearchItem[];
@@ -33,17 +28,6 @@ const isServerErrorMessage = (message: string): boolean => {
 const normalizeErrorMessage = (message?: string): string | undefined => {
   if (!message) return undefined;
   return isServerErrorMessage(message) ? TECHNICAL_ERROR_MESSAGE : message;
-};
-
-const normalizeSortField = (value?: string): string | undefined => {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const normalized = trimmed.replace(/[^a-z0-9]/gi, '').toLowerCase();
-  if (normalized === 'saleid') return 'saleId';
-  if (normalized === 'taskid') return 'taskId';
-  if (normalized === 'saleprice' || normalized === 'salesprice') return 'salesPrice';
-  return trimmed;
 };
 
 const resolveCustomApiName = (context: ComponentFramework.Context<IInputs>): string => {
@@ -90,30 +74,14 @@ export async function loadGridData(
   },
 ): Promise<LoadResult> {
   const pageSize = args.pageSize ?? (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 500;
-  const source = typeof args.source === 'string' ? args.source.trim() : '';
-  const requestedBy = typeof args.requestedBy === 'string' ? args.requestedBy.trim() : '';
-  const baseFilters = (args.filters ?? {}) as Record<string, unknown>;
-  const filtersWithSource = source ? { ...baseFilters, source } : baseFilters;
-  const apiParamsBase = buildApiParamsFor(args.tableKey, filtersWithSource as never, args.currentPage, pageSize, args.prefilters);
-  const searchQuery = typeof args.searchQuery === 'string' ? args.searchQuery.trim() : '';
   const customApiName = resolveCustomApiName(context);
   const customApiType = resolveCustomApiType(context);
-
-  const sortBy = args.clientSort?.name;
-  const sortDirection = args.clientSort?.sortDirection;
-  const normalizedSortField = normalizeSortField(sortBy);
-  const buildParams = (page: number) => {
-    const p: Record<string, string> = {
-      ...apiParamsBase,
-      pageNumber: String(page + 1),
-      pageSize: String(pageSize),
-    };
-    if (normalizedSortField) p.sortField = normalizedSortField;
-    if (typeof sortDirection === 'number') p.sortDirection = sortDirection === 1 ? 'desc' : 'asc';
-    if (searchQuery) p.SearchQuery = searchQuery;
-    if (requestedBy) p.RequestedBy = requestedBy;
-    return p;
-  };
+  const buildParams = (page: number) =>
+    buildGridApiParams({
+      ...args,
+      currentPage: page,
+      pageSize,
+    });
 
   const execCustomApi = async (params: Record<string, string>): Promise<TaskSearchResponse> => {
     const rawPayload = await executeUnboundCustomApi<TaskSearchResponse | SalesApiResponse>(context, customApiName, params, {

@@ -7,18 +7,21 @@ import { GridFilterState, createDefaultGridFilters, sanitizeFilters, NumericFilt
 import { getProfileConfigs } from '../../config/ColumnProfiles';
 import { CONTROL_CONFIG } from '../../config/ControlConfig';
 import { getColumnFilterConfigFor, isLookupFieldFor, type TableKey } from '../../config/TableConfigs';
-import {
-  type ManagerPrefilterState,
-  COLUMN_FILTER_CONDITION_SEPARATOR,
-  COLUMN_FILTER_VALUE_SEPARATOR,
-} from '../../config/PrefilterConfigs';
+import { type ManagerPrefilterState } from '../../config/PrefilterConfigs';
 import { SCREEN_TEXT, MANAGER_BILLING_AUTHORITY_OPTIONS, MANAGER_CASEWORKER_OPTIONS } from '../../constants/ScreenText';
 import { buildColumns } from '../../utils/ColumnsBuilder';
 import { ensureSampleColumns, buildSampleEntityRecords } from '../../utils/SampleHelpers';
+import { parseAssignableUsersResponse as parseAssignableUsersResponseBase, resolveAssignmentStatusValidation } from '../../utils/AssignmentHelpers';
+import { buildColumnFilterQuery } from '../../utils/ColumnFilterQuery';
+import { isGuidValue, normalizeSuid, normalizeUserId } from '../../utils/IdentifierUtils';
+import { isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
+import { resolveScreenConfig, toKnownTableKey, normalizeTableKey, type ScreenKind } from '../../utils/ScreenResolution';
 import { loadGridData } from '../../services/GridDataController';
 import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from '../../services/CustomApi';
 import { IInputs } from '../../generated/ManifestTypes';
 import { logPerf } from '../../utils/Perf';
+
+export type { ScreenKind } from '../../utils/ScreenResolution';
 
 export interface DetailsListHostProps {
   context: ComponentFramework.Context<IInputs>;
@@ -37,70 +40,7 @@ export interface DetailsListHostProps {
 
 type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFilter;
 type FilterOptionsMap = Record<string, string[]>;
-interface AssignableUsersResult {
-  success?: boolean;
-  message?: string;
-  users?: AssignUser[];
-}
-
-const resolveAssignmentStatusValidation = (
-  records: Record<string, unknown>[],
-  screenKind: ScreenKind,
-  assignmentConfig: { allowedStatusesManager: string[]; allowedStatusesQc: string[]; allowedStatuses: string[] },
-  invalidStatusMessage: string,
-): { error?: string; assignmentTaskStatus?: string } => {
-  const allowedStatuses = (
-    screenKind === 'managerAssign'
-      ? assignmentConfig.allowedStatusesManager
-      : screenKind === 'qcAssign'
-        ? assignmentConfig.allowedStatusesQc
-        : assignmentConfig.allowedStatuses
-  ).map((s) => s.toLowerCase());
-
-  const normalizedStatuses: string[] = [];
-  for (const rec of records) {
-    const statusRaw = (rec.taskstatus ?? rec.taskStatus ?? '') as string;
-    const normalized = String(statusRaw ?? '').trim().toLowerCase();
-    if (normalized) {
-      normalizedStatuses.push(normalized);
-    }
-    if (allowedStatuses.length > 0 && normalized && !allowedStatuses.includes(normalized)) {
-      return { error: invalidStatusMessage };
-    }
-  }
-
-  let assignmentTaskStatus: string | undefined;
-  if (screenKind === 'managerAssign') {
-    const hasNew = normalizedStatuses.includes('new');
-    const hasNonNew = normalizedStatuses.some((status) => status !== 'new');
-    if (hasNew && hasNonNew) {
-      return { error: invalidStatusMessage };
-    }
-    assignmentTaskStatus = hasNew ? 'New' : 'NULL';
-  }
-  if (screenKind === 'qcAssign') {
-    const hasQcRequested = normalizedStatuses.includes('qc requested');
-    const hasNonQcRequested = normalizedStatuses.some((status) => status !== 'qc requested');
-    if (hasQcRequested && hasNonQcRequested) {
-      return { error: invalidStatusMessage };
-    }
-    assignmentTaskStatus = hasQcRequested ? 'QC Requested' : 'NULL';
-  }
-
-  return { assignmentTaskStatus };
-};
-
 const SSU_APP_ID = 'cdb5343c-51c1-ec11-983e-002248438fff';
-const KNOWN_TABLE_KEYS: TableKey[] = ['sales', 'allsales', 'myassignment', 'manager', 'qa', 'qaassign', 'qaview'];
-const SOURCE_CODES: Record<TableKey, string> = {
-  sales: 'SRS',
-  allsales: 'SRS',
-  myassignment: 'CWV',
-  manager: 'MA',
-  qa: 'QCV',
-  qaassign: 'QCA',
-  qaview: 'QCV',
-};
 
 const QC_TEAM_NAMES = new Set(['svt qa team']);
 const QC_ROLE_NAMES = new Set(['voa - svt qa']);
@@ -120,108 +60,6 @@ const isAssignableUserInGroup = (user: AssignUser, teamNames: Set<string>, roleN
 const buildAssignableUsersCacheKey = (apiName: string, customApiType: number, screenName: string): string =>
   `${apiName}|${customApiType}|${screenName.trim().toLowerCase()}`;
 
-export type ScreenKind = 'salesSearch' | 'managerAssign' | 'caseworkerView' | 'qcAssign' | 'qcView' | 'unknown';
-
-interface ResolvedScreenConfig {
-  kind: ScreenKind;
-  tableKey: TableKey;
-  profileKey: string;
-  sourceCode: string;
-}
-
-interface ScreenConfigDefinition {
-  kind: ScreenKind;
-  tableKey: TableKey;
-}
-
-const SCREEN_CONFIG_BY_ID: Record<string, ScreenConfigDefinition> = {
-  salesrecordsearch: { kind: 'salesSearch', tableKey: 'sales' },
-  managerassignment: { kind: 'managerAssign', tableKey: 'manager' },
-  caseworkerview: { kind: 'caseworkerView', tableKey: 'myassignment' },
-  qualitycontrolassignment: { kind: 'qcAssign', tableKey: 'qaassign' },
-  qualitycontrolview: { kind: 'qcView', tableKey: 'qaview' },
-};
-
-const toKnownTableKey = (value?: string): TableKey | undefined => {
-  if (!value) return undefined;
-  const lower = value.trim().toLowerCase();
-  return KNOWN_TABLE_KEYS.includes(lower as TableKey) ? (lower as TableKey) : undefined;
-};
-
-const normalizeTableKey = (value: string): TableKey => toKnownTableKey(value) ?? 'sales';
-
-const normalizeScreenId = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-const deriveKindFromTableKey = (tableKey: TableKey): ScreenKind => {
-  switch (tableKey) {
-    case 'manager':
-      return 'managerAssign';
-    case 'myassignment':
-      return 'caseworkerView';
-    case 'qaassign':
-      return 'qcAssign';
-    case 'qaview':
-    case 'qa':
-      return 'qcView';
-    case 'sales':
-    case 'allsales':
-      return 'salesSearch';
-    default:
-      return 'unknown';
-  }
-};
-
-const buildResolvedFromTableKey = (tableKey: TableKey): ResolvedScreenConfig => {
-  const kind = deriveKindFromTableKey(tableKey);
-  return {
-    kind,
-    tableKey,
-    profileKey: tableKey,
-    sourceCode: SOURCE_CODES[tableKey] ?? SOURCE_CODES.sales,
-  };
-};
-
-const resolveFromScreenName = (canvasScreenName: string): ResolvedScreenConfig | undefined => {
-  const normalized = normalizeScreenId(canvasScreenName);
-  const direct = SCREEN_CONFIG_BY_ID[normalized];
-  if (direct) {
-    return buildResolvedFromTableKey(direct.tableKey);
-  }
-
-  const screenName = canvasScreenName.toLowerCase();
-  if (screenName.includes('assignment') && screenName.includes('manager')) {
-    return buildResolvedFromTableKey('manager');
-  }
-  if (screenName.includes('assignment') && (screenName.includes('qc') || screenName.includes('quality'))) {
-    return buildResolvedFromTableKey('qaassign');
-  }
-  if (screenName.includes('caseworker')) {
-    return buildResolvedFromTableKey('myassignment');
-  }
-  if (screenName.includes('qc') || screenName.includes('quality')) {
-    return buildResolvedFromTableKey('qaview');
-  }
-  if (screenName.includes('sales') || screenName.includes('record search') || screenName.includes('recordsearch')) {
-    return buildResolvedFromTableKey('sales');
-  }
-  return undefined;
-};
-
-const resolveScreenConfig = (
-  canvasScreenName: string,
-  explicitTableKey: TableKey | undefined,
-  fallbackTableKey: TableKey,
-): ResolvedScreenConfig => {
-  return resolveFromScreenName(canvasScreenName) ?? buildResolvedFromTableKey(explicitTableKey ?? fallbackTableKey);
-};
-
-const normalizeUserId = (value?: string): string => {
-  if (!value) return '';
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  return trimmed.replace(/^[{(]?(.*?)[)}]?$/, '$1');
-};
-
 const resolveAssignedByUserId = (context: ComponentFramework.Context<IInputs>): string => {
   const fromContext = (context.userSettings as { userId?: string } | undefined)?.userId;
   if (fromContext) return normalizeUserId(fromContext);
@@ -232,37 +70,9 @@ const resolveAssignedByUserId = (context: ComponentFramework.Context<IInputs>): 
   return normalizeUserId(fromXrm);
 };
 
-const resolveAssignmentScreenName = (raw: string, kind: ScreenKind): string => {
-  switch (kind) {
-    case 'managerAssign':
-      return 'manager assignment';
-    case 'qcAssign':
-      return 'quality control assignment';
-    default: {
-      const trimmed = raw.trim();
-      return trimmed;
-    }
-  }
-};
-
 const SALES_SEARCH_DEFAULT_FILTERS: GridFilterState = {
   ...createDefaultGridFilters(),
   searchBy: 'address',
-};
-
-const isSalesSearchDefaultFilters = (fs: GridFilterState): boolean => {
-  if (fs.searchBy !== 'address') return false;
-  const billingAuthorityEmpty = !fs.billingAuthority || fs.billingAuthority.length === 0;
-  return !fs.saleId
-    && !fs.taskId
-    && !fs.uprn
-    && !fs.address
-    && !fs.buildingNameNumber
-    && !fs.street
-    && !fs.townCity
-    && !fs.postcode
-    && billingAuthorityEmpty
-    && !fs.bacode;
 };
 
 const buildSsuUrl = (clientUrl: string, suid: string): string => {
@@ -284,150 +94,6 @@ const resolveClientUrl = (ctx: ComponentFramework.Context<IInputs>): string => {
     return window.location.origin;
   }
   return '';
-};
-
-const normalizeSuid = (value: unknown): string => {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  const lowered = trimmed.toLowerCase();
-  if (lowered === 'null' || lowered === 'undefined') return '';
-  const unwrapped = trimmed.replace(/^[{(]?(.*?)[)}]?$/, '$1');
-  const isGuid = /^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(unwrapped);
-  return isGuid ? unwrapped : '';
-};
-
-const isGuidValue = (value: string): boolean =>
-  /^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value);
-
-const COLUMN_FILTER_FIELD_MAP: Record<string, string> = {
-  saleid: 'saleId',
-  taskid: 'taskId',
-  uprn: 'uprn',
-  address: 'address',
-  postcode: 'postCode',
-  billingauthority: 'billingAuthority',
-  transactiondate: 'transactionDate',
-  saleprice: 'salesPrice',
-  salesprice: 'salesPrice',
-  ratio: 'ratio',
-  dwellingtype: 'dwellingType',
-  flaggedforreview: 'flaggedForReview',
-  reviewflags: 'reviewFlag',
-  outlierratio: 'outlierRatio',
-  overallflag: 'overallFlag',
-  summaryflags: 'summaryFlags',
-  taskstatus: 'taskStatus',
-  assignedto: 'assignedTo',
-  assigneddate: 'assignedDate',
-  taskcompleteddate: 'taskCompletedDate',
-  qcassignedto: 'qcAssignedTo',
-  qcassigneddate: 'qcAssignedDate',
-  qccompleteddate: 'qcCompletedDate',
-};
-
-const normalizeColumnFilterFieldName = (field: string): string => {
-  const normalized = field.replace(/[^a-z0-9]/gi, '').toLowerCase();
-  return COLUMN_FILTER_FIELD_MAP[normalized] ?? field;
-};
-
-const isNumericFilterValue = (val: ColumnFilterValue): val is NumericFilter =>
-  !!val && typeof val === 'object' && 'mode' in (val as NumericFilter);
-
-const isDateRangeFilterValue = (val: ColumnFilterValue): val is DateRangeFilter =>
-  !!val && typeof val === 'object' && ('from' in (val as DateRangeFilter) || 'to' in (val as DateRangeFilter));
-
-const formatApiDate = (value?: string): string | undefined => {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (isoMatch) {
-    return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
-  }
-  const ukMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
-  if (ukMatch) {
-    return trimmed;
-  }
-  return trimmed;
-};
-
-const buildColumnFilterTokens = (
-  tableKey: TableKey,
-  field: string,
-  value: ColumnFilterValue,
-): string[] | undefined => {
-  const cfg = getColumnFilterConfigFor(tableKey, field);
-  if (!cfg) return undefined;
-  const apiField = normalizeColumnFilterFieldName(field);
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    const operator = cfg.control === 'singleSelect' ? 'eq' : 'like';
-    return [apiField, operator, trimmed];
-  }
-
-  if (Array.isArray(value)) {
-    const values = value.map((entry) => String(entry ?? '').trim()).filter((entry) => entry !== '');
-    if (values.length === 0) return undefined;
-    const operator = 'in';
-    return [apiField, operator, values.join(COLUMN_FILTER_VALUE_SEPARATOR)];
-  }
-
-  if (cfg.control === 'numeric' && isNumericFilterValue(value)) {
-    const { mode, min, max } = value;
-    if (mode === '>=' && min !== undefined && min !== null) {
-      return [apiField, 'GTE', String(min)];
-    }
-    if (mode === '<=' && max !== undefined && max !== null) {
-      return [apiField, 'LTE', String(max)];
-    }
-    if (mode === 'between') {
-      if (min !== undefined && min !== null && max !== undefined && max !== null) {
-        return [apiField, 'between', String(min), String(max)];
-      }
-      if (min !== undefined && min !== null) {
-        return [apiField, 'GTE', String(min)];
-      }
-      if (max !== undefined && max !== null) {
-        return [apiField, 'LTE', String(max)];
-      }
-    }
-    return undefined;
-  }
-
-  if (cfg.control === 'dateRange' && isDateRangeFilterValue(value)) {
-    const from = value.from?.trim();
-    const to = value.to?.trim();
-    const start = from && from.length > 0 ? from : to;
-    const end = to && to.length > 0 ? to : from;
-    if (!start || !end) return undefined;
-    const formattedStart = formatApiDate(start);
-    const formattedEnd = formatApiDate(end);
-    if (!formattedStart || !formattedEnd) return undefined;
-    return [apiField, 'between', formattedStart, formattedEnd];
-  }
-
-  return undefined;
-};
-
-const buildColumnFilterQuery = (tableKey: TableKey, filters: Record<string, ColumnFilterValue>): string => {
-  const entries = Object.entries(filters)
-    .filter(([, value]) => value !== undefined && value !== null)
-    .sort(([a], [b]) => a.localeCompare(b));
-
-  const expressions = entries
-    .map(([field, value]) => buildColumnFilterTokens(tableKey, field, value))
-    .filter((tokens): tokens is string[] => !!tokens && tokens.length > 0)
-    .map((tokens) => {
-      const encoded = tokens.map((token) => encodeURIComponent(token));
-      return `columnFilter=${encoded.join(COLUMN_FILTER_CONDITION_SEPARATOR)}`;
-    });
-
-  return expressions.join('&');
 };
 
 const toFilterValueString = (val: ColumnFilterValue | undefined): string => {
@@ -796,48 +462,10 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     });
   }, [isSalesSearch]);
 
-  const parseAssignableUsersResponse = React.useCallback((response?: { Result?: string; result?: string }) => {
-    const rawResult = typeof response?.Result === 'string'
-      ? response.Result
-      : typeof response?.result === 'string'
-        ? response.result
-        : '';
-
-    const normalizedRaw = rawResult.trim();
-    if (!normalizedRaw || normalizedRaw.toLowerCase() === 'null') {
-      return { users: [] as AssignUser[], info: assignTasksText.messages.noUsersFound };
-    }
-
-    let parsed: AssignableUsersResult | undefined;
-    try {
-      parsed = JSON.parse(normalizedRaw) as AssignableUsersResult;
-    } catch {
-      return { users: [] as AssignUser[], error: assignTasksText.messages.assignableUsersParseFailed };
-    }
-
-    if (!parsed?.success) {
-      return { users: [] as AssignUser[], error: parsed?.message ?? assignTasksText.messages.assignableUsersLoadFailed };
-    }
-
-    const users = Array.isArray(parsed.users) ? parsed.users : [];
-    if (users.length === 0) {
-      const message = parsed?.message?.trim() ? parsed.message : assignTasksText.messages.noUsersFound;
-      return { users: [] as AssignUser[], info: message };
-    }
-
-    const normalized = users
-      .map((u) => ({
-        id: String(u?.id ?? ''),
-        firstName: String(u?.firstName ?? ''),
-        lastName: String(u?.lastName ?? ''),
-        email: String(u?.email ?? ''),
-        team: String(u?.team ?? ''),
-        role: String(u?.role ?? ''),
-      }))
-      .filter((u) => u.id);
-
-    return { users: normalized };
-  }, [assignTasksText.messages]);
+  const parseAssignableUsersResponse = React.useCallback(
+    (response?: { Result?: string; result?: string }) => parseAssignableUsersResponseBase(response, assignTasksText.messages),
+    [assignTasksText.messages],
+  );
 
   const getUserDisplayName = React.useCallback((user: AssignUser): string => {
     const first = String(user?.firstName ?? '').trim();
@@ -990,8 +618,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     [headerFilters, mapColumnFiltersForApi],
   );
   const columnFilterQuery = React.useMemo(
-    () => buildColumnFilterQuery(tableKey, apiHeaderFilters),
-    [apiHeaderFilters, tableKey],
+    () => buildColumnFilterQuery(tableKey, apiHeaderFilters, clientSort),
+    [apiHeaderFilters, clientSort, tableKey],
   );
 
   const buildCaseworkerNames = React.useCallback((users: AssignUser[]): string[] => {
@@ -2276,7 +1904,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     canNext,
     canPrev,
     searchFilters,
-    showResults: (!isPrefilterScreen || prefilterApplied) && (!isSalesSearch || salesSearchApplied),
+    showResults: shouldShowResults(screenKind, prefilterApplied, salesSearchApplied),
     selectedCount,
     allowColumnReorder,
     statusMessage: assignMessage,
