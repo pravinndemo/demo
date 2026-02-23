@@ -19,3 +19,9 @@ export const normalizePrefilterSearchBy = (value: unknown, kind: ScreenKind): Ma
   }
   return MANAGER_SEARCH_BY_KEYS.has(raw) ? (raw as ManagerSearchBy) : MANAGER_PREFILTER_DEFAULT.searchBy;
 };
+
+export const shouldRemoveStoredPrefilter = (
+  isDefault: boolean,
+  prefilterApplied: boolean,
+  wasCleared: boolean,
+): boolean => isDefault && !prefilterApplied && wasCleared;

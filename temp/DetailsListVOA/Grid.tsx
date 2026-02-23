@@ -82,7 +82,7 @@ import {
   type ManagerWorkThat,
   type QcSearchBy,
 } from './config/PrefilterConfigs';
-import { normalizePrefilterSearchBy } from './utils/PrefilterUtils';
+import { normalizePrefilterSearchBy, shouldRemoveStoredPrefilter } from './utils/PrefilterUtils';
 import { type ScreenKind } from './utils/ScreenResolution';
 import { SCREEN_TEXT } from '../DetailsListVOA/constants/ScreenText';
 
@@ -959,9 +959,11 @@ export const Grid = React.memo((props: GridProps) => {
   );
   const prefilterAutoAppliedRef = React.useRef<string>('');
   const prefilterDirtyRef = React.useRef(false);
+  const prefilterClearedRef = React.useRef(false);
   React.useEffect(() => {
     prefilterAutoAppliedRef.current = '';
     prefilterDirtyRef.current = false;
+    prefilterClearedRef.current = false;
   }, [prefilterStorageKey]);
 
   React.useEffect(() => {
@@ -1076,14 +1078,21 @@ export const Grid = React.memo((props: GridProps) => {
   React.useEffect(() => {
     if (!useAssignmentLayout) return;
     try {
-      if (isPrefilterDefault(prefilters) && !prefilterApplied) {
+      const shouldRemove = shouldRemoveStoredPrefilter(
+        isPrefilterDefault(prefilters),
+        !!prefilterApplied,
+        prefilterClearedRef.current,
+      );
+      if (shouldRemove) {
         localStorage.removeItem(prefilterStorageKey);
-      } else {
+      } else if (!isPrefilterDefault(prefilters) || !!prefilterApplied) {
         const payload: StoredPrefilterState = { ...prefilters, applied: !!prefilterApplied };
         localStorage.setItem(prefilterStorageKey, JSON.stringify(payload));
       }
     } catch {
       // ignore storage failures
+    } finally {
+      prefilterClearedRef.current = false;
     }
   }, [isPrefilterDefault, prefilterApplied, prefilterStorageKey, prefilters, useAssignmentLayout]);
 
@@ -1496,6 +1505,7 @@ export const Grid = React.memo((props: GridProps) => {
   const handlePrefilterClear = React.useCallback(() => {
     dismissResultMessages();
     prefilterDirtyRef.current = true;
+    prefilterClearedRef.current = true;
     comboIgnoreNextInputRef.current = {};
     comboIgnoreNextChangeRef.current = {};
     comboExpectedSelectionRef.current = {};
