@@ -98,6 +98,32 @@ export const PREFILTER_API_PARAMS = {
   },
 } as const;
 
+export const MANAGER_WORKTHAT_STATUS_MAP: Record<string, string[]> = {
+  readyToAllocate: ['New'],
+  currentlyAssigned: ['Assigned QC Failed', 'Assigned'],
+  awaitingQc: ['QC Requested', 'Reassigned To QC', 'Assigned To QC'],
+  assignedToSelected: ['Assigned QC Failed', 'Assigned'],
+  assignedAwaitingQc: ['QC Requested', 'Reassigned To QC', 'Assigned To QC'],
+  completedBySelected: ['Complete Passed QC', 'Complete'],
+  hasBeenComplete: ['Complete Passed QC', 'Complete'],
+};
+
+export const QC_ASSIGNMENT_WORKTHAT_STATUS_MAP: Record<string, string[]> = {
+  qcAssignedToSelected: ['Reassigned To QC', 'Assigned To QC'],
+  qcCompletedBySelected: ['Complete Passed QC'],
+  qcAssignedInProgress: ['Assigned QC Failed'],
+  caseworkerCompletedQcRequested: ['QC Requested'],
+  taskCompletedQcRequested: ['QC Requested'],
+  caseworkerCompleted: ['Complete'],
+  taskCompleted: ['Complete'],
+};
+
+export const QC_VIEW_WORKTHAT_STATUS_MAP: Record<string, string[]> = {
+  qcAssignedToSelected: ['Reassigned To QC', 'Assigned To QC'],
+  qcCompletedBySelected: ['Complete Passed QC', 'Complete'],
+  qcAssignedInProgress: ['Assigned QC Failed', 'Assigned'],
+};
+
 export const SCREEN_TEXT = {
   common: {
     buttons: {

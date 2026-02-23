@@ -13,6 +13,12 @@ export const shouldShowResults = (
 ): boolean =>
   (!isPrefilterScreenKind(kind) || prefilterApplied) && (!isSalesSearchKind(kind) || salesSearchApplied);
 
+export const shouldResetPrefiltersOnScreenChange = (
+  prev: ScreenKind | undefined,
+  next: ScreenKind,
+  hasStoredPrefilter: boolean,
+): boolean => prev !== next && isPrefilterScreenKind(next) && !hasStoredPrefilter;
+
 export const resolveAssignmentScreenName = (raw: string, kind: ScreenKind): string => {
   switch (kind) {
     case 'managerAssign':

@@ -62,16 +62,191 @@ describe('prefilter mapping', () => {
     expect(params.toDate).toBe('03/02/2026');
   });
 
-  test('qc view prefilters map completed statuses', () => {
-    const params = mapQcViewPrefiltersToApi({
-      searchBy: 'qcUser',
-      billingAuthorities: [],
-      caseworkers: ['33333333-3333-3333-3333-333333333333'],
-      workThat: 'qcCompletedBySelected',
+  describe('qc assignment criteria', () => {
+    type QcAssignmentCase = {
+      name: string;
+      prefilters: {
+        searchBy: 'qcUser' | 'caseworker' | 'task';
+        caseworkers: string[];
+        workThat:
+          | 'qcAssignedToSelected'
+          | 'qcCompletedBySelected'
+          | 'qcAssignedInProgress'
+          | 'caseworkerCompletedQcRequested'
+          | 'caseworkerCompleted'
+          | 'taskCompletedQcRequested'
+          | 'taskCompleted';
+        completedFrom?: string;
+        completedTo?: string;
+      };
+      expected: {
+        searchBy: 'QC' | 'CW' | 'Tk';
+        preFilter?: string;
+        taskStatus: string;
+        fromDate?: string;
+        toDate?: string;
+      };
+    };
+
+    const cases: QcAssignmentCase[] = [
+      {
+        name: 'QC user assigned to selected',
+        prefilters: { searchBy: 'qcUser', caseworkers: ['qc-1'], workThat: 'qcAssignedToSelected' },
+        expected: { searchBy: 'QC', preFilter: 'qc-1', taskStatus: 'Reassigned To QC,Assigned To QC' },
+      },
+      {
+        name: 'QC user completed by selected',
+        prefilters: {
+          searchBy: 'qcUser',
+          caseworkers: ['qc-2'],
+          workThat: 'qcCompletedBySelected',
+          completedFrom: '2026-02-01',
+          completedTo: '2026-02-15',
+        },
+        expected: { searchBy: 'QC', preFilter: 'qc-2', taskStatus: 'Complete Passed QC', fromDate: '01/02/2026', toDate: '15/02/2026' },
+      },
+      {
+        name: 'QC user assigned but in progress',
+        prefilters: { searchBy: 'qcUser', caseworkers: ['qc-3'], workThat: 'qcAssignedInProgress' },
+        expected: { searchBy: 'QC', preFilter: 'qc-3', taskStatus: 'Assigned QC Failed' },
+      },
+      {
+        name: 'Caseworker completed with QC requested',
+        prefilters: { searchBy: 'caseworker', caseworkers: ['cw-1'], workThat: 'caseworkerCompletedQcRequested' },
+        expected: { searchBy: 'CW', preFilter: 'cw-1', taskStatus: 'QC Requested' },
+      },
+      {
+        name: 'Caseworker completed',
+        prefilters: {
+          searchBy: 'caseworker',
+          caseworkers: ['cw-2'],
+          workThat: 'caseworkerCompleted',
+          completedFrom: '2026-02-03',
+          completedTo: '2026-02-17',
+        },
+        expected: { searchBy: 'CW', preFilter: 'cw-2', taskStatus: 'Complete', fromDate: '03/02/2026', toDate: '17/02/2026' },
+      },
+      {
+        name: 'Task completed with QC requested',
+        prefilters: { searchBy: 'task', caseworkers: ['cw-3'], workThat: 'taskCompletedQcRequested' },
+        expected: { searchBy: 'Tk', preFilter: undefined, taskStatus: 'QC Requested' },
+      },
+      {
+        name: 'Task completed with dates',
+        prefilters: {
+          searchBy: 'task',
+          caseworkers: ['cw-4'],
+          workThat: 'taskCompleted',
+          completedFrom: '2026-02-01',
+          completedTo: '2026-02-15',
+        },
+        expected: { searchBy: 'Tk', preFilter: undefined, taskStatus: 'Complete', fromDate: '01/02/2026', toDate: '15/02/2026' },
+      },
+    ];
+
+    test.each(cases)('qc assignment maps $name', ({ prefilters, expected }) => {
+      const params = mapQcPrefiltersToApi({
+        billingAuthorities: [],
+        ...prefilters,
+      });
+
+      expect(params.searchBy).toBe(expected.searchBy);
+      if (expected.preFilter === undefined) {
+        expect(params.preFilter).toBeUndefined();
+      } else {
+        expect(params.preFilter).toBe(expected.preFilter);
+      }
+      expect(params.taskStatus).toBe(expected.taskStatus);
+      if (expected.fromDate !== undefined) expect(params.fromDate).toBe(expected.fromDate);
+      if (expected.toDate !== undefined) expect(params.toDate).toBe(expected.toDate);
     });
 
-    expect(params.searchBy).toBe('QC');
-    expect(params.preFilter).toBe('33333333-3333-3333-3333-333333333333');
-    expect(params.taskStatus).toBe('Complete Passed QC,Complete');
+    test('qc assignment treats __all__ as ALL for non-task searches', () => {
+      const params = mapQcPrefiltersToApi({
+        searchBy: 'qcUser',
+        billingAuthorities: [],
+        caseworkers: ['__all__'],
+        workThat: 'qcAssignedToSelected',
+      });
+
+      expect(params.preFilter).toBe('ALL');
+    });
+
+    test('qc assignment omits taskStatus when workThat is missing', () => {
+      const params = mapQcPrefiltersToApi({
+        searchBy: 'qcUser',
+        billingAuthorities: [],
+        caseworkers: ['qc-9'],
+      });
+
+      expect(params.taskStatus).toBeUndefined();
+    });
+  });
+
+  describe('qc view criteria', () => {
+    type QcViewCase = {
+      name: string;
+      prefilters: {
+        searchBy: 'qcUser';
+        caseworkers: string[];
+        workThat: 'qcAssignedToSelected' | 'qcCompletedBySelected' | 'qcAssignedInProgress';
+        completedFrom?: string;
+        completedTo?: string;
+      };
+      expected: {
+        searchBy: 'QC';
+        preFilter: string;
+        taskStatus: string;
+        fromDate?: string;
+        toDate?: string;
+      };
+    };
+
+    const cases: QcViewCase[] = [
+      {
+        name: 'assigned to me',
+        prefilters: { searchBy: 'qcUser', caseworkers: ['qc-me'], workThat: 'qcAssignedToSelected' },
+        expected: { searchBy: 'QC', preFilter: 'qc-me', taskStatus: 'Reassigned To QC,Assigned To QC' },
+      },
+      {
+        name: 'i have completed with dates',
+        prefilters: {
+          searchBy: 'qcUser',
+          caseworkers: ['qc-me'],
+          workThat: 'qcCompletedBySelected',
+          completedFrom: '2026-02-05',
+          completedTo: '2026-02-19',
+        },
+        expected: { searchBy: 'QC', preFilter: 'qc-me', taskStatus: 'Complete Passed QC,Complete', fromDate: '05/02/2026', toDate: '19/02/2026' },
+      },
+      {
+        name: 'assigned to me but in progress',
+        prefilters: { searchBy: 'qcUser', caseworkers: ['qc-me'], workThat: 'qcAssignedInProgress' },
+        expected: { searchBy: 'QC', preFilter: 'qc-me', taskStatus: 'Assigned QC Failed,Assigned' },
+      },
+    ];
+
+    test.each(cases)('qc view maps $name', ({ prefilters, expected }) => {
+      const params = mapQcViewPrefiltersToApi({
+        billingAuthorities: [],
+        ...prefilters,
+      });
+
+      expect(params.searchBy).toBe(expected.searchBy);
+      expect(params.preFilter).toBe(expected.preFilter);
+      expect(params.taskStatus).toBe(expected.taskStatus);
+      if (expected.fromDate !== undefined) expect(params.fromDate).toBe(expected.fromDate);
+      if (expected.toDate !== undefined) expect(params.toDate).toBe(expected.toDate);
+    });
+
+    test('qc view omits taskStatus when workThat is missing', () => {
+      const params = mapQcViewPrefiltersToApi({
+        searchBy: 'qcUser',
+        billingAuthorities: [],
+        caseworkers: ['qc-me'],
+      });
+
+      expect(params.taskStatus).toBeUndefined();
+    });
   });
 });

@@ -4,6 +4,7 @@ import {
   isSalesSearchDefaultFilters,
   resolveAssignmentScreenName,
   shouldShowResults,
+  shouldResetPrefiltersOnScreenChange,
 } from '../utils/ScreenBehavior';
 
 const makeFilters = (overrides: Partial<GridFilterState>): GridFilterState => ({
@@ -52,5 +53,18 @@ describe('screen behavior', () => {
 
     expect(shouldShowResults('caseworkerView', false, true)).toBe(false);
     expect(shouldShowResults('caseworkerView', true, true)).toBe(true);
+
+    expect(shouldShowResults('qcView', false, true)).toBe(false);
+    expect(shouldShowResults('qcView', true, true)).toBe(true);
+  });
+
+  test('shouldResetPrefiltersOnScreenChange respects stored prefilters', () => {
+    expect(shouldResetPrefiltersOnScreenChange('salesSearch', 'managerAssign', true)).toBe(false);
+    expect(shouldResetPrefiltersOnScreenChange('salesSearch', 'managerAssign', false)).toBe(true);
+  });
+
+  test('shouldResetPrefiltersOnScreenChange ignores non-prefilter screens', () => {
+    expect(shouldResetPrefiltersOnScreenChange('managerAssign', 'salesSearch', false)).toBe(false);
+    expect(shouldResetPrefiltersOnScreenChange('salesSearch', 'unknown', false)).toBe(false);
   });
 });

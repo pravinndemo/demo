@@ -514,24 +514,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     [caseworkerNameToIdMap],
   );
 
-  const caseworkerIdList = React.useMemo(
-    () => assignableUsersCache
-      .filter(isCaseworkerAssignableUser)
-      .map((user) => String(user?.id ?? '').trim())
-      .filter((id) => id.length > 0),
-    [assignableUsersCache, isCaseworkerAssignableUser],
-  );
-
-  const resolveTaskSearchCaseworkers = React.useCallback((): string[] => {
-    if (caseworkerIdList.length > 0) {
-      return caseworkerIdList;
-    }
-    if (caseworkerOptions.length > 0) {
-      return mapCaseworkerNamesToIds(caseworkerOptions);
-    }
-    return [];
-  }, [caseworkerIdList, caseworkerOptions, mapCaseworkerNamesToIds]);
-
   const mapUserValueToId = React.useCallback((value: string): string => {
     const raw = String(value ?? '').trim();
     if (!raw) return raw;
@@ -892,7 +874,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     }
     const t0 = performance.now();
     const ds = datasetColumns;
-    const toText = (val: unknown): string => (typeof val === 'string' ? val : typeof val === 'number' || typeof val === 'boolean' ? String(val) : '');
+    const toText = (val: unknown): string => {
+      if (typeof val === 'string') return val;
+      if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+      if (Array.isArray(val)) return val.map((v) => String(v ?? '')).filter((v) => v !== '').join(',');
+      return '';
+    };
     const entries = Object.entries(headerFilters).filter(([, v]) => {
       if (Array.isArray(v)) return v.length > 0;
       if (typeof v === 'string') return v.trim() !== '';
@@ -998,9 +985,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setPrefilterApplied(false);
       setCurrentPage(0);
       setSearchFilters(createDefaultGridFilters());
-      setHeaderFilters({});
       setUserSortActive(false);
-      lastAppliedFiltersRef.current = {};
       setHasLoadedApim(false);
       setApimItems([]);
       setTotalCount(0);
@@ -1949,7 +1934,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       let resolved = next;
       if (isQcAssign) {
         if (next.searchBy === 'task') {
-          resolved = { ...next, caseworkers: resolveTaskSearchCaseworkers() };
+          resolved = { ...next, caseworkers: [] };
         } else if (next.searchBy === 'caseworker' || next.searchBy === 'qcUser') {
           resolved = { ...next, caseworkers: mapCaseworkerNamesToIds(next.caseworkers ?? []) };
         }

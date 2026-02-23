@@ -6,6 +6,8 @@ import {
   mapManagerPrefiltersToApi,
   mapQcPrefiltersToApi,
   mapQcViewPrefiltersToApi,
+  QC_VIEW_PREFILTER_DEFAULT,
+  QC_WORKTHAT_SELF_OPTIONS,
 } from '../config/PrefilterConfigs';
 
 describe('prefilter configs extra', () => {
@@ -51,7 +53,7 @@ describe('prefilter configs extra', () => {
       workThat: 'caseworkerCompleted',
     });
     expect(params.searchBy).toBe('Tk');
-    expect(params.preFilter).toBe('ALL');
+    expect(params.preFilter).toBeUndefined();
     expect(params.taskStatus).toBe('Complete');
   });
 
@@ -63,7 +65,16 @@ describe('prefilter configs extra', () => {
       workThat: 'qcAssignedInProgress',
     });
     expect(params.searchBy).toBe('Tk');
-    expect(params.preFilter).toBe('123');
+    expect(params.preFilter).toBeUndefined();
     expect(params.taskStatus).toBe('Assigned QC Failed,Assigned');
+  });
+
+  test('qc view defaults and options', () => {
+    expect(QC_VIEW_PREFILTER_DEFAULT.searchBy).toBe('qcUser');
+    expect(QC_VIEW_PREFILTER_DEFAULT.workThat).toBe('qcAssignedToSelected');
+    const optionKeys = new Set(QC_WORKTHAT_SELF_OPTIONS.map((opt) => String(opt.key)));
+    expect(optionKeys.has('qcAssignedToSelected')).toBe(true);
+    expect(optionKeys.has('qcCompletedBySelected')).toBe(true);
+    expect(optionKeys.has('qcAssignedInProgress')).toBe(true);
   });
 });

@@ -12,6 +12,9 @@ import {
   MANAGER_BILLING_AUTHORITY_OPTIONS as MANAGER_BILLING_AUTHORITY_OPTIONS_CONST,
   MANAGER_CASEWORKER_OPTIONS as MANAGER_CASEWORKER_OPTIONS_CONST,
   PREFILTER_API_PARAMS,
+  MANAGER_WORKTHAT_STATUS_MAP,
+  QC_ASSIGNMENT_WORKTHAT_STATUS_MAP,
+  QC_VIEW_WORKTHAT_STATUS_MAP,
 } from '../constants/FilterConstants';
 
 export type QcSearchBy = 'qcUser' | 'caseworker' | 'task';
@@ -108,57 +111,14 @@ export const isManagerCompletedWorkThat = (workThat?: ManagerWorkThat): boolean 
 export const isQcCompletedWorkThat = (workThat?: ManagerWorkThat): boolean =>
   workThat === 'qcCompletedBySelected' || workThat === 'caseworkerCompleted' || workThat === 'taskCompleted';
 
-const mapWorkThatToStatuses = (workThat?: ManagerWorkThat): string[] => {
-  switch (workThat) {
-    case 'readyToAllocate':
-      return ['New'];
-    case 'currentlyAssigned':
-      return ['Assigned QC Failed', 'Assigned'];
-    case 'awaitingQc':
-      return ['QC Requested', 'Reassigned To QC', 'Assigned To QC'];
-    case 'assignedToSelected':
-      return ['Assigned QC Failed', 'Assigned'];
-    case 'assignedAwaitingQc':
-      return ['QC Requested', 'Reassigned To QC', 'Assigned To QC'];
-    case 'completedBySelected':
-    case 'hasBeenComplete':
-      return ['Complete Passed QC', 'Complete'];
-    default:
-      return [];
-  }
-};
+const mapWorkThatToStatuses = (workThat?: ManagerWorkThat): string[] =>
+  (workThat ? MANAGER_WORKTHAT_STATUS_MAP[workThat] : undefined) ?? [];
 
-const mapQcWorkThatToStatuses = (workThat?: ManagerWorkThat): string[] => {
-  switch (workThat) {
-    case 'qcAssignedToSelected':
-      return ['Reassigned To QC', 'Assigned To QC'];
-    case 'qcCompletedBySelected':
-      return ['Complete Passed QC'];
-    case 'qcAssignedInProgress':
-      return ['Assigned QC Failed'];
-    case 'caseworkerCompletedQcRequested':
-    case 'taskCompletedQcRequested':
-      return ['QC Requested'];
-    case 'caseworkerCompleted':
-    case 'taskCompleted':
-      return ['Complete'];
-    default:
-      return [];
-  }
-};
+const mapQcWorkThatToStatuses = (workThat?: ManagerWorkThat): string[] =>
+  (workThat ? QC_ASSIGNMENT_WORKTHAT_STATUS_MAP[workThat] : undefined) ?? [];
 
-const mapQcViewWorkThatToStatuses = (workThat?: ManagerWorkThat): string[] => {
-  switch (workThat) {
-    case 'qcAssignedToSelected':
-      return ['Reassigned To QC', 'Assigned To QC'];
-    case 'qcCompletedBySelected':
-      return ['Complete Passed QC', 'Complete'];
-    case 'qcAssignedInProgress':
-      return ['Assigned QC Failed', 'Assigned'];
-    default:
-      return [];
-  }
-};
+const mapQcViewWorkThatToStatuses = (workThat?: ManagerWorkThat): string[] =>
+  (workThat ? QC_VIEW_WORKTHAT_STATUS_MAP[workThat] : undefined) ?? [];
 
 export const mapManagerPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record<string, string> => {
   if (!prefilters) return {};
@@ -233,14 +193,16 @@ export const mapQcPrefiltersToApi = (prefilters?: ManagerPrefilterState): Record
       params.searchBy = PREFILTER_API_PARAMS.qcAssignment.searchBy.caseworker;
       break;
     case 'task':
-      params.searchBy = PREFILTER_API_PARAMS.qcView.searchBy.task;
+      params.searchBy = PREFILTER_API_PARAMS.qcAssignment.searchBy.task;
       break;
     default:
       break;
   }
 
-  const joined = joinValues(prefilters.caseworkers ?? []);
-  if (joined) params.preFilter = joined;
+  if (prefilters.searchBy !== 'task') {
+    const joined = joinValues(prefilters.caseworkers ?? []);
+    if (joined) params.preFilter = joined;
+  }
 
   const statuses = mapQcWorkThatToStatuses(prefilters.workThat);
   if (statuses.length > 0) params.taskStatus = statuses.join(taskStatusSeparator);
@@ -287,8 +249,10 @@ export const mapQcViewPrefiltersToApi = (prefilters?: ManagerPrefilterState): Re
       break;
   }
 
-  const joined = joinValues(prefilters.caseworkers ?? []);
-  if (joined) params.preFilter = joined;
+  if (prefilters.searchBy !== 'task') {
+    const joined = joinValues(prefilters.caseworkers ?? []);
+    if (joined) params.preFilter = joined;
+  }
 
   const statuses = mapQcViewWorkThatToStatuses(prefilters.workThat);
   if (statuses.length > 0) params.taskStatus = statuses.join(taskStatusSeparator);

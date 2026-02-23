@@ -16,6 +16,11 @@ describe('column filter query', () => {
     expect(query).toBe('columnFilter=address~like~High%20Street');
   });
 
+  test('keeps taskId prefixes in text filters', () => {
+    const query = buildColumnFilterQuery('sales', { taskId: 'A-1000234' });
+    expect(query).toBe('columnFilter=taskId~like~A-1000234');
+  });
+
   test('does not append sort marker when sort is not provided', () => {
     const query = buildColumnFilterQuery('sales', { address: 'High' });
     expect(query).toBe('columnFilter=address~like~High');
@@ -65,5 +70,10 @@ describe('column filter query', () => {
   test('returns sort marker when only sort is provided', () => {
     const query = buildColumnFilterQuery('sales', {}, { name: 'saleId', sortDirection: 0 });
     expect(query).toBe('columnFilter=saleId~SORT~ASC');
+  });
+
+  test('normalizes sort field names for sort marker', () => {
+    const query = buildColumnFilterQuery('sales', {}, { name: 'Sale Id', sortDirection: 1 });
+    expect(query).toBe('columnFilter=saleId~SORT~DESC');
   });
 });
