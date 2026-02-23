@@ -1,4 +1,5 @@
 import { resolveScreenConfig } from '../utils/ScreenResolution';
+import { buildPrefilterStorageKey } from '../utils/ScreenBehavior';
 
 describe('resolveScreenConfig', () => {
   test('resolves direct screen names to expected configs', () => {
@@ -30,5 +31,15 @@ describe('resolveScreenConfig', () => {
     expect(resolved.kind).toBe('qcAssign');
     expect(resolved.tableKey).toBe('qaassign');
     expect(resolved.sourceCode).toBe('QCA');
+  });
+
+  test('prefilter storage key is stable across screen name variants', () => {
+    const a = resolveScreenConfig('Quality Control Assignment', undefined, 'sales');
+    const b = resolveScreenConfig('QC Assignment Screen', undefined, 'sales');
+
+    const keyA = buildPrefilterStorageKey(a.tableKey, a.kind);
+    const keyB = buildPrefilterStorageKey(b.tableKey, b.kind);
+
+    expect(keyA).toBe(keyB);
   });
 });

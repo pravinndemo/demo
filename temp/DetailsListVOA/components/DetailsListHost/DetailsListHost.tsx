@@ -14,7 +14,7 @@ import { ensureSampleColumns, buildSampleEntityRecords } from '../../utils/Sampl
 import { parseAssignableUsersResponse as parseAssignableUsersResponseBase, resolveAssignmentStatusValidation } from '../../utils/AssignmentHelpers';
 import { buildColumnFilterQuery } from '../../utils/ColumnFilterQuery';
 import { isGuidValue, normalizeSuid, normalizeUserId } from '../../utils/IdentifierUtils';
-import { isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
+import { buildPrefilterStorageKey, isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
 import { resolveScreenConfig, toKnownTableKey, normalizeTableKey, type ScreenKind } from '../../utils/ScreenResolution';
 import { loadGridData } from '../../services/GridDataController';
 import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from '../../services/CustomApi';
@@ -617,7 +617,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const storageKey = React.useMemo(() => `voa-grid-filters:${tableKey}`, [tableKey]);
   const storageKeySort = React.useMemo(() => `voa-grid-sort:${tableKey}`, [tableKey]);
   const storageKeyPage = React.useMemo(() => `voa-grid-page:${tableKey}`, [tableKey]);
-  const prefilterStorageKey = React.useMemo(() => `voa-prefilters:${tableKey}:${screenName || 'default'}`, [screenName, tableKey]);
+  const prefilterStorageKey = React.useMemo(() => buildPrefilterStorageKey(tableKey, screenKind), [screenKind, tableKey]);
   const screenInstanceKey = React.useMemo(() => `${tableKey}:${screenName || 'default'}`, [screenName, tableKey]);
   const salesSearchStorageKey = React.useMemo(
     () => `voa-sales-search:${tableKey}:${screenName || 'default'}`,

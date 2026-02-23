@@ -2,6 +2,7 @@ import { type GridFilterState } from '../Filters';
 import {
   isPrefilterScreenKind,
   isSalesSearchDefaultFilters,
+  buildPrefilterStorageKey,
   resolveAssignmentScreenName,
   shouldShowResults,
   shouldResetPrefiltersOnScreenChange,
@@ -66,5 +67,10 @@ describe('screen behavior', () => {
   test('shouldResetPrefiltersOnScreenChange ignores non-prefilter screens', () => {
     expect(shouldResetPrefiltersOnScreenChange('managerAssign', 'salesSearch', false)).toBe(false);
     expect(shouldResetPrefiltersOnScreenChange('salesSearch', 'unknown', false)).toBe(false);
+  });
+
+  test('buildPrefilterStorageKey is stable per screen kind', () => {
+    expect(buildPrefilterStorageKey('qaassign', 'qcAssign')).toBe('voa-prefilters:qaassign:qcAssign');
+    expect(buildPrefilterStorageKey('qaview', 'qcView')).toBe('voa-prefilters:qaview:qcView');
   });
 });

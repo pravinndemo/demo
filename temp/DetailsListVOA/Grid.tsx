@@ -63,7 +63,7 @@ import {
   sanitizeDigits,
   sanitizeTaskIdInput,
 } from './utils/SalesSearchValidation';
-import { shouldResetPrefiltersOnScreenChange } from './utils/ScreenBehavior';
+import { buildPrefilterStorageKey, shouldResetPrefiltersOnScreenChange } from './utils/ScreenBehavior';
 import {
   MANAGER_PREFILTER_DEFAULT,
   CASEWORKER_PREFILTER_DEFAULT,
@@ -954,8 +954,8 @@ export const Grid = React.memo((props: GridProps) => {
         ? qcViewText.emptyState
         : commonText.emptyState;
   const prefilterStorageKey = React.useMemo(
-    () => `voa-prefilters:${tableKey}:${screenName || 'default'}`,
-    [screenName, tableKey],
+    () => buildPrefilterStorageKey(tableKey, derivedScreenKind),
+    [derivedScreenKind, tableKey],
   );
   const prefilterAutoAppliedRef = React.useRef<string>('');
   const prefilterDirtyRef = React.useRef(false);
