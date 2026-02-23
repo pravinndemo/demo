@@ -142,9 +142,9 @@ export const buildColumnFilterQuery = (
       return `columnFilter=${encoded.join(COLUMN_FILTER_CONDITION_SEPARATOR)}`;
     });
 
-  if (expressions.length === 0) {
-    return '';
-  }
   const sortMarker = buildColumnFilterSortMarker(sort);
+  if (expressions.length === 0) {
+    return sortMarker ?? '';
+  }
   return sortMarker ? `${expressions.join('&')}&${sortMarker}` : expressions.join('&');
 };

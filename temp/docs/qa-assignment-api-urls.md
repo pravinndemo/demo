@@ -1,5 +1,9 @@
 # QA Assignment - Prefilter, Table Filter, and Sort URLs
 
+> NOTE: This document is superseded. Current prefilter URLs are in docs/prefilter-api-urls.md.
+> Column header filters and sorting are in docs/column-filter-and-sorting-urls.md.
+> The examples below may be outdated.
+
 | Placeholder | Value |
 | --- | --- |
 | {org} | Dynamics org host (example: contoso.crm.dynamics.com) |

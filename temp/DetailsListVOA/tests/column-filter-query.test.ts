@@ -1,7 +1,7 @@
 import { buildColumnFilterQuery } from '../utils/ColumnFilterQuery';
 
 describe('column filter query', () => {
-  test('returns empty string when no filters', () => {
+  test('returns empty string when no filters and no sort', () => {
     const query = buildColumnFilterQuery('sales', {});
     expect(query).toBe('');
   });
@@ -14,6 +14,11 @@ describe('column filter query', () => {
   test('uses like for text fields and encodes values', () => {
     const query = buildColumnFilterQuery('sales', { address: 'High Street' });
     expect(query).toBe('columnFilter=address~like~High%20Street');
+  });
+
+  test('does not append sort marker when sort is not provided', () => {
+    const query = buildColumnFilterQuery('sales', { address: 'High' });
+    expect(query).toBe('columnFilter=address~like~High');
   });
 
   test('uses in for multi select fields', () => {
@@ -55,5 +60,10 @@ describe('column filter query', () => {
   test('appends sort marker', () => {
     const query = buildColumnFilterQuery('sales', { address: 'High' }, { name: 'saleId', sortDirection: 1 });
     expect(query).toBe('columnFilter=address~like~High&columnFilter=saleId~SORT~DESC');
+  });
+
+  test('returns sort marker when only sort is provided', () => {
+    const query = buildColumnFilterQuery('sales', {}, { name: 'saleId', sortDirection: 0 });
+    expect(query).toBe('columnFilter=saleId~SORT~ASC');
   });
 });

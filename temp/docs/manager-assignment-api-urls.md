@@ -1,5 +1,9 @@
 # Manager Assignment - Plugin and APIM URL Examples
 
+> NOTE: This document is superseded. Current prefilter URLs are in docs/prefilter-api-urls.md.
+> Column header filters and sorting are in docs/column-filter-and-sorting-urls.md.
+> The examples below may be outdated.
+
 This document lists the exact URL shapes produced for Manager Assignment, including every "Work that" prefilter option and all column header filter URLs.
 
 ## Placeholders and operators used

@@ -344,6 +344,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     name: 'taskid',
     sortDirection: 0,
   });
+  const [userSortActive, setUserSortActive] = React.useState(false);
   const [searchFilters, setSearchFilters] = React.useState<GridFilterState>(SALES_SEARCH_DEFAULT_FILTERS);
   const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState | undefined>(undefined);
   const [prefilterApplied, setPrefilterApplied] = React.useState(false);
@@ -543,7 +544,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const mapColumnFiltersForApi = React.useCallback(
     (filters: Record<string, ColumnFilterValue>): Record<string, ColumnFilterValue> => {
       const mapped: Record<string, ColumnFilterValue> = { ...filters };
-      const toNumericTaskId = (value: string): string => value.replace(/\D/g, '');
       (['assignedto', 'qcassignedto'] as const).forEach((field) => {
         const current = mapped[field];
         if (!current) return;
@@ -567,31 +567,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           mapped[field] = values;
         }
       });
-      Object.keys(mapped).forEach((field) => {
-        const normalized = field.replace(/[^a-z0-9]/gi, '').toLowerCase();
-        if (normalized !== 'taskid') return;
-        const current = mapped[field];
-        if (!current) return;
-        if (typeof current === 'string') {
-          const digits = toNumericTaskId(current);
-          if (!digits) {
-            delete mapped[field];
-            return;
-          }
-          mapped[field] = digits;
-          return;
-        }
-        if (Array.isArray(current)) {
-          const values = current
-            .map((value) => toNumericTaskId(String(value)))
-            .filter((value) => value !== '');
-          if (values.length === 0) {
-            delete mapped[field];
-            return;
-          }
-          mapped[field] = values;
-        }
-      });
       return mapped;
     },
     [mapUserValueToId],
@@ -603,8 +578,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       const qcAssignedTo = filters.qcAssignedTo ? mapUserValueToId(filters.qcAssignedTo) : '';
       const nextAssignedTo = assignedTo || undefined;
       const nextQcAssignedTo = qcAssignedTo || undefined;
-      const taskIdDigits = filters.taskId ? filters.taskId.replace(/\D/g, '') : undefined;
-      const nextTaskId = taskIdDigits && taskIdDigits.length > 0 ? taskIdDigits : undefined;
+      const nextTaskId = filters.taskId;
       if (nextAssignedTo === filters.assignedTo && nextQcAssignedTo === filters.qcAssignedTo && nextTaskId === filters.taskId) {
         return filters;
       }
@@ -618,8 +592,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     [headerFilters, mapColumnFiltersForApi],
   );
   const columnFilterQuery = React.useMemo(
-    () => buildColumnFilterQuery(tableKey, apiHeaderFilters, clientSort),
-    [apiHeaderFilters, clientSort, tableKey],
+    () => buildColumnFilterQuery(tableKey, apiHeaderFilters, userSortActive ? clientSort : undefined),
+    [apiHeaderFilters, clientSort, tableKey, userSortActive],
   );
 
   const buildCaseworkerNames = React.useCallback((users: AssignUser[]): string[] => {
@@ -742,6 +716,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           const parsed = JSON.parse(rawLocalSort) as { name?: string; sortDirection?: number };
           if (parsed?.name && (parsed.sortDirection === 0 || parsed.sortDirection === 1)) {
             setClientSort({ name: parsed.name, sortDirection: parsed.sortDirection });
+            setUserSortActive(false);
           }
         } catch { /* ignore invalid */ }
       }
@@ -908,7 +883,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return { records: recs, ids: all };
   }, [apimItems, clientUrl, columnDisplayNames, datasetColumns, hasLoadedApim, isLocalHost, userDisplayNameMap]);
 
-  const disableClientFiltering = hasLoadedApim;
+  const disableClientFiltering = hasLoadedApim
+    && (serverDriven || (totalCount > 0 && apimItems.length < totalCount));
 
   const filteredIds = React.useMemo(() => {
     if (disableClientFiltering) {
@@ -1023,6 +999,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setCurrentPage(0);
       setSearchFilters(createDefaultGridFilters());
       setHeaderFilters({});
+      setUserSortActive(false);
       lastAppliedFiltersRef.current = {};
       setHasLoadedApim(false);
       setApimItems([]);
@@ -1515,6 +1492,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 
   const onSort = (name: string, desc: boolean): void => {
     setClientSort({ name, sortDirection: desc ? 1 : 0 });
+    setUserSortActive(true);
   };
 
   const resolveAssignmentApiName = (): string => {
@@ -1989,6 +1967,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setSearchFilters(createDefaultGridFilters());
       if (!isAuto) {
         setClientSort({ name: 'saleid', sortDirection: 0 });
+        setUserSortActive(false);
         setHeaderFilters({});
         lastAppliedFiltersRef.current = {};
         try {
@@ -2010,6 +1989,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setCurrentPage(0);
       setSearchFilters(createDefaultGridFilters());
       setClientSort({ name: 'saleid', sortDirection: 0 });
+      setUserSortActive(false);
       setHeaderFilters({});
       lastAppliedFiltersRef.current = {};
       selection.setAllSelected(false);

@@ -1,5 +1,9 @@
 # Sales Record Search (All Search) - Plugin and APIM URL Examples
 
+> NOTE: Column header filters and sorting are consolidated in docs/column-filter-and-sorting-urls.md.
+> TaskId values are sent as typed (no digit-only trimming).
+> The examples below may be outdated.
+
 This document lists the exact URL shapes produced for Sales Record Search, including every search field option and all column header filter URLs.
 
 ## Placeholders and operators used
