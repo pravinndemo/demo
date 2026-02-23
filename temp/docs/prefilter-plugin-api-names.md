@@ -109,8 +109,7 @@ APIM:
 
 | Prefilter Display Name | Internal Key Name | Custom API Param Name | APIM Param Name | Value / Operator |
 |---|---|---|---|---|
-| Search By | searchBy | searchBy | searchBy | `QC` (QC User), `CW` (Caseworker), `TK` (Task) |
-| QC User / Caseworker | caseworkers | preFilter | preFilter | Comma list or `ALL` (not used when Search By = Task) |
+| Requested By | - | RequestedBy | RequestedBy | Current user id |
 | Work That | workThat | taskStatus | taskStatus | See mapping below |
 | Completed From | completedFrom | fromDate | fromDate | `dd/MM/yyyy` (only for completed work) |
 | Completed To | completedTo | toDate | toDate | `dd/MM/yyyy` (only for completed work) |
@@ -126,9 +125,9 @@ URL examples (QC View):
 
 Custom API (function):
 ```text
-GET https://{org}.crm.dynamics.com/api/data/v9.2/{customApiName}(pageNumber='1',pageSize='50',sortField='saleId',sortDirection='asc',source='QCV',searchBy='QC',preFilter='22222222-2222-2222-2222-222222222222',taskStatus='Reassigned To QC,Assigned To QC')
+GET https://{org}.crm.dynamics.com/api/data/v9.2/{customApiName}(pageNumber='1',pageSize='50',sortField='saleId',sortDirection='asc',source='QCV',RequestedBy='22222222-2222-2222-2222-222222222222',taskStatus='Reassigned To QC,Assigned To QC')
 ```
 APIM:
 ```text
-{APIM_BASE_ADDRESS}?page-number=1&page-size=50&source=QCV&searchBy=QC&preFilter=22222222-2222-2222-2222-222222222222&taskStatus=Reassigned+To+QC%2CAssigned+To+QC&sort-field=saleId&sort-direction=asc
+{APIM_BASE_ADDRESS}?page-number=1&page-size=50&source=QCV&RequestedBy=22222222-2222-2222-2222-222222222222&taskStatus=Reassigned+To+QC%2CAssigned+To+QC&sort-field=saleId&sort-direction=asc
 ```

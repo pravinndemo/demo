@@ -1046,7 +1046,9 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     setLoadErrorMessage(undefined);
     setApimLoading(true);
     void (async () => {
-      const requestedBy = isCaseworkerView && currentUserId ? currentUserId.toLowerCase() : undefined;
+      const requestedBy = (isCaseworkerView || isQcView) && currentUserId
+        ? currentUserId.toLowerCase()
+        : undefined;
       const res = await loadGridData(context, {
         tableKey,
         filters: sanitizeFilters(mapSearchFiltersForApi(searchFilters)),

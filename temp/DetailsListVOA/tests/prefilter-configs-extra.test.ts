@@ -57,14 +57,14 @@ describe('prefilter configs extra', () => {
     expect(params.taskStatus).toBe('Complete');
   });
 
-  test('mapQcViewPrefiltersToApi searchBy switch', () => {
+  test('mapQcViewPrefiltersToApi omits searchBy and preFilter', () => {
     const params = mapQcViewPrefiltersToApi({
       searchBy: 'task',
       billingAuthorities: [],
       caseworkers: ['123'],
       workThat: 'qcAssignedInProgress',
     });
-    expect(params.searchBy).toBe('Tk');
+    expect(params.searchBy).toBeUndefined();
     expect(params.preFilter).toBeUndefined();
     expect(params.taskStatus).toBe('Assigned QC Failed,Assigned');
   });

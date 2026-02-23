@@ -194,8 +194,6 @@ describe('prefilter mapping', () => {
         completedTo?: string;
       };
       expected: {
-        searchBy: 'QC';
-        preFilter: string;
         taskStatus: string;
         fromDate?: string;
         toDate?: string;
@@ -206,7 +204,7 @@ describe('prefilter mapping', () => {
       {
         name: 'assigned to me',
         prefilters: { searchBy: 'qcUser', caseworkers: ['qc-me'], workThat: 'qcAssignedToSelected' },
-        expected: { searchBy: 'QC', preFilter: 'qc-me', taskStatus: 'Reassigned To QC,Assigned To QC' },
+        expected: { taskStatus: 'Reassigned To QC,Assigned To QC' },
       },
       {
         name: 'i have completed with dates',
@@ -217,12 +215,12 @@ describe('prefilter mapping', () => {
           completedFrom: '2026-02-05',
           completedTo: '2026-02-19',
         },
-        expected: { searchBy: 'QC', preFilter: 'qc-me', taskStatus: 'Complete Passed QC,Complete', fromDate: '05/02/2026', toDate: '19/02/2026' },
+        expected: { taskStatus: 'Complete Passed QC,Complete', fromDate: '05/02/2026', toDate: '19/02/2026' },
       },
       {
         name: 'assigned to me but in progress',
         prefilters: { searchBy: 'qcUser', caseworkers: ['qc-me'], workThat: 'qcAssignedInProgress' },
-        expected: { searchBy: 'QC', preFilter: 'qc-me', taskStatus: 'Assigned QC Failed,Assigned' },
+        expected: { taskStatus: 'Assigned QC Failed,Assigned' },
       },
     ];
 
@@ -232,8 +230,8 @@ describe('prefilter mapping', () => {
         ...prefilters,
       });
 
-      expect(params.searchBy).toBe(expected.searchBy);
-      expect(params.preFilter).toBe(expected.preFilter);
+      expect(params.searchBy).toBeUndefined();
+      expect(params.preFilter).toBeUndefined();
       expect(params.taskStatus).toBe(expected.taskStatus);
       if (expected.fromDate !== undefined) expect(params.fromDate).toBe(expected.fromDate);
       if (expected.toDate !== undefined) expect(params.toDate).toBe(expected.toDate);
