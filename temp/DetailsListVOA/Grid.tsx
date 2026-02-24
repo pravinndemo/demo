@@ -957,14 +957,38 @@ export const Grid = React.memo((props: GridProps) => {
     () => buildPrefilterStorageKey(tableKey, derivedScreenKind),
     [derivedScreenKind, tableKey],
   );
+  const legacyPrefilterStorageKey = React.useMemo(
+    () => `voa-prefilters:${tableKey}:${screenName || 'default'}`,
+    [screenName, tableKey],
+  );
   const prefilterAutoAppliedRef = React.useRef<string>('');
   const prefilterDirtyRef = React.useRef(false);
   const prefilterClearedRef = React.useRef(false);
+  const getPrefiltersForStorage = React.useCallback(
+    (state: ManagerPrefilterState): ManagerPrefilterState => {
+      const userId = (currentUserId ?? '').trim();
+      if (!userId) return state;
+      if (isCaseworkerView && state.searchBy === 'caseworker' && state.caseworkers.length === 0) {
+        return { ...state, caseworkers: [userId] };
+      }
+      if (isQcView && state.searchBy === 'qcUser' && state.caseworkers.length === 0) {
+        return { ...state, caseworkers: [userId] };
+      }
+      return state;
+    },
+    [currentUserId, isCaseworkerView, isQcView],
+  );
   React.useEffect(() => {
     prefilterAutoAppliedRef.current = '';
     prefilterDirtyRef.current = false;
     prefilterClearedRef.current = false;
   }, [prefilterStorageKey]);
+
+  React.useEffect(() => {
+    if (!prefilterApplied) {
+      prefilterAutoAppliedRef.current = '';
+    }
+  }, [prefilterApplied]);
 
   React.useEffect(() => {
     if (columnFilters) {
@@ -1023,7 +1047,12 @@ export const Grid = React.memo((props: GridProps) => {
     if (!useAssignmentLayout) return;
     if (prefilterDirtyRef.current) return;
     try {
-      const raw = localStorage.getItem(prefilterStorageKey);
+      let raw = localStorage.getItem(prefilterStorageKey);
+      let migratedFromLegacy = false;
+      if (!raw && legacyPrefilterStorageKey !== prefilterStorageKey) {
+        raw = localStorage.getItem(legacyPrefilterStorageKey);
+        migratedFromLegacy = !!raw;
+      }
       if (!raw) return;
       const parsed = JSON.parse(raw) as StoredPrefilterState;
       const next: ManagerPrefilterState = {
@@ -1058,6 +1087,14 @@ export const Grid = React.memo((props: GridProps) => {
           onPrefilterApply(next, { source: 'auto' });
         }
       }
+      if (migratedFromLegacy) {
+        try {
+          localStorage.setItem(prefilterStorageKey, raw);
+          localStorage.removeItem(legacyPrefilterStorageKey);
+        } catch {
+          // ignore storage failures
+        }
+      }
     } catch {
       // ignore parse errors
     }
@@ -1078,15 +1115,19 @@ export const Grid = React.memo((props: GridProps) => {
   React.useEffect(() => {
     if (!useAssignmentLayout) return;
     try {
+      const storedPrefilters = getPrefiltersForStorage(prefilters);
       const shouldRemove = shouldRemoveStoredPrefilter(
-        isPrefilterDefault(prefilters),
+        isPrefilterDefault(storedPrefilters),
         !!prefilterApplied,
         prefilterClearedRef.current,
       );
       if (shouldRemove) {
         localStorage.removeItem(prefilterStorageKey);
-      } else if (!isPrefilterDefault(prefilters) || !!prefilterApplied) {
-        const payload: StoredPrefilterState = { ...prefilters, applied: !!prefilterApplied };
+      } else if (!!prefilterApplied) {
+        const payload: StoredPrefilterState = { ...storedPrefilters, applied: true };
+        localStorage.setItem(prefilterStorageKey, JSON.stringify(payload));
+      } else if (!isPrefilterDefault(storedPrefilters) && prefilterDirtyRef.current) {
+        const payload: StoredPrefilterState = { ...storedPrefilters, applied: false };
         localStorage.setItem(prefilterStorageKey, JSON.stringify(payload));
       }
     } catch {
