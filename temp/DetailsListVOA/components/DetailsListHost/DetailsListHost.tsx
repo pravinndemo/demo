@@ -1014,6 +1014,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       return;
     }
     if (isPrefilterScreen && !prefilterApplied) {
+      // eslint-disable-next-line no-console
+      console.debug('[Prefilter] host load skip', {
+        screen: screenKind,
+        prefilterApplied,
+        prefilters,
+      });
       setApimLoading(false);
       setHasLoadedApim(false);
       setApimItems([]);
@@ -1049,6 +1055,14 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       const requestedBy = (isCaseworkerView || isQcView) && currentUserId
         ? currentUserId.toLowerCase()
         : undefined;
+      // eslint-disable-next-line no-console
+      console.debug('[Prefilter] host load start', {
+        screen: screenKind,
+        prefilterApplied,
+        prefilters,
+        requestedBy,
+        searchNonce,
+      });
       const res = await loadGridData(context, {
         tableKey,
         filters: sanitizeFilters(mapSearchFiltersForApi(searchFilters)),
@@ -1933,6 +1947,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     onSearchDirty: handleSalesSearchDirty,
     onPrefilterApply: (next, options) => {
       const isAuto = options?.source === 'auto';
+      // eslint-disable-next-line no-console
+      console.debug('[Prefilter] host apply', {
+        screen: screenKind,
+        isAuto,
+        next,
+      });
       let resolved = next;
       if (isQcAssign) {
         if (next.searchBy === 'task') {

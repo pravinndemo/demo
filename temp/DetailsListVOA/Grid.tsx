@@ -967,6 +967,8 @@ export const Grid = React.memo((props: GridProps) => {
   const prefilterClearedRef = React.useRef(false);
   const prefilterHydratingRef = React.useRef(false);
   const prefilterHydrationTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const prefilterAutoApplyInFlightRef = React.useRef(false);
+  const prefilterAutoApplyTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const schedulePrefilterHydrationClear = React.useCallback(() => {
     if (prefilterHydrationTimeoutRef.current !== undefined) {
       clearTimeout(prefilterHydrationTimeoutRef.current);
@@ -980,6 +982,23 @@ export const Grid = React.memo((props: GridProps) => {
     prefilterHydratingRef.current = true;
     schedulePrefilterHydrationClear();
   }, [schedulePrefilterHydrationClear]);
+  const clearAutoApplyInFlight = React.useCallback(() => {
+    prefilterAutoApplyInFlightRef.current = false;
+    if (prefilterAutoApplyTimeoutRef.current !== undefined) {
+      clearTimeout(prefilterAutoApplyTimeoutRef.current);
+      prefilterAutoApplyTimeoutRef.current = undefined;
+    }
+  }, []);
+  const markAutoApplyInFlight = React.useCallback(() => {
+    prefilterAutoApplyInFlightRef.current = true;
+    if (prefilterAutoApplyTimeoutRef.current !== undefined) {
+      clearTimeout(prefilterAutoApplyTimeoutRef.current);
+    }
+    prefilterAutoApplyTimeoutRef.current = setTimeout(() => {
+      prefilterAutoApplyTimeoutRef.current = undefined;
+      prefilterAutoApplyInFlightRef.current = false;
+    }, 1000);
+  }, []);
   const getPrefiltersForStorage = React.useCallback(
     (state: ManagerPrefilterState): ManagerPrefilterState => {
       const userId = (currentUserId ?? '').trim();
@@ -1000,17 +1019,24 @@ export const Grid = React.memo((props: GridProps) => {
     prefilterDirtyRef.current = false;
     prefilterClearedRef.current = false;
     prefilterHydratingRef.current = false;
+    prefilterAutoApplyInFlightRef.current = false;
     if (prefilterHydrationTimeoutRef.current !== undefined) {
       clearTimeout(prefilterHydrationTimeoutRef.current);
       prefilterHydrationTimeoutRef.current = undefined;
+    }
+    if (prefilterAutoApplyTimeoutRef.current !== undefined) {
+      clearTimeout(prefilterAutoApplyTimeoutRef.current);
+      prefilterAutoApplyTimeoutRef.current = undefined;
     }
   }, [prefilterStorageKey]);
 
   React.useEffect(() => {
     if (!prefilterApplied) {
       prefilterAutoAppliedRef.current = '';
+    } else {
+      clearAutoApplyInFlight();
     }
-  }, [prefilterApplied]);
+  }, [clearAutoApplyInFlight, prefilterApplied]);
 
   React.useEffect(() => {
     if (columnFilters) {
@@ -1059,7 +1085,7 @@ export const Grid = React.memo((props: GridProps) => {
       && !state.completedTo;
   }, [currentUserId, isCaseworkerView, isQcAssign, isQcView]);
   const markPrefilterDirty = React.useCallback(() => {
-    if (prefilterHydratingRef.current) return;
+    if (prefilterHydratingRef.current || prefilterAutoApplyInFlightRef.current) return;
     prefilterDirtyRef.current = true;
     onPrefilterDirty?.();
   }, [onPrefilterDirty]);
@@ -1130,6 +1156,7 @@ export const Grid = React.memo((props: GridProps) => {
       if (shouldAutoApply && onPrefilterApply && !prefilterApplied) {
         if (prefilterAutoAppliedRef.current !== autoKey) {
           prefilterAutoAppliedRef.current = autoKey;
+          markAutoApplyInFlight();
           onPrefilterApply(normalizedNext, { source: 'auto' });
         }
       }
@@ -1149,6 +1176,7 @@ export const Grid = React.memo((props: GridProps) => {
     isCaseworkerView,
     isQcAssign,
     isQcView,
+    markAutoApplyInFlight,
     onPrefilterApply,
     prefilterApplied,
     prefilterStorageKey,
@@ -1580,18 +1608,20 @@ export const Grid = React.memo((props: GridProps) => {
     dismissResultMessages();
     onPrefilterApply(normalized, { source: 'user' });
     prefilterDirtyRef.current = false;
+    clearAutoApplyInFlight();
     comboIgnoreNextInputRef.current = {};
     comboIgnoreNextChangeRef.current = {};
     comboExpectedSelectionRef.current = {};
     if (isPrefilterNarrow) {
       setPrefilterExpanded(false);
     }
-  }, [dismissResultMessages, isPrefilterNarrow, onPrefilterApply, prefilters]);
+  }, [clearAutoApplyInFlight, dismissResultMessages, isPrefilterNarrow, onPrefilterApply, prefilters]);
 
   const handlePrefilterClear = React.useCallback(() => {
     dismissResultMessages();
     prefilterDirtyRef.current = true;
     prefilterClearedRef.current = true;
+    clearAutoApplyInFlight();
     comboIgnoreNextInputRef.current = {};
     comboIgnoreNextChangeRef.current = {};
     comboExpectedSelectionRef.current = {};
@@ -1613,6 +1643,7 @@ export const Grid = React.memo((props: GridProps) => {
     onPrefilterClear?.();
   }, [
     caseworkerPrefilterDefaults,
+    clearAutoApplyInFlight,
     dismissResultMessages,
     isCaseworkerView,
     isQcAssign,
