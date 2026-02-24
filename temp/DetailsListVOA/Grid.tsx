@@ -962,6 +962,7 @@ export const Grid = React.memo((props: GridProps) => {
     [screenName, tableKey],
   );
   const prefilterAutoAppliedRef = React.useRef<string>('');
+  const prefilterAutoApplyDebugRef = React.useRef<string>('');
   const prefilterDirtyRef = React.useRef(false);
   const prefilterClearedRef = React.useRef(false);
   const getPrefiltersForStorage = React.useCallback(
@@ -980,6 +981,7 @@ export const Grid = React.memo((props: GridProps) => {
   );
   React.useEffect(() => {
     prefilterAutoAppliedRef.current = '';
+    prefilterAutoApplyDebugRef.current = '';
     prefilterDirtyRef.current = false;
     prefilterClearedRef.current = false;
   }, [prefilterStorageKey]);
@@ -1063,28 +1065,46 @@ export const Grid = React.memo((props: GridProps) => {
         completedFrom: typeof parsed.completedFrom === 'string' ? parsed.completedFrom : undefined,
         completedTo: typeof parsed.completedTo === 'string' ? parsed.completedTo : undefined,
       };
-      setPrefilters(next);
+      const normalizedNext = getPrefiltersForStorage(next);
+      setPrefilters(normalizedNext);
 
       const storedApplied = typeof parsed.applied === 'boolean' ? parsed.applied : undefined;
       const needsCompleted = (isQcAssign || isQcView)
-        ? isQcCompletedWorkThat(next.workThat)
-        : isManagerCompletedWorkThat(next.workThat);
+        ? isQcCompletedWorkThat(normalizedNext.workThat)
+        : isManagerCompletedWorkThat(normalizedNext.workThat);
       const hasOwner = (isCaseworkerView || isQcView)
-        ? next.caseworkers.length > 0
+        ? normalizedNext.caseworkers.length > 0
         : isQcAssign
-          ? (next.searchBy === 'task' ? true : next.caseworkers.length > 0)
-          : next.searchBy === 'billingAuthority'
-            ? next.billingAuthorities.length > 0
-            : next.caseworkers.length > 0;
-      const hasWorkThat = !!next.workThat;
-      const hasFromDate = !needsCompleted || !!next.completedFrom;
+          ? (normalizedNext.searchBy === 'task' ? true : normalizedNext.caseworkers.length > 0)
+          : normalizedNext.searchBy === 'billingAuthority'
+            ? normalizedNext.billingAuthorities.length > 0
+            : normalizedNext.caseworkers.length > 0;
+      const hasWorkThat = !!normalizedNext.workThat;
+      const hasFromDate = !needsCompleted || !!normalizedNext.completedFrom;
       const canAutoApply = hasOwner && hasWorkThat && hasFromDate;
       const shouldAutoApply = storedApplied === false ? false : canAutoApply;
+      const autoKey = `${prefilterStorageKey}|${derivedScreenKind}`;
+      if (prefilterAutoApplyDebugRef.current !== autoKey) {
+        prefilterAutoApplyDebugRef.current = autoKey;
+        // Debugging aid for auto-apply behavior.
+        // eslint-disable-next-line no-console
+        console.debug('[Prefilter] auto-apply check', {
+          screen: derivedScreenKind,
+          storedApplied,
+          hasOwner,
+          hasWorkThat,
+          hasFromDate,
+          canAutoApply,
+          shouldAutoApply,
+          prefilterApplied,
+          prefilterStorageKey,
+          prefilters: normalizedNext,
+        });
+      }
       if (shouldAutoApply && onPrefilterApply && !prefilterApplied) {
-        const autoKey = `${prefilterStorageKey}|${derivedScreenKind}`;
         if (prefilterAutoAppliedRef.current !== autoKey) {
           prefilterAutoAppliedRef.current = autoKey;
-          onPrefilterApply(next, { source: 'auto' });
+          onPrefilterApply(normalizedNext, { source: 'auto' });
         }
       }
       if (migratedFromLegacy) {
