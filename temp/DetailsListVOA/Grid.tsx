@@ -1161,8 +1161,16 @@ export const Grid = React.memo((props: GridProps) => {
           console.debug('[Prefilter] auto-apply fire', {
             screen: derivedScreenKind,
             prefilters: normalizedNext,
+            onPrefilterApplyType: typeof onPrefilterApply,
           });
-          onPrefilterApply(normalizedNext, { source: 'auto' });
+          try {
+            onPrefilterApply(normalizedNext, { source: 'auto' });
+            // eslint-disable-next-line no-console
+            console.debug('[Prefilter] auto-apply done', { screen: derivedScreenKind });
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error('[Prefilter] auto-apply failed', err);
+          }
         }
       }
       if (migratedFromLegacy) {
