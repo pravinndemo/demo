@@ -15,6 +15,7 @@ import { parseAssignableUsersResponse as parseAssignableUsersResponseBase, resol
 import { buildColumnFilterQuery } from '../../utils/ColumnFilterQuery';
 import { isGuidValue, normalizeSuid, normalizeUserId } from '../../utils/IdentifierUtils';
 import { buildPrefilterStorageKey, isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
+import { normalizePrefilterSearchBy } from '../../utils/PrefilterUtils';
 import { resolveScreenConfig, toKnownTableKey, normalizeTableKey, type ScreenKind } from '../../utils/ScreenResolution';
 import { loadGridData } from '../../services/GridDataController';
 import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from '../../services/CustomApi';
@@ -50,6 +51,8 @@ const MANAGER_ASSIGNMENT_SCREEN_NAME = 'manager assignment';
 const QC_ASSIGNMENT_SCREEN_NAME = 'quality control assignment';
 
 const normalizeGroupName = (value?: string): string => (value ?? '').trim().toLowerCase();
+const normalizePrefilterArray = (value: unknown): string[] =>
+  (Array.isArray(value) ? value.map((item) => String(item)) : []);
 const isAssignableUserInGroup = (user: AssignUser, teamNames: Set<string>, roleNames: Set<string>): boolean => {
   if (!user) return false;
   const team = normalizeGroupName(user.team);
@@ -428,7 +431,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const [salesSearchApplied, setSalesSearchApplied] = React.useState(!isSalesSearch);
   const handlePrefilterDirty = React.useCallback(() => {
     if (!isPrefilterScreen) return;
-    // eslint-disable-next-line no-console
     console.debug('[Prefilter] host dirty', {
       screen: screenKind,
       prefilterApplied,
@@ -623,6 +625,14 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const storageKeySort = React.useMemo(() => `voa-grid-sort:${tableKey}`, [tableKey]);
   const storageKeyPage = React.useMemo(() => `voa-grid-page:${tableKey}`, [tableKey]);
   const prefilterStorageKey = React.useMemo(() => buildPrefilterStorageKey(tableKey, screenKind), [screenKind, tableKey]);
+  const legacyPrefilterStorageKey = React.useMemo(
+    () => `voa-prefilters:${tableKey}:${screenName || 'default'}`,
+    [screenName, tableKey],
+  );
+  const prefilterAutoAppliedRef = React.useRef<string>('');
+  React.useEffect(() => {
+    prefilterAutoAppliedRef.current = '';
+  }, [prefilterStorageKey]);
   const screenInstanceKey = React.useMemo(() => `${tableKey}:${screenName || 'default'}`, [screenName, tableKey]);
   const salesSearchStorageKey = React.useMemo(
     () => `voa-sales-search:${tableKey}:${screenName || 'default'}`,
@@ -1019,7 +1029,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       return;
     }
     if (isPrefilterScreen && !prefilterApplied) {
-      // eslint-disable-next-line no-console
       console.debug('[Prefilter] host load skip', {
         screen: screenKind,
         prefilterApplied,
@@ -1060,7 +1069,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       const requestedBy = (isCaseworkerView || isQcView) && currentUserId
         ? currentUserId.toLowerCase()
         : undefined;
-      // eslint-disable-next-line no-console
       console.debug('[Prefilter] host load start', {
         screen: screenKind,
         prefilterApplied,
@@ -1828,6 +1836,113 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     }
   };
 
+  const applyPrefilters = React.useCallback((
+    next: ManagerPrefilterState,
+    options?: { source?: 'auto' | 'user' },
+  ) => {
+    const isAuto = options?.source === 'auto';
+    console.debug('[Prefilter] host apply', {
+      screen: screenKind,
+      isAuto,
+      next,
+    });
+    let resolved = next;
+    if (isQcAssign) {
+      if (next.searchBy === 'task') {
+        resolved = { ...next, caseworkers: [] };
+      } else if (next.searchBy === 'caseworker' || next.searchBy === 'qcUser') {
+        resolved = { ...next, caseworkers: mapCaseworkerNamesToIds(next.caseworkers ?? []) };
+      }
+    } else if (next.searchBy === 'caseworker') {
+      const nextCaseworkers = next.caseworkers ?? [];
+      if (isCaseworkerView && nextCaseworkers.length === 0 && currentUserId) {
+        resolved = { ...next, caseworkers: [currentUserId] };
+      } else {
+        resolved = { ...next, caseworkers: mapCaseworkerNamesToIds(nextCaseworkers) };
+      }
+    }
+    setPrefilters(resolved);
+    setPrefilterApplied(true);
+    setCurrentPage(0);
+    setSearchFilters(createDefaultGridFilters());
+    if (!isAuto) {
+      setClientSort({ name: 'saleid', sortDirection: 0 });
+      setUserSortActive(false);
+      setHeaderFilters({});
+      lastAppliedFiltersRef.current = {};
+      try {
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem(storageKeyNC);
+      } catch {
+        // ignore storage failures
+      }
+    }
+    selection.setAllSelected(false);
+    setSelectedCount(0);
+    onSelectionCountChange?.(0);
+    onSelectionChange?.({ selectedTaskIds: [], selectedSaleIds: [] });
+    setSearchNonce((n) => n + 1);
+  }, [
+    currentUserId,
+    isCaseworkerView,
+    isQcAssign,
+    mapCaseworkerNamesToIds,
+    onSelectionChange,
+    onSelectionCountChange,
+    screenKind,
+    selection,
+    storageKey,
+    storageKeyNC,
+  ]);
+
+  React.useEffect(() => {
+    if (!isPrefilterScreen || prefilterApplied) return;
+    const autoKey = `${prefilterStorageKey}|${screenKind}`;
+    if (prefilterAutoAppliedRef.current === autoKey) return;
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(prefilterStorageKey);
+      if (!raw && legacyPrefilterStorageKey !== prefilterStorageKey) {
+        raw = localStorage.getItem(legacyPrefilterStorageKey);
+      }
+    } catch {
+      raw = null;
+    }
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as {
+        searchBy?: unknown;
+        billingAuthorities?: unknown;
+        caseworkers?: unknown;
+        workThat?: unknown;
+        completedFrom?: unknown;
+        completedTo?: unknown;
+        applied?: unknown;
+      };
+      if (parsed?.applied === false) return;
+      const next: ManagerPrefilterState = {
+        searchBy: normalizePrefilterSearchBy(parsed?.searchBy, screenKind),
+        billingAuthorities: normalizePrefilterArray(parsed?.billingAuthorities),
+        caseworkers: normalizePrefilterArray(parsed?.caseworkers),
+        workThat: typeof parsed?.workThat === 'string' ? (parsed.workThat as ManagerPrefilterState['workThat']) : undefined,
+        completedFrom: typeof parsed?.completedFrom === 'string' ? parsed.completedFrom : undefined,
+        completedTo: typeof parsed?.completedTo === 'string' ? parsed.completedTo : undefined,
+      };
+      prefilterAutoAppliedRef.current = autoKey;
+      console.debug('[Prefilter] host auto-apply', { screen: screenKind, next });
+      applyPrefilters(next, { source: 'auto' });
+    } catch {
+      // ignore parse errors
+    }
+  }, [
+    applyPrefilters,
+    isPrefilterScreen,
+    legacyPrefilterStorageKey,
+    prefilterApplied,
+    prefilterStorageKey,
+    screenKind,
+  ]);
+
   const props: GridProps = {
     showSearchPanel: !isManagerAssign && !isCaseworkerView && !isQcAssign && !isQcView,
     screenKind,
@@ -1950,51 +2065,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     prefilterApplied,
     onPrefilterDirty: handlePrefilterDirty,
     onSearchDirty: handleSalesSearchDirty,
-    onPrefilterApply: (next, options) => {
-      const isAuto = options?.source === 'auto';
-      // eslint-disable-next-line no-console
-      console.debug('[Prefilter] host apply', {
-        screen: screenKind,
-        isAuto,
-        next,
-      });
-      let resolved = next;
-      if (isQcAssign) {
-        if (next.searchBy === 'task') {
-          resolved = { ...next, caseworkers: [] };
-        } else if (next.searchBy === 'caseworker' || next.searchBy === 'qcUser') {
-          resolved = { ...next, caseworkers: mapCaseworkerNamesToIds(next.caseworkers ?? []) };
-        }
-      } else if (next.searchBy === 'caseworker') {
-        const nextCaseworkers = next.caseworkers ?? [];
-        if (isCaseworkerView && nextCaseworkers.length === 0 && currentUserId) {
-          resolved = { ...next, caseworkers: [currentUserId] };
-        } else {
-          resolved = { ...next, caseworkers: mapCaseworkerNamesToIds(nextCaseworkers) };
-        }
-      }
-      setPrefilters(resolved);
-      setPrefilterApplied(true);
-      setCurrentPage(0);
-      setSearchFilters(createDefaultGridFilters());
-      if (!isAuto) {
-        setClientSort({ name: 'saleid', sortDirection: 0 });
-        setUserSortActive(false);
-        setHeaderFilters({});
-        lastAppliedFiltersRef.current = {};
-        try {
-          localStorage.removeItem(storageKey);
-          localStorage.removeItem(storageKeyNC);
-        } catch {
-          // ignore storage failures
-        }
-      }
-      selection.setAllSelected(false);
-      setSelectedCount(0);
-      onSelectionCountChange?.(0);
-      onSelectionChange?.({ selectedTaskIds: [], selectedSaleIds: [] });
-      setSearchNonce((n) => n + 1);
-    },
+    onPrefilterApply: applyPrefilters,
     onPrefilterClear: () => {
       setPrefilters(undefined);
       setPrefilterApplied(false);

@@ -1139,7 +1139,6 @@ export const Grid = React.memo((props: GridProps) => {
       if (prefilterAutoApplyDebugRef.current !== autoKey) {
         prefilterAutoApplyDebugRef.current = autoKey;
         // Debugging aid for auto-apply behavior.
-        // eslint-disable-next-line no-console
         console.debug('[Prefilter] auto-apply check', {
           screen: derivedScreenKind,
           storedApplied,
@@ -1157,7 +1156,6 @@ export const Grid = React.memo((props: GridProps) => {
         if (prefilterAutoAppliedRef.current !== autoKey) {
           prefilterAutoAppliedRef.current = autoKey;
           markAutoApplyInFlight();
-          // eslint-disable-next-line no-console
           console.debug('[Prefilter] auto-apply fire', {
             screen: derivedScreenKind,
             prefilters: normalizedNext,
@@ -1165,10 +1163,8 @@ export const Grid = React.memo((props: GridProps) => {
           });
           try {
             onPrefilterApply(normalizedNext, { source: 'auto' });
-            // eslint-disable-next-line no-console
             console.debug('[Prefilter] auto-apply done', { screen: derivedScreenKind });
           } catch (err) {
-            // eslint-disable-next-line no-console
             console.error('[Prefilter] auto-apply failed', err);
           }
         }
@@ -1211,7 +1207,7 @@ export const Grid = React.memo((props: GridProps) => {
       );
       if (shouldRemove) {
         localStorage.removeItem(prefilterStorageKey);
-      } else if (!!prefilterApplied) {
+      } else if (prefilterApplied) {
         const payload: StoredPrefilterState = { ...storedPrefilters, applied: true };
         localStorage.setItem(prefilterStorageKey, JSON.stringify(payload));
       } else if (!isPrefilterDefault(storedPrefilters) && prefilterDirtyRef.current) {
