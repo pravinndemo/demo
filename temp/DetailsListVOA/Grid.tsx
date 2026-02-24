@@ -1157,6 +1157,11 @@ export const Grid = React.memo((props: GridProps) => {
         if (prefilterAutoAppliedRef.current !== autoKey) {
           prefilterAutoAppliedRef.current = autoKey;
           markAutoApplyInFlight();
+          // eslint-disable-next-line no-console
+          console.debug('[Prefilter] auto-apply fire', {
+            screen: derivedScreenKind,
+            prefilters: normalizedNext,
+          });
           onPrefilterApply(normalizedNext, { source: 'auto' });
         }
       }

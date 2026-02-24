@@ -428,8 +428,13 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const [salesSearchApplied, setSalesSearchApplied] = React.useState(!isSalesSearch);
   const handlePrefilterDirty = React.useCallback(() => {
     if (!isPrefilterScreen) return;
+    // eslint-disable-next-line no-console
+    console.debug('[Prefilter] host dirty', {
+      screen: screenKind,
+      prefilterApplied,
+    });
     setPrefilterApplied(false);
-  }, [isPrefilterScreen]);
+  }, [isPrefilterScreen, prefilterApplied, screenKind]);
   const handleSalesSearchDirty = React.useCallback(() => {
     if (!isSalesSearch) return;
     setSalesSearchApplied(false);
