@@ -965,6 +965,21 @@ export const Grid = React.memo((props: GridProps) => {
   const prefilterAutoApplyDebugRef = React.useRef<string>('');
   const prefilterDirtyRef = React.useRef(false);
   const prefilterClearedRef = React.useRef(false);
+  const prefilterHydratingRef = React.useRef(false);
+  const prefilterHydrationTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const schedulePrefilterHydrationClear = React.useCallback(() => {
+    if (prefilterHydrationTimeoutRef.current !== undefined) {
+      clearTimeout(prefilterHydrationTimeoutRef.current);
+    }
+    prefilterHydrationTimeoutRef.current = setTimeout(() => {
+      prefilterHydrationTimeoutRef.current = undefined;
+      prefilterHydratingRef.current = false;
+    }, 0);
+  }, []);
+  const markPrefilterHydrating = React.useCallback(() => {
+    prefilterHydratingRef.current = true;
+    schedulePrefilterHydrationClear();
+  }, [schedulePrefilterHydrationClear]);
   const getPrefiltersForStorage = React.useCallback(
     (state: ManagerPrefilterState): ManagerPrefilterState => {
       const userId = (currentUserId ?? '').trim();
@@ -984,6 +999,11 @@ export const Grid = React.memo((props: GridProps) => {
     prefilterAutoApplyDebugRef.current = '';
     prefilterDirtyRef.current = false;
     prefilterClearedRef.current = false;
+    prefilterHydratingRef.current = false;
+    if (prefilterHydrationTimeoutRef.current !== undefined) {
+      clearTimeout(prefilterHydrationTimeoutRef.current);
+      prefilterHydrationTimeoutRef.current = undefined;
+    }
   }, [prefilterStorageKey]);
 
   React.useEffect(() => {
@@ -1038,6 +1058,11 @@ export const Grid = React.memo((props: GridProps) => {
       && !state.completedFrom
       && !state.completedTo;
   }, [currentUserId, isCaseworkerView, isQcAssign, isQcView]);
+  const markPrefilterDirty = React.useCallback(() => {
+    if (prefilterHydratingRef.current) return;
+    prefilterDirtyRef.current = true;
+    onPrefilterDirty?.();
+  }, [onPrefilterDirty]);
 
   const lastScreenKindRef = React.useRef<GridScreenKind | undefined>(undefined);
 
@@ -1066,6 +1091,7 @@ export const Grid = React.memo((props: GridProps) => {
         completedTo: typeof parsed.completedTo === 'string' ? parsed.completedTo : undefined,
       };
       const normalizedNext = getPrefiltersForStorage(next);
+      markPrefilterHydrating();
       setPrefilters(normalizedNext);
 
       const storedApplied = typeof parsed.applied === 'boolean' ? parsed.applied : undefined;
@@ -1129,6 +1155,7 @@ export const Grid = React.memo((props: GridProps) => {
     caseworkerOptions,
     caseworkerOptionsError,
     caseworkerOptionsLoading,
+    markPrefilterHydrating,
     useAssignmentLayout,
   ]);
 
@@ -1285,6 +1312,7 @@ export const Grid = React.memo((props: GridProps) => {
 
   React.useEffect(() => {
     if (!isCaseworkerView) return;
+    markPrefilterHydrating();
     setPrefilters((prev) => {
       if (prev.searchBy !== 'caseworker') {
         return caseworkerPrefilterDefaults;
@@ -1302,9 +1330,10 @@ export const Grid = React.memo((props: GridProps) => {
         workThat: needsWorkThat ? caseworkerPrefilterDefaults.workThat : prev.workThat,
       };
     });
-  }, [caseworkerPrefilterDefaults, isCaseworkerView]);
+  }, [caseworkerPrefilterDefaults, isCaseworkerView, markPrefilterHydrating]);
   React.useEffect(() => {
     if (!isQcView) return;
+    markPrefilterHydrating();
     setPrefilters((prev) => {
       if (prev.searchBy !== 'qcUser') {
         return qcViewPrefilterDefaults;
@@ -1322,7 +1351,7 @@ export const Grid = React.memo((props: GridProps) => {
         workThat: needsWorkThat ? qcViewPrefilterDefaults.workThat : prev.workThat,
       };
     });
-  }, [isQcView, qcViewPrefilterDefaults]);
+  }, [isQcView, markPrefilterHydrating, qcViewPrefilterDefaults]);
 
   React.useEffect(() => {
     const prev = lastScreenKindRef.current;
@@ -1335,6 +1364,7 @@ export const Grid = React.memo((props: GridProps) => {
       hasStoredPrefilter = false;
     }
     if (shouldResetPrefiltersOnScreenChange(prev, next, hasStoredPrefilter)) {
+      markPrefilterHydrating();
       if (next === 'managerAssign') {
         setPrefilters(MANAGER_PREFILTER_DEFAULT);
         setPrefilterExpanded(true);
@@ -1351,7 +1381,7 @@ export const Grid = React.memo((props: GridProps) => {
     }
 
     lastScreenKindRef.current = next;
-  }, [caseworkerPrefilterDefaults, derivedScreenKind, prefilterStorageKey, qcViewPrefilterDefaults]);
+  }, [caseworkerPrefilterDefaults, derivedScreenKind, markPrefilterHydrating, prefilterStorageKey, qcViewPrefilterDefaults]);
 
   const onPrefilterSearchByChange = React.useCallback(
     (_: React.FormEvent<IComboBox>, option?: IComboBoxOption, _index?: number, value?: string) => {
@@ -1387,10 +1417,9 @@ export const Grid = React.memo((props: GridProps) => {
       }
       setComboEditingFor('prefilterWorkThat', false);
       setPrefilterWorkThatSearch('');
-      prefilterDirtyRef.current = true;
-      onPrefilterDirty?.();
+      markPrefilterDirty();
     },
-    [isQcAssign, onPrefilterDirty, setComboEditingFor],
+    [isQcAssign, markPrefilterDirty, setComboEditingFor],
   );
 
   const normalizedCaseworkerOptions = React.useMemo<IDropdownOption[]>(() => {
@@ -1485,8 +1514,7 @@ export const Grid = React.memo((props: GridProps) => {
           ...prev,
           caseworkers: option.selected ? [CASEWORKER_ALL_KEY] : [],
         }));
-        prefilterDirtyRef.current = true;
-        onPrefilterDirty?.();
+        markPrefilterDirty();
         return;
       }
       if (key.startsWith('__')) return;
@@ -1495,10 +1523,9 @@ export const Grid = React.memo((props: GridProps) => {
         const next = option.selected ? [...current, key] : current.filter((v) => v !== key);
         return { ...prev, caseworkers: next };
       });
-      prefilterDirtyRef.current = true;
-      onPrefilterDirty?.();
+      markPrefilterDirty();
     },
-    [onPrefilterDirty],
+    [markPrefilterDirty],
   );
 
   const onPrefilterWorkThatChange = React.useCallback(
@@ -1521,10 +1548,9 @@ export const Grid = React.memo((props: GridProps) => {
         completedFrom: needsCompleted ? prev.completedFrom : undefined,
         completedTo: needsCompleted ? prev.completedTo : undefined,
       }));
-      prefilterDirtyRef.current = true;
-      onPrefilterDirty?.();
+      markPrefilterDirty();
     },
-    [isCaseworkerView, isQcAssign, isQcView, onPrefilterDirty, prefilters.searchBy],
+    [isCaseworkerView, isQcAssign, isQcView, markPrefilterDirty, prefilters.searchBy],
   );
 
   const onPrefilterFromDateChange = React.useCallback(
@@ -1536,10 +1562,9 @@ export const Grid = React.memo((props: GridProps) => {
         completedFrom: fromIso,
         completedTo: toIso,
       }));
-      prefilterDirtyRef.current = true;
-      onPrefilterDirty?.();
+      markPrefilterDirty();
     },
-    [computeCompletedToDate, onPrefilterDirty, toISODateString],
+    [computeCompletedToDate, markPrefilterDirty, toISODateString],
   );
 
   const handlePrefilterSearch = React.useCallback(() => {
@@ -1830,8 +1855,7 @@ export const Grid = React.memo((props: GridProps) => {
           ...prev,
           billingAuthorities: option.selected ? [BILLING_AUTHORITY_ALL_KEY] : [],
         }));
-        prefilterDirtyRef.current = true;
-        onPrefilterDirty?.();
+        markPrefilterDirty();
         return;
       }
       setPrefilters((prev) => {
@@ -1839,10 +1863,9 @@ export const Grid = React.memo((props: GridProps) => {
         const next = option.selected ? [...current, key] : current.filter((v) => v !== key);
         return { ...prev, billingAuthorities: next };
       });
-      prefilterDirtyRef.current = true;
-      onPrefilterDirty?.();
+      markPrefilterDirty();
     },
-    [onPrefilterDirty],
+    [markPrefilterDirty],
   );
   const summaryFlagError = lengthErrors.summaryFlag;
   const searchFieldError = lengthErrors.searchField;
@@ -3621,6 +3644,7 @@ export const Grid = React.memo((props: GridProps) => {
     const firstOption = prefilterWorkThatOptions.find((opt) => opt?.key !== undefined);
     if (!firstOption) return;
     const nextWork = String(firstOption.key) as ManagerWorkThat;
+    markPrefilterHydrating();
     setPrefilters((prev) => {
       if (prev.workThat) return prev;
       const needsCompleted = (isQcAssign || isQcView) ? isQcCompletedWorkThat(nextWork) : isManagerCompletedWorkThat(nextWork);
@@ -3631,7 +3655,7 @@ export const Grid = React.memo((props: GridProps) => {
         completedTo: needsCompleted ? prev.completedTo : undefined,
       };
     });
-  }, [isCaseworkerView, isManagerAssign, isQcAssign, isQcView, prefilterWorkThatOptions, prefilters.workThat]);
+  }, [isCaseworkerView, isManagerAssign, isQcAssign, isQcView, markPrefilterHydrating, prefilterWorkThatOptions, prefilters.workThat]);
   const caseworkerOptionsDisabled = caseworkerOptionsLoading
     || !!caseworkerOptionsError
     || normalizedCaseworkerOptions.length === 0;
