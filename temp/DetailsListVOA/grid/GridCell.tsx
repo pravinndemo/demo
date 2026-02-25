@@ -433,14 +433,9 @@ function getAddressLinkCell(
             className="voa-mda-link"
             onClick={(ev) => {
                 ev.stopPropagation();
-                ev.preventDefault();
-                if (addressUrl) {
-                    window.open(addressUrl, '_blank', 'noopener,noreferrer');
-                }
             }}
         >
-            {cellText}{' '}
-            <span aria-hidden="true">(opens in new tab)</span>
+            {cellText}
         </Link>
     ) : (
         <></>

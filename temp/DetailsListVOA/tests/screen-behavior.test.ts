@@ -49,6 +49,9 @@ describe('screen behavior', () => {
     expect(shouldShowResults('managerAssign', false, true)).toBe(false);
     expect(shouldShowResults('managerAssign', true, true)).toBe(true);
 
+    expect(shouldShowResults('qcAssign', false, true)).toBe(false);
+    expect(shouldShowResults('qcAssign', true, true)).toBe(true);
+
     expect(shouldShowResults('salesSearch', true, false)).toBe(false);
     expect(shouldShowResults('salesSearch', true, true)).toBe(true);
 

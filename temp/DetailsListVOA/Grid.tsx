@@ -82,6 +82,7 @@ import {
   type ManagerWorkThat,
   type QcSearchBy,
 } from './config/PrefilterConfigs';
+import { computeCompletedToDateIso, getPrefilterFromDateError } from './utils/PrefilterDateUtils';
 import { normalizePrefilterSearchBy, shouldRemoveStoredPrefilter } from './utils/PrefilterUtils';
 import { type ScreenKind } from './utils/ScreenResolution';
 import { SCREEN_TEXT } from '../DetailsListVOA/constants/ScreenText';
@@ -1314,23 +1315,10 @@ export const Grid = React.memo((props: GridProps) => {
     return d;
   }, []);
 
-  const computeCompletedToDate = React.useCallback((from?: Date | null): string | undefined => {
-    if (!from) return undefined;
-    const start = new Date(from.getTime());
-    start.setHours(0, 0, 0, 0);
-    const target = new Date(start.getTime());
-    target.setDate(target.getDate() + 14);
-    const toDate = target > today ? today : target;
-    return toISODateString(toDate);
-  }, [today, toISODateString]);
-
-  const prefilterFromDateError = React.useMemo(() => {
-    if (!prefilters.completedFrom) return undefined;
-    const from = parseISODate(prefilters.completedFrom);
-    if (!from) return undefined;
-    if (from > today) return 'Start date cannot be in the future';
-    return undefined;
-  }, [parseISODate, prefilters.completedFrom, today]);
+  const prefilterFromDateError = React.useMemo(
+    () => getPrefilterFromDateError(prefilters.completedFrom, today),
+    [prefilters.completedFrom, today],
+  );
 
   const caseworkerPrefilterDefaults = React.useMemo<ManagerPrefilterState>(
     () => ({
@@ -1593,7 +1581,7 @@ export const Grid = React.memo((props: GridProps) => {
   const onPrefilterFromDateChange = React.useCallback(
     (date?: Date | null) => {
       const fromIso = date ? toISODateString(date) : undefined;
-      const toIso = computeCompletedToDate(date);
+      const toIso = computeCompletedToDateIso(date, today);
       setPrefilters((prev) => ({
         ...prev,
         completedFrom: fromIso,
@@ -1601,7 +1589,7 @@ export const Grid = React.memo((props: GridProps) => {
       }));
       markPrefilterDirty();
     },
-    [computeCompletedToDate, markPrefilterDirty, toISODateString],
+    [markPrefilterDirty, toISODateString, today],
   );
 
   const handlePrefilterSearch = React.useCallback(() => {
@@ -1692,7 +1680,7 @@ export const Grid = React.memo((props: GridProps) => {
           ? taskId.length < TASK_ID_MIN_LENGTH
             ? `Enter at least ${TASK_ID_MIN_LENGTH} characters`
             : !TASK_ID_REGEX.test(taskId)
-              ? 'Use A- or M- prefix (e.g. A-1000001) or numbers only.'
+              ? 'Please enter a valid Task ID Use A- or M- prefix (e.g. A-1000001) or numbers only.'
               : undefined
           : undefined;
       const address = (fs.address ?? '').trim();
@@ -2017,7 +2005,7 @@ export const Grid = React.memo((props: GridProps) => {
     if (!isSalesSearch) return true;
     const saleId = sanitizeAlphaNumHyphen(filters.saleId, ID_FIELD_MAX_LENGTH).trim();
     const taskId = sanitizeTaskIdInput(filters.taskId, ID_FIELD_MAX_LENGTH).trim();
-    const uprn = sanitizeDigits(filters.uprn, UPRN_MAX_LENGTH).trim();
+    const uprnRaw = (filters.uprn ?? '').trim();
     const billingAuthority = (filters.billingAuthority?.[0] ?? '').trim();
     const billingAuthorityReference = (filters.bacode ?? '').trim();
     const building = (filters.buildingNameNumber ?? '').trim();
@@ -2031,9 +2019,9 @@ export const Grid = React.memo((props: GridProps) => {
       case 'taskId':
         return taskId.length >= TASK_ID_MIN_LENGTH && TASK_ID_REGEX.test(taskId);
       case 'uprn':
-        return uprn.length > 0 && uprn.length <= UPRN_MAX_LENGTH;
+        return uprnRaw.length > 0 && uprnRaw.length <= UPRN_MAX_LENGTH && /^[0-9]+$/.test(uprnRaw);
       case 'billingAuthority':
-        return billingAuthority.length > 0;
+        return billingAuthority.length > 0 && billingAuthorityReference.length > 0;
       case 'address': {
         const hasPostcode = postcode.length > 0;
         const postcodeValid = hasPostcode ? isValidUkPostcode(postcode, false) : false;
@@ -2837,7 +2825,7 @@ export const Grid = React.memo((props: GridProps) => {
               placeholder={salesSearchText.placeholders.uprn}
               title={uprnTitle}
               value={filters.uprn ?? ''}
-              onChange={(_, v) => updateFilters('uprn', sanitizeDigits(v, UPRN_MAX_LENGTH))}
+              onChange={(_, v) => updateFilters('uprn', (v ?? '').slice(0, UPRN_MAX_LENGTH))}
               errorMessage={uprnError}
               inputMode="numeric"
               maxLength={UPRN_MAX_LENGTH}

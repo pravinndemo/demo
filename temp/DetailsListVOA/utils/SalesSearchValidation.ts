@@ -43,11 +43,13 @@ export const getSalesSearchErrors = (fs: GridFilterState): SalesSearchErrors => 
   const saleId = sanitizeAlphaNumHyphen(fs.saleId, ID_FIELD_MAX_LENGTH).trim();
   const taskId = sanitizeTaskIdInput(fs.taskId, ID_FIELD_MAX_LENGTH).trim();
   const uprn = sanitizeDigits(fs.uprn, UPRN_MAX_LENGTH).trim();
+  const uprnRaw = (fs.uprn ?? '').trim();
   const building = (fs.buildingNameNumber ?? '').trim();
   const street = (fs.street ?? '').trim();
   const town = (fs.townCity ?? '').trim();
   const postcode = normalizeUkPostcode(fs.postcode ?? '').trim();
   const billingAuthority = (fs.billingAuthority?.[0] ?? '').trim();
+  const billingAuthorityRef = (fs.bacode ?? '').trim();
   const saleIdError =
     fs.searchBy === 'saleId' && saleId.length > 0 && (!SALE_ID_REGEX.test(saleId) || saleId.length < 3)
       ? 'Please enter a valid Sale ID'
@@ -57,18 +59,22 @@ export const getSalesSearchErrors = (fs: GridFilterState): SalesSearchErrors => 
       ? taskId.length < TASK_ID_MIN_LENGTH
         ? `Enter at least ${TASK_ID_MIN_LENGTH} characters`
         : !TASK_ID_REGEX.test(taskId)
-          ? 'Use A- or M- prefix (e.g. A-1000001) or numbers only.'
+          ? 'Please enter a valid Task ID Use A- or M- prefix (e.g. A-1000001) or numbers only.'
           : undefined
       : undefined;
   const uprnError =
-    fs.searchBy === 'uprn' && (fs.uprn ?? '').trim().length > 0 && uprn.length === 0
+    fs.searchBy === 'uprn' && uprnRaw.length > 0 && (uprn.length === 0 || /[^0-9]/.test(uprnRaw))
       ? 'Please enter a valid UPRN'
       : undefined;
 
   let billingAuthorityError: string | undefined;
-  const billingAuthorityRefError: string | undefined = undefined;
-  if (fs.searchBy === 'billingAuthority' && billingAuthority.length === 0) {
-    billingAuthorityError = 'Billing Authority is required';
+  let billingAuthorityRefError: string | undefined;
+  if (fs.searchBy === 'billingAuthority') {
+    if (billingAuthority.length === 0) {
+      billingAuthorityError = 'Billing Authority is required';
+    } else if (billingAuthorityRef.length === 0) {
+      billingAuthorityRefError = 'Billing Authority Reference is required';
+    }
   }
 
   let postcodeError: string | undefined;
