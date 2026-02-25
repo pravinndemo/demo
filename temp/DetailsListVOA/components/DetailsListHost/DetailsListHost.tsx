@@ -597,9 +597,17 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     () => mapColumnFiltersForApi(headerFilters),
     [headerFilters, mapColumnFiltersForApi],
   );
+  const hasFullResultSet = totalCount > 0 && apimItems.length >= totalCount;
+  const clientSideThreshold = Math.max(1, pageSize);
+  const clientSideEligible = hasLoadedApim
+    && !serverDriven
+    && hasFullResultSet
+    && totalCount <= clientSideThreshold;
+  const activeClientSort = userSortActive ? clientSort : undefined;
+  const serverClientSort = clientSideEligible ? undefined : activeClientSort;
   const columnFilterQuery = React.useMemo(
-    () => buildColumnFilterQuery(tableKey, apiHeaderFilters, userSortActive ? clientSort : undefined),
-    [apiHeaderFilters, clientSort, tableKey, userSortActive],
+    () => (clientSideEligible ? '' : buildColumnFilterQuery(tableKey, apiHeaderFilters, serverClientSort)),
+    [apiHeaderFilters, clientSideEligible, serverClientSort, tableKey],
   );
 
   const buildCaseworkerNames = React.useCallback((users: AssignUser[]): string[] => {
@@ -636,6 +644,29 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return map;
   }, [assignableUsersCache, getUserDisplayName]);
   const hasUserDisplayNameMap = React.useMemo(() => Object.keys(userDisplayNameMap).length > 0, [userDisplayNameMap]);
+  const mapUserIdToDisplay = React.useCallback((value: string): string => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return raw;
+    const normalized = normalizeUserId(raw).toLowerCase();
+    if (!isGuidValue(normalized)) return raw;
+    return userDisplayNameMap[normalized] ?? raw;
+  }, [userDisplayNameMap]);
+  const displayFilterOptions = React.useMemo(() => {
+    if (!hasUserDisplayNameMap) return apiFilterOptions;
+    const mapped: FilterOptionsMap = { ...apiFilterOptions };
+    (['assignedto', 'qcassignedto'] as const).forEach((field) => {
+      const values = mapped[field];
+      if (!values || values.length === 0) return;
+      const next = values
+        .map(mapUserIdToDisplay)
+        .map((v) => String(v ?? '').trim())
+        .filter((v) => v !== '');
+      if (next.length > 0) {
+        mapped[field] = Array.from(new Set(next));
+      }
+    });
+    return mapped;
+  }, [apiFilterOptions, hasUserDisplayNameMap, mapUserIdToDisplay]);
 
   // Persist header filters per table for consistent UX across reloads
   const storageKey = React.useMemo(() => `voa-grid-filters:${tableKey}`, [tableKey]);
@@ -897,8 +928,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return { records: recs, ids: all };
   }, [apimItems, clientUrl, columnDisplayNames, datasetColumns, hasLoadedApim, isLocalHost, userDisplayNameMap]);
 
-  const disableClientFiltering = hasLoadedApim
-    && (serverDriven || (totalCount > 0 && apimItems.length < totalCount));
+  const disableClientFiltering = hasLoadedApim && !clientSideEligible;
 
   const filteredIds = React.useMemo(() => {
     if (disableClientFiltering) {
@@ -941,7 +971,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   }, [disableClientFiltering, headerFilters, ids, records, datasetColumns]);
 
   const sortedIds = React.useMemo(() => {
-    if (!clientSort || serverDriven) return filteredIds;
+    if (!clientSideEligible || !userSortActive || !clientSort) return filteredIds;
     const t0 = performance.now();
     const field = clientSort.name?.toLowerCase?.() ?? '';
     const desc = clientSort.sortDirection === 1;
@@ -963,7 +993,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     const t1 = performance.now();
     logPerf('[Grid Perf] Host sort (ms):', Math.round(t1 - t0), 'field:', field, 'desc:', desc, 'count:', arr.length);
     return arr;
-  }, [clientSort, filteredIds, records, serverDriven]);
+  }, [clientSideEligible, clientSort, filteredIds, records, userSortActive]);
 
   const start = currentPage * pageSize;
   const pageIds = React.useMemo(() => {
@@ -1061,14 +1091,16 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       return;
     }
     const trigger = String((context.parameters as unknown as Record<string, { raw?: string | number }>).searchTrigger?.raw ?? '');
-    const sortKey = clientSort ? `${clientSort.name}:${clientSort.sortDirection}` : '';
+    const sortKey = serverClientSort ? `${serverClientSort.name}:${serverClientSort.sortDirection}` : '';
+    const nextSortKey = clientSideEligible ? lastRef.current.sort : sortKey;
+    const nextColumnFilters = clientSideEligible ? lastRef.current.columnFilters : columnFilterQuery;
     const changed = lastRef.current.table !== tableKey
       || lastRef.current.trigger !== trigger
       || lastRef.current.page !== currentPage
       || lastRef.current.size !== pageSize
-      || lastRef.current.sort !== sortKey
+      || lastRef.current.sort !== nextSortKey
       || lastRef.current.nonce !== searchNonce
-      || lastRef.current.columnFilters !== columnFilterQuery
+      || lastRef.current.columnFilters !== nextColumnFilters
       || !hasLoadedApim;
     if (!changed) return;
     lastRef.current = {
@@ -1076,9 +1108,9 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       trigger,
       page: currentPage,
       size: pageSize,
-      sort: sortKey,
+      sort: nextSortKey,
       nonce: searchNonce,
-      columnFilters: columnFilterQuery,
+      columnFilters: nextColumnFilters,
     };
     setLoadErrorMessage(undefined);
     setApimLoading(true);
@@ -1100,7 +1132,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         requestedBy,
         currentPage,
         pageSize,
-        clientSort,
+        clientSort: serverClientSort,
         prefilters,
         searchQuery: columnFilterQuery,
       });
@@ -1117,7 +1149,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       }
       setApiFilterOptions(normalizeFilterOptions(tableKey, res.filters));
     })();
-  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi]);
+  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, userSortActive, clientSideEligible, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi]);
 
   React.useEffect(() => {
     if (!assignPanelOpen || !assignmentContextKey) {
@@ -1980,7 +2012,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     selection,
     onNavigate,
     onSort,
-    sorting: (clientSort ? [{ name: clientSort.name, sortDirection: clientSort.sortDirection }] : []) as unknown as ComponentFramework.PropertyHelper.DataSetApi.SortStatus[],
+    sorting: (userSortActive && clientSort ? [{ name: clientSort.name, sortDirection: clientSort.sortDirection }] : []) as unknown as ComponentFramework.PropertyHelper.DataSetApi.SortStatus[],
     componentRef,
     resources: context.resources,
     columnDatasetNotDefined: false,
@@ -1988,6 +2020,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       const sanitized = sanitizeFilters(fs);
       setSearchFilters(sanitized);
       setCurrentPage(0);
+      setUserSortActive(false);
       if (isSalesSearch) {
         const isDefault = isSalesSearchDefaultFilters(sanitized);
         setSalesSearchApplied(!isDefault);
@@ -2032,7 +2065,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     onAssignTasks: assignTasksToUser,
     onLoadFilterOptions: (field, query) => {
       const key = normalizeFilterKey(String(field ?? ''));
-      const options = apiFilterOptions[key] ?? [];
+      const options = displayFilterOptions[key] ?? [];
       if (!query || query.trim().length === 0) return Promise.resolve(options);
       const q = query.trim().toLowerCase();
       return Promise.resolve(options.filter((opt) => opt.toLowerCase().includes(q)));

@@ -1258,9 +1258,10 @@ export const Grid = React.memo((props: GridProps) => {
               <Stack.Item styles={{ root: { minWidth: 200 } }}>
                 <Dropdown
                   label="Search by"
-              options={searchByOptions}
-              selectedKey={filters.searchBy}
-              onChange={onSearchByChange}
+                  aria-Label="Search by"
+                  options={searchByOptions}
+                  selectedKey={filters.searchBy}
+                  onChange={onSearchByChange}
               styles={{ dropdown: { width: '100%' } }}
             />
           </Stack.Item>

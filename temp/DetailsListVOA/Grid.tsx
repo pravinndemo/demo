@@ -4888,8 +4888,9 @@ export const Grid = React.memo((props: GridProps) => {
           styles={{ root: { marginBottom: 16 } }}
         >
           <Stack.Item styles={{ root: { minWidth: 200 } }}>
+            <Label htmlFor="searchby-input">{salesSearchText.searchPanel.searchByLabel}</Label>
             <ComboBox
-              label={salesSearchText.searchPanel.searchByLabel}
+              id="searchby"
               ariaLabel={salesSearchText.searchPanel.searchByLabel}
               aria-describedby={buildAriaDescribedBy(searchByHint ? 'voa-searchby-hint' : undefined)}
               title={searchByTitle}

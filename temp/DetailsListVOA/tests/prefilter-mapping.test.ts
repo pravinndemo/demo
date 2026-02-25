@@ -380,4 +380,62 @@ describe('Prefilter mapping', () => {
       });
     });
   });
+
+  describe('performance', () => {
+    const caseworkers = Array.from({ length: 10000 }, (_, i) => ` cw-${i} `);
+    const iterations = 50;
+    const timeCalls = (fn: () => void): number => {
+      const start = Date.now();
+      for (let i = 0; i < iterations; i += 1) {
+        fn();
+      }
+      return Date.now() - start;
+    };
+
+    test('mapManagerPrefiltersToApi handles large caseworker lists quickly', () => {
+      let params: Record<string, string> = {};
+      const elapsedMs = timeCalls(() => {
+        params = mapManagerPrefiltersToApi({
+          searchBy: 'caseworker',
+          billingAuthorities: [],
+          caseworkers,
+          workThat: 'assignedToSelected',
+        });
+      });
+
+      expect(params.preFilter?.startsWith('cw-0')).toBe(true);
+      expect(elapsedMs).toBeLessThan(500);
+    });
+
+    test('mapQcPrefiltersToApi handles large caseworker lists quickly', () => {
+      let params: Record<string, string> = {};
+      const elapsedMs = timeCalls(() => {
+        params = mapQcPrefiltersToApi({
+          searchBy: 'qcUser',
+          billingAuthorities: [],
+          caseworkers,
+          workThat: 'qcAssignedToSelected',
+        });
+      });
+
+      expect(params.searchBy).toBe('QC');
+      expect(params.preFilter?.startsWith('cw-0')).toBe(true);
+      expect(elapsedMs).toBeLessThan(500);
+    });
+
+    test('mapQcViewPrefiltersToApi handles repeated runs quickly', () => {
+      let params: Record<string, string> = {};
+      const elapsedMs = timeCalls(() => {
+        params = mapQcViewPrefiltersToApi({
+          searchBy: 'qcUser',
+          billingAuthorities: [],
+          caseworkers,
+          workThat: 'qcAssignedToSelected',
+        });
+      });
+
+      expect(params.taskStatus).toBe('Reassigned To QC,Assigned To QC');
+      expect(elapsedMs).toBeLessThan(500);
+    });
+  });
 });
