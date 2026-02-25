@@ -1613,6 +1613,13 @@ export const Grid = React.memo((props: GridProps) => {
     };
     dismissResultMessages();
     prefilterManualApplyRef.current = true;
+    try {
+      const storedPrefilters = getPrefiltersForStorage(normalized);
+      const payload: StoredPrefilterState = { ...storedPrefilters, applied: true };
+      localStorage.setItem(prefilterStorageKey, JSON.stringify(payload));
+    } catch {
+      // ignore storage failures
+    }
     onPrefilterApply(normalized, { source: 'user' });
     prefilterDirtyRef.current = false;
     clearAutoApplyInFlight();
