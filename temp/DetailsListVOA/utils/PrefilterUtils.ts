@@ -25,3 +25,8 @@ export const shouldRemoveStoredPrefilter = (
   prefilterApplied: boolean,
   wasCleared: boolean,
 ): boolean => isDefault && !prefilterApplied && wasCleared;
+
+export const shouldSkipPrefilterAutoApply = (
+  manualApplyPending: boolean,
+  prefilterApplied: boolean,
+): boolean => manualApplyPending && !prefilterApplied;

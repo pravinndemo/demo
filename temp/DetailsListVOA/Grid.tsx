@@ -83,7 +83,7 @@ import {
   type QcSearchBy,
 } from './config/PrefilterConfigs';
 import { computeCompletedToDateIso, getPrefilterFromDateError } from './utils/PrefilterDateUtils';
-import { normalizePrefilterSearchBy, shouldRemoveStoredPrefilter } from './utils/PrefilterUtils';
+import { normalizePrefilterSearchBy, shouldRemoveStoredPrefilter, shouldSkipPrefilterAutoApply } from './utils/PrefilterUtils';
 import { type ScreenKind } from './utils/ScreenResolution';
 import { SCREEN_TEXT } from '../DetailsListVOA/constants/ScreenText';
 
@@ -964,6 +964,7 @@ export const Grid = React.memo((props: GridProps) => {
   );
   const prefilterAutoAppliedRef = React.useRef<string>('');
   const prefilterAutoApplyDebugRef = React.useRef<string>('');
+  const prefilterManualApplyRef = React.useRef(false);
   const prefilterDirtyRef = React.useRef(false);
   const prefilterClearedRef = React.useRef(false);
   const prefilterHydratingRef = React.useRef(false);
@@ -1035,6 +1036,7 @@ export const Grid = React.memo((props: GridProps) => {
     if (!prefilterApplied) {
       prefilterAutoAppliedRef.current = '';
     } else {
+      prefilterManualApplyRef.current = false;
       clearAutoApplyInFlight();
     }
   }, [clearAutoApplyInFlight, prefilterApplied]);
@@ -1100,6 +1102,13 @@ export const Grid = React.memo((props: GridProps) => {
   React.useEffect(() => {
     if (!useAssignmentLayout) return;
     if (prefilterDirtyRef.current) return;
+    if (shouldSkipPrefilterAutoApply(prefilterManualApplyRef.current, !!prefilterApplied)) {
+      console.debug('[Prefilter] auto-apply skipped (manual apply pending)', {
+        screen: derivedScreenKind,
+        prefilterApplied,
+      });
+      return;
+    }
     try {
       let raw = localStorage.getItem(prefilterStorageKey);
       let migratedFromLegacy = false;
@@ -1603,6 +1612,7 @@ export const Grid = React.memo((props: GridProps) => {
       completedTo: needsCompleted ? prefilters.completedTo : undefined,
     };
     dismissResultMessages();
+    prefilterManualApplyRef.current = true;
     onPrefilterApply(normalized, { source: 'user' });
     prefilterDirtyRef.current = false;
     clearAutoApplyInFlight();
@@ -4873,6 +4883,7 @@ export const Grid = React.memo((props: GridProps) => {
           <Stack.Item styles={{ root: { minWidth: 200 } }}>
             <ComboBox
               label={salesSearchText.searchPanel.searchByLabel}
+              ariaLabel={salesSearchText.searchPanel.searchByLabel}
               aria-describedby={buildAriaDescribedBy(searchByHint ? 'voa-searchby-hint' : undefined)}
               title={searchByTitle}
               options={filteredSearchByOptions}

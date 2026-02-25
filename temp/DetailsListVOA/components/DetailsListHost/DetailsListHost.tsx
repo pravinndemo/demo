@@ -7,7 +7,7 @@ import { GridFilterState, createDefaultGridFilters, sanitizeFilters, NumericFilt
 import { getProfileConfigs } from '../../config/ColumnProfiles';
 import { CONTROL_CONFIG } from '../../config/ControlConfig';
 import { getColumnFilterConfigFor, isLookupFieldFor, type TableKey } from '../../config/TableConfigs';
-import { type ManagerPrefilterState } from '../../config/PrefilterConfigs';
+import { COLUMN_FILTER_VALUE_SEPARATOR, type ManagerPrefilterState } from '../../config/PrefilterConfigs';
 import { SCREEN_TEXT, MANAGER_BILLING_AUTHORITY_OPTIONS, MANAGER_CASEWORKER_OPTIONS } from '../../constants/ScreenText';
 import { buildColumns } from '../../utils/ColumnsBuilder';
 import { ensureSampleColumns, buildSampleEntityRecords } from '../../utils/SampleHelpers';
@@ -153,15 +153,24 @@ const normalizeApiFilters = (filters?: Record<string, unknown>): Record<string, 
   return normalized;
 };
 
-const normalizeFilterOptions = (filters?: Record<string, string | string[]>): FilterOptionsMap => {
+const normalizeFilterKey = (value: string): string =>
+  value.replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+const splitDelimitedFilterValue = (value: string): string[] =>
+  value
+    .split(COLUMN_FILTER_VALUE_SEPARATOR)
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+
+const normalizeFilterOptions = (table: string, filters?: Record<string, string | string[]>): FilterOptionsMap => {
   if (!filters) return {};
   const normalized: FilterOptionsMap = {};
   Object.entries(filters).forEach(([key, value]) => {
-    const lowerKey = key.toLowerCase();
+    const lowerKey = normalizeFilterKey(key);
     if (value === undefined || value === null) return;
     if (Array.isArray(value)) {
       const arr = value.map((v) => String(v ?? '')).filter((v) => v.trim() !== '');
-      if (arr.length > 0) normalized[lowerKey] = arr;
+      if (arr.length > 0) normalized[lowerKey] = Array.from(new Set(arr));
       return;
     }
     if (typeof value === 'string') {
@@ -172,11 +181,19 @@ const normalizeFilterOptions = (filters?: Record<string, string | string[]>): Fi
           const parsed = JSON.parse(trimmed) as unknown;
           if (Array.isArray(parsed)) {
             const arr = parsed.map((v) => String(v ?? '')).filter((v) => v.trim() !== '');
-            if (arr.length > 0) normalized[lowerKey] = arr;
+            if (arr.length > 0) normalized[lowerKey] = Array.from(new Set(arr));
             return;
           }
         } catch {
           // fall back to plain string
+        }
+      }
+      const cfg = getColumnFilterConfigFor(table, lowerKey);
+      if ((cfg?.control === 'multiSelect' || cfg?.control === 'singleSelect') && trimmed.includes(COLUMN_FILTER_VALUE_SEPARATOR)) {
+        const arr = splitDelimitedFilterValue(trimmed);
+        if (arr.length > 0) {
+          normalized[lowerKey] = Array.from(new Set(arr));
+          return;
         }
       }
       normalized[lowerKey] = [trimmed];
@@ -1098,7 +1115,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         assignRefreshResolve.current = null;
         setAssignPendingRefresh(false);
       }
-      setApiFilterOptions(normalizeFilterOptions(res.filters));
+      setApiFilterOptions(normalizeFilterOptions(tableKey, res.filters));
     })();
   }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi]);
 
@@ -1778,9 +1795,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       if (assignmentTaskStatus) {
         assignmentParams.taskStatus = assignmentTaskStatus;
       }
-      if (screenKind !== 'managerAssign') {
-        assignmentParams.date = assignedDate;
-      }
       const response = await executeUnboundCustomApi<Record<string, unknown>>(
         context,
         apiName,
@@ -2017,7 +2031,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     currentUserId,
     onAssignTasks: assignTasksToUser,
     onLoadFilterOptions: (field, query) => {
-      const key = String(field ?? '').toLowerCase();
+      const key = normalizeFilterKey(String(field ?? ''));
       const options = apiFilterOptions[key] ?? [];
       if (!query || query.trim().length === 0) return Promise.resolve(options);
       const q = query.trim().toLowerCase();

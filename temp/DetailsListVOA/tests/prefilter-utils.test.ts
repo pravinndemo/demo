@@ -1,4 +1,4 @@
-import { normalizePrefilterSearchBy, shouldRemoveStoredPrefilter } from '../utils/PrefilterUtils';
+import { normalizePrefilterSearchBy, shouldRemoveStoredPrefilter, shouldSkipPrefilterAutoApply } from '../utils/PrefilterUtils';
 import { MANAGER_PREFILTER_DEFAULT, QC_PREFILTER_DEFAULT } from '../config/PrefilterConfigs';
 
 describe('prefilter utils', () => {
@@ -32,5 +32,11 @@ describe('prefilter utils', () => {
     expect(shouldRemoveStoredPrefilter(true, false, true)).toBe(true);
     expect(shouldRemoveStoredPrefilter(false, false, true)).toBe(false);
     expect(shouldRemoveStoredPrefilter(true, true, true)).toBe(false);
+  });
+
+  test('shouldSkipPrefilterAutoApply blocks auto-apply during manual apply', () => {
+    expect(shouldSkipPrefilterAutoApply(true, false)).toBe(true);
+    expect(shouldSkipPrefilterAutoApply(true, true)).toBe(false);
+    expect(shouldSkipPrefilterAutoApply(false, false)).toBe(false);
   });
 });
