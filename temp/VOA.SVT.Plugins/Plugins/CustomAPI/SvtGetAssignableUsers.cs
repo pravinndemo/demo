@@ -68,6 +68,13 @@ namespace VOA.SVT.Plugins.CustomAPI
                     AddUsersFromRoles(localPluginContext.SystemUserService, roleNames, users, trace);
                 }
 
+                if (users.Count > 0)
+                {
+                    var userIds = users.Keys.ToArray();
+                    PopulateUserRoles(localPluginContext.SystemUserService, userIds, users, trace);
+                    PopulateUserTeams(localPluginContext.SystemUserService, userIds, users, trace);
+                }
+
                 var ordered = users.Values
                     .OrderBy(u => u.FirstName ?? string.Empty)
                     .ThenBy(u => u.LastName ?? string.Empty)
@@ -165,6 +172,101 @@ namespace VOA.SVT.Plugins.CustomAPI
             }
         }
 
+        private static void PopulateUserRoles(
+            IOrganizationService service,
+            Guid[] userIds,
+            Dictionary<Guid, AssignableUserRecord> users,
+            ITracingService trace)
+        {
+            if (service == null || userIds == null || userIds.Length == 0)
+            {
+                return;
+            }
+
+            var qe = new QueryExpression("systemuserroles")
+            {
+                ColumnSet = new ColumnSet("systemuserid", "roleid"),
+                NoLock = true
+            };
+            qe.Criteria.AddCondition("systemuserid", ConditionOperator.In, userIds.Cast<object>().ToArray());
+
+            var roleLink = qe.AddLink("role", "roleid", "roleid", JoinOperator.Inner);
+            roleLink.EntityAlias = "role";
+            roleLink.Columns = new ColumnSet("name");
+
+            var result = service.RetrieveMultiple(qe);
+            if (result?.Entities == null || result.Entities.Count == 0)
+            {
+                trace?.Trace("SvtGetAssignableUsers: no user roles found.");
+                return;
+            }
+
+            foreach (var entity in result.Entities)
+            {
+                var userId = entity.GetAttributeValue<Guid>("systemuserid");
+                if (!users.TryGetValue(userId, out var record))
+                {
+                    continue;
+                }
+
+                var roleName = GetAliasedString(entity, "role.name");
+                record.Roles ??= new List<string>();
+                AddUnique(record.Roles, roleName);
+                if (!string.IsNullOrWhiteSpace(roleName) && string.IsNullOrWhiteSpace(record.Role))
+                {
+                    record.Role = roleName.Trim();
+                }
+            }
+        }
+
+        private static void PopulateUserTeams(
+            IOrganizationService service,
+            Guid[] userIds,
+            Dictionary<Guid, AssignableUserRecord> users,
+            ITracingService trace)
+        {
+            if (service == null || userIds == null || userIds.Length == 0)
+            {
+                return;
+            }
+
+            var qe = new QueryExpression("teammembership")
+            {
+                ColumnSet = new ColumnSet("systemuserid", "teamid"),
+                NoLock = true
+            };
+            qe.Criteria.AddCondition("systemuserid", ConditionOperator.In, userIds.Cast<object>().ToArray());
+
+            var teamLink = qe.AddLink("team", "teamid", "teamid", JoinOperator.Inner);
+            teamLink.EntityAlias = "team";
+            teamLink.Columns = new ColumnSet("name", "teamtype");
+            teamLink.LinkCriteria.AddCondition("teamtype", ConditionOperator.Equal, UserContextConfig.TeamTypeSecurityGroup);
+
+            var result = service.RetrieveMultiple(qe);
+            if (result?.Entities == null || result.Entities.Count == 0)
+            {
+                trace?.Trace("SvtGetAssignableUsers: no user teams found.");
+                return;
+            }
+
+            foreach (var entity in result.Entities)
+            {
+                var userId = entity.GetAttributeValue<Guid>("systemuserid");
+                if (!users.TryGetValue(userId, out var record))
+                {
+                    continue;
+                }
+
+                var teamName = GetAliasedString(entity, "team.name");
+                record.Teams ??= new List<string>();
+                AddUnique(record.Teams, teamName);
+                if (!string.IsNullOrWhiteSpace(teamName) && string.IsNullOrWhiteSpace(record.Team))
+                {
+                    record.Team = teamName.Trim();
+                }
+            }
+        }
+
         private static void UpsertUser(
             IDictionary<Guid, AssignableUserRecord> users,
             Entity entity,
@@ -184,6 +286,8 @@ namespace VOA.SVT.Plugins.CustomAPI
 
             if (!users.TryGetValue(id, out var record))
             {
+                var normalizedTeam = string.IsNullOrWhiteSpace(teamName) ? string.Empty : teamName.Trim();
+                var normalizedRole = string.IsNullOrWhiteSpace(roleName) ? string.Empty : roleName.Trim();
                 var email = entity.GetAttributeValue<string>("internalemailaddress");
                 if (string.IsNullOrWhiteSpace(email))
                 {
@@ -196,22 +300,49 @@ namespace VOA.SVT.Plugins.CustomAPI
                     FirstName = entity.GetAttributeValue<string>("firstname") ?? string.Empty,
                     LastName = entity.GetAttributeValue<string>("lastname") ?? string.Empty,
                     Email = email ?? string.Empty,
-                    Team = teamName ?? string.Empty,
-                    Role = roleName ?? string.Empty
+                    Team = normalizedTeam,
+                    Role = normalizedRole,
+                    Teams = new List<string>(),
+                    Roles = new List<string>()
                 };
+                AddUnique(record.Teams, normalizedTeam);
+                AddUnique(record.Roles, normalizedRole);
                 users[id] = record;
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(teamName) && string.IsNullOrWhiteSpace(record.Team))
+            record.Teams ??= new List<string>();
+            record.Roles ??= new List<string>();
+            var nextTeam = string.IsNullOrWhiteSpace(teamName) ? string.Empty : teamName.Trim();
+            var nextRole = string.IsNullOrWhiteSpace(roleName) ? string.Empty : roleName.Trim();
+            AddUnique(record.Teams, nextTeam);
+            AddUnique(record.Roles, nextRole);
+
+            if (!string.IsNullOrWhiteSpace(nextTeam) && string.IsNullOrWhiteSpace(record.Team))
             {
-                record.Team = teamName;
+                record.Team = nextTeam;
             }
 
-            if (!string.IsNullOrWhiteSpace(roleName) && string.IsNullOrWhiteSpace(record.Role))
+            if (!string.IsNullOrWhiteSpace(nextRole) && string.IsNullOrWhiteSpace(record.Role))
             {
-                record.Role = roleName;
+                record.Role = nextRole;
             }
+        }
+
+        private static void AddUnique(List<string> list, string value)
+        {
+            if (list == null || string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            var normalized = value.Trim();
+            if (list.Any(v => v.Equals(normalized, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            list.Add(normalized);
         }
 
         private static string GetAliasedString(Entity entity, string aliasName)
@@ -254,6 +385,8 @@ namespace VOA.SVT.Plugins.CustomAPI
             public string Email { get; set; }
             public string Team { get; set; }
             public string Role { get; set; }
+            public List<string> Teams { get; set; }
+            public List<string> Roles { get; set; }
         }
     }
 }

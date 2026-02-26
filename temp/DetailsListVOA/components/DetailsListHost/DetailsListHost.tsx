@@ -51,13 +51,19 @@ const MANAGER_ASSIGNMENT_SCREEN_NAME = 'manager assignment';
 const QC_ASSIGNMENT_SCREEN_NAME = 'quality control assignment';
 
 const normalizeGroupName = (value?: string): string => (value ?? '').trim().toLowerCase();
+const normalizeGroupList = (values?: string[]): string[] =>
+  (Array.isArray(values) ? values.map((value) => normalizeGroupName(value)).filter((value) => value !== '') : []);
 const normalizePrefilterArray = (value: unknown): string[] =>
   (Array.isArray(value) ? value.map((item) => String(item)) : []);
 const isAssignableUserInGroup = (user: AssignUser, teamNames: Set<string>, roleNames: Set<string>): boolean => {
   if (!user) return false;
   const team = normalizeGroupName(user.team);
   const role = normalizeGroupName(user.role);
-  return (team !== '' && teamNames.has(team)) || (role !== '' && roleNames.has(role));
+  const teams = normalizeGroupList(user.teams);
+  const roles = normalizeGroupList(user.roles);
+  const hasTeam = ([team, ...teams]).some((value) => value !== '' && teamNames.has(value));
+  const hasRole = ([role, ...roles]).some((value) => value !== '' && roleNames.has(value));
+  return hasTeam || hasRole;
 };
 
 const buildAssignableUsersCacheKey = (apiName: string, customApiType: number, screenName: string): string =>

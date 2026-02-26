@@ -86,13 +86,25 @@ describe('assignment helpers', () => {
           success: true,
           users: [
             { id: '', firstName: 'Ignore', lastName: 'Me', email: '', team: '', role: '' },
-            { id: '1', firstName: 'A', lastName: 'B', email: 'a@b.com', team: 't', role: 'r' },
+            {
+              id: '1',
+              firstName: 'A',
+              lastName: 'B',
+              email: 'a@b.com',
+              team: 't',
+              role: 'r',
+              teams: ['t2'],
+              roles: ['r2', 'r'],
+            },
+            { id: '2', firstName: 'C', lastName: 'D', email: 'c@d.com', teams: ['t3'], roles: ['r3'] },
           ],
         }),
       },
       messages,
     );
-    expect(parsed.users).toHaveLength(1);
+    expect(parsed.users).toHaveLength(2);
     expect(parsed.users[0].id).toBe('1');
+    expect(parsed.users[0].roles).toEqual(['r', 'r2']);
+    expect(parsed.users[1].role).toBe('r3');
   });
 });

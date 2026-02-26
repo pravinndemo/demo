@@ -12,10 +12,21 @@ export interface AssignmentStatusResult {
   assignmentTaskStatus?: string;
 }
 
+interface AssignableUserPayload {
+  id?: unknown;
+  firstName?: unknown;
+  lastName?: unknown;
+  email?: unknown;
+  team?: unknown;
+  role?: unknown;
+  teams?: unknown;
+  roles?: unknown;
+}
+
 interface AssignableUsersResult {
   success?: boolean;
   message?: string;
-  users?: AssignUser[];
+  users?: AssignableUserPayload[];
 }
 
 export interface AssignableUsersMessages {
@@ -75,6 +86,28 @@ export const parseAssignableUsersResponse = (
   response: { Result?: string; result?: string } | undefined,
   messages: AssignableUsersMessages,
 ): { users: AssignUser[]; info?: string; error?: string } => {
+  const normalizeStringList = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    const out: string[] = [];
+    const seen = new Set<string>();
+    value.forEach((item) => {
+      const trimmed = String(item ?? '').trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(trimmed);
+    });
+    return out;
+  };
+
+  const mergeSingleIntoList = (list: string[], single: string): string[] => {
+    if (!single) return list;
+    const key = single.toLowerCase();
+    const filtered = list.filter((v) => v.toLowerCase() !== key);
+    return [single, ...filtered];
+  };
+
   const rawResult = typeof response?.Result === 'string'
     ? response.Result
     : typeof response?.result === 'string'
@@ -104,14 +137,25 @@ export const parseAssignableUsersResponse = (
   }
 
   const normalized = users
-    .map((u) => ({
-      id: String(u?.id ?? ''),
-      firstName: String(u?.firstName ?? ''),
-      lastName: String(u?.lastName ?? ''),
-      email: String(u?.email ?? ''),
-      team: String(u?.team ?? ''),
-      role: String(u?.role ?? ''),
-    }))
+    .map((u) => {
+      const id = String(u?.id ?? '').trim();
+      const teamRaw = String(u?.team ?? '').trim();
+      const roleRaw = String(u?.role ?? '').trim();
+      const teams = mergeSingleIntoList(normalizeStringList(u?.teams), teamRaw);
+      const roles = mergeSingleIntoList(normalizeStringList(u?.roles), roleRaw);
+      const team = teamRaw || teams[0] || '';
+      const role = roleRaw || roles[0] || '';
+      return {
+        id,
+        firstName: String(u?.firstName ?? ''),
+        lastName: String(u?.lastName ?? ''),
+        email: String(u?.email ?? ''),
+        team,
+        role,
+        teams,
+        roles,
+      };
+    })
     .filter((u) => u.id);
 
   return { users: normalized };

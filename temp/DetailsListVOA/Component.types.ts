@@ -66,4 +66,6 @@ export interface AssignUser {
     email: string;
     team: string;
     role: string;
+    teams?: string[];
+    roles?: string[];
 }
