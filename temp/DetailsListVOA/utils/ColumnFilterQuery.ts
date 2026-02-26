@@ -64,16 +64,29 @@ export const buildColumnFilterTokens = (
   const cfg = getColumnFilterConfigFor(tableKey, field);
   if (!cfg) return undefined;
   const apiField = normalizeColumnFilterFieldName(field);
+  const normalizedField = field.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const normalizeFlaggedForReviewValue = (raw: string): string => {
+    const cleaned = raw.trim().toLowerCase();
+    if (cleaned === 'true' || cleaned === 'yes' || cleaned === 'y') return 'Y';
+    if (cleaned === 'false' || cleaned === 'no' || cleaned === 'n') return 'N';
+    return raw.trim();
+  };
 
   if (typeof value === 'string') {
     const trimmed = value.trim();
     if (!trimmed) return undefined;
+    const normalizedValue = normalizedField === 'flaggedforreview'
+      ? normalizeFlaggedForReviewValue(trimmed)
+      : trimmed;
     const operator = cfg.control === 'singleSelect' ? 'eq' : 'like';
-    return [apiField, operator, trimmed];
+    return [apiField, operator, normalizedValue];
   }
 
   if (Array.isArray(value)) {
-    const values = value.map((entry) => String(entry ?? '').trim()).filter((entry) => entry !== '');
+    const values = value
+      .map((entry) => String(entry ?? '').trim())
+      .filter((entry) => entry !== '')
+      .map((entry) => (normalizedField === 'flaggedforreview' ? normalizeFlaggedForReviewValue(entry) : entry));
     if (values.length === 0) return undefined;
     const operator = 'in';
     return [apiField, operator, values.join(COLUMN_FILTER_VALUE_SEPARATOR)];
