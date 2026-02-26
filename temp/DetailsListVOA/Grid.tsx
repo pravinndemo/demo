@@ -2426,11 +2426,12 @@ export const Grid = React.memo((props: GridProps) => {
       return items;
     }
     return filterItemsByColumnFilters(
-      items as unknown as Record<string, unknown>[],
+      items,
       columnFiltersState,
       tableKey,
       getFilterableText,
-    ) as DataSet[];
+      (item, field) => (item as unknown as Record<string, unknown>)[field],
+    );
   }, [columnFiltersState, disableClientFiltering, getFilterableText, items, tableKey]);
 
   const selectionSummaryText = React.useMemo(() => {

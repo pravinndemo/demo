@@ -27,6 +27,7 @@ describe('grid column filter engine', () => {
       { taskid: 'S-100' },
       'sales',
       getFilterableText,
+      (item, field) => item[field as keyof typeof item],
     );
 
     expect(result).toHaveLength(1);
@@ -43,6 +44,7 @@ describe('grid column filter engine', () => {
       {},
       'sales',
       getFilterableText,
+      (item, field) => item[field as keyof typeof item],
     );
 
     expect(result).toHaveLength(2);

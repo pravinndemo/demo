@@ -86,6 +86,13 @@ export const parseAssignableUsersResponse = (
   response: { Result?: string; result?: string } | undefined,
   messages: AssignableUsersMessages,
 ): { users: AssignUser[]; info?: string; error?: string } => {
+  const toSafeString = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    return '';
+  };
+
   const normalizeStringList = (value: unknown): string[] => {
     if (!Array.isArray(value)) return [];
     const out: string[] = [];
@@ -138,18 +145,18 @@ export const parseAssignableUsersResponse = (
 
   const normalized = users
     .map((u) => {
-      const id = String(u?.id ?? '').trim();
-      const teamRaw = String(u?.team ?? '').trim();
-      const roleRaw = String(u?.role ?? '').trim();
+      const id = toSafeString(u?.id).trim();
+      const teamRaw = toSafeString(u?.team).trim();
+      const roleRaw = toSafeString(u?.role).trim();
       const teams = mergeSingleIntoList(normalizeStringList(u?.teams), teamRaw);
       const roles = mergeSingleIntoList(normalizeStringList(u?.roles), roleRaw);
       const team = teamRaw || teams[0] || '';
       const role = roleRaw || roles[0] || '';
       return {
         id,
-        firstName: String(u?.firstName ?? ''),
-        lastName: String(u?.lastName ?? ''),
-        email: String(u?.email ?? ''),
+        firstName: toSafeString(u?.firstName),
+        lastName: toSafeString(u?.lastName),
+        email: toSafeString(u?.email),
         team,
         role,
         teams,

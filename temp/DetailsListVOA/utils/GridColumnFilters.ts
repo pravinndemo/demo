@@ -28,13 +28,14 @@ const isActiveFilterValue = (value: ColumnFilterValue): boolean => {
 
 export const getActiveColumnFilters = (
   filters: Record<string, ColumnFilterValue>,
-): Array<[string, ColumnFilterValue]> => Object.entries(filters).filter(([, value]) => value !== undefined && isActiveFilterValue(value));
+): [string, ColumnFilterValue][] => Object.entries(filters).filter(([, value]) => value !== undefined && isActiveFilterValue(value));
 
-export const filterItemsByColumnFilters = <T extends Record<string, unknown>>(
+export const filterItemsByColumnFilters = <T>(
   items: T[],
   filters: Record<string, ColumnFilterValue>,
   tableKey: string,
   getFilterableText: (raw: unknown) => string,
+  getFieldValue: (item: T, field: string) => unknown,
 ): T[] => {
   const t0 = nowMs();
   const filterEntries = getActiveColumnFilters(filters);
@@ -46,7 +47,7 @@ export const filterItemsByColumnFilters = <T extends Record<string, unknown>>(
   const out = items.filter((item) => {
     return filterEntries.every(([fieldName, filterValue]) => {
       const cfg = getColumnFilterConfigFor(tableKey, fieldName);
-      const raw = item[fieldName];
+      const raw = getFieldValue(item, fieldName);
       const textVal = getFilterableText(raw).trim();
       if (cfg) {
         switch (cfg.control) {
