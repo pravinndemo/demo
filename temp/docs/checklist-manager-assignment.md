@@ -1,4 +1,4 @@
-﻿# Manager Assignment Test Checklist
+﻿ # Manager Assignment Test Checklist
 
 ## Test Metadata
 | Field | Value |

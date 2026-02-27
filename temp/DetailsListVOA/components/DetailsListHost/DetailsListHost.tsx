@@ -960,7 +960,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       headerFilters,
       tableKey,
       getFilterableText,
-      (id, field) => (records[id] as Record<string, unknown>)[field],
+      (id, field) => (records[id] as unknown as Record<string, unknown>)[field],
     );
     const t1 = performance.now();
     logPerf('[Grid Perf] Host filter ids (ms):', Math.round(t1 - t0), 'ids:', ids.length, 'filters:', Object.keys(headerFilters).length, 'result:', out.length);

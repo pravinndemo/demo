@@ -58,6 +58,29 @@ const nowMs = (): number => {
   return Date.now();
 };
 
+const normalizeNumericText = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  let cleaned = trimmed.replace(/[£$€\s]/g, '');
+  const hasComma = cleaned.includes(',');
+  const hasDot = cleaned.includes('.');
+  if (hasComma && !hasDot && /^-?\d+,\d+$/.test(cleaned)) {
+    cleaned = cleaned.replace(',', '.');
+  } else if (hasComma) {
+    cleaned = cleaned.replace(/,/g, '');
+  }
+  return cleaned;
+};
+
+const toNumericValue = (raw: unknown, fallbackText: string): number | undefined => {
+  if (typeof raw === 'number') return Number.isNaN(raw) ? undefined : raw;
+  const text = typeof raw === 'string' ? raw : fallbackText;
+  const normalized = normalizeNumericText(text);
+  if (!normalized) return undefined;
+  const parsed = Number(normalized);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
 const isActiveFilterValue = (value: ColumnFilterValue): boolean => {
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === 'string') return value.trim() !== '';
@@ -130,8 +153,8 @@ export const filterItemsByColumnFilters = <T>(
           }
           case 'numeric': {
             const numFilter = filterValue as NumericFilter;
-            const numericRaw = typeof raw === 'number' ? raw : Number(textVal);
-            if (Number.isNaN(numericRaw)) return false;
+            const numericRaw = toNumericValue(raw, textVal);
+            if (numericRaw === undefined) return false;
             if (numFilter.mode === 'between') {
               const minOk = numFilter.min !== undefined ? numericRaw >= numFilter.min : true;
               const maxOk = numFilter.max !== undefined ? numericRaw <= numFilter.max : true;
