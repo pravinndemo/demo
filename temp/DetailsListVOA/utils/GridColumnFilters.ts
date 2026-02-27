@@ -3,6 +3,54 @@ import { getColumnFilterConfigFor } from '../config/TableConfigs';
 
 export type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFilter;
 
+const MONTH_MAP: Record<string, number> = {
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
+};
+
+const toDateKey = (value?: string): number | undefined => {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/.exec(trimmed);
+  if (isoMatch) {
+    return Number(`${isoMatch[1]}${isoMatch[2]}${isoMatch[3]}`);
+  }
+  const ukMatch = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[T\s].*)?$/.exec(trimmed);
+  if (ukMatch) {
+    const day = ukMatch[1].padStart(2, '0');
+    const month = ukMatch[2].padStart(2, '0');
+    return Number(`${ukMatch[3]}${month}${day}`);
+  }
+  const ukMonthMatch = /^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})/.exec(trimmed);
+  if (ukMonthMatch) {
+    const day = ukMonthMatch[1].padStart(2, '0');
+    const monthKey = ukMonthMatch[2].slice(0, 3).toLowerCase();
+    const month = MONTH_MAP[monthKey];
+    if (month) {
+      return Number(`${ukMonthMatch[3]}${String(month).padStart(2, '0')}${day}`);
+    }
+  }
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) {
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
+    return Number(`${year}${month}${day}`);
+  }
+  return undefined;
+};
+
 const nowMs = (): number => {
   if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
     return performance.now();
@@ -96,12 +144,12 @@ export const filterItemsByColumnFilters = <T>(
           case 'dateRange': {
             const dr = filterValue as DateRangeFilter;
             const rawDate = textVal;
-            const rawTime = Date.parse(rawDate);
-            if (Number.isNaN(rawTime)) return false;
-            const fromTime = dr.from ? Date.parse(dr.from) : undefined;
-            const toTime = dr.to ? Date.parse(dr.to) : undefined;
-            if (fromTime !== undefined && rawTime < fromTime) return false;
-            if (toTime !== undefined && rawTime > toTime) return false;
+            const rawKey = toDateKey(rawDate);
+            if (rawKey === undefined) return false;
+            const fromKey = dr.from ? toDateKey(dr.from) : undefined;
+            const toKey = dr.to ? toDateKey(dr.to) : undefined;
+            if (fromKey !== undefined && rawKey < fromKey) return false;
+            if (toKey !== undefined && rawKey > toKey) return false;
             return true;
           }
           default:

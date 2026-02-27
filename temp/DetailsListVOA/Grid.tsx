@@ -3474,6 +3474,9 @@ export const Grid = React.memo((props: GridProps) => {
     }
     setMenuFilterSearch('');
     setMenuFilterError(undefined);
+    setMenuExtraOptions([]);
+    setMenuState(undefined);
+    menuState.target?.focus?.();
   }, [menuFilterValue, menuState, tableKey]);
 
   const onGoToTop = React.useCallback(() => {

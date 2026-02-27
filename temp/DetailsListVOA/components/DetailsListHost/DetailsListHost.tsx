@@ -13,6 +13,7 @@ import { buildColumns } from '../../utils/ColumnsBuilder';
 import { ensureSampleColumns, buildSampleEntityRecords } from '../../utils/SampleHelpers';
 import { parseAssignableUsersResponse as parseAssignableUsersResponseBase, resolveAssignmentStatusValidation } from '../../utils/AssignmentHelpers';
 import { buildColumnFilterQuery } from '../../utils/ColumnFilterQuery';
+import { filterItemsByColumnFilters } from '../../utils/GridColumnFilters';
 import { toSortableDateKey } from '../../utils/DateSortUtils';
 import { isGuidValue, normalizeSuid, normalizeUserId } from '../../utils/IdentifierUtils';
 import { buildPrefilterStorageKey, isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
@@ -937,45 +938,34 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 
   const disableClientFiltering = hasLoadedApim && !clientSideEligible;
 
+  const getFilterableText = React.useCallback((raw: unknown): string => {
+    if (Array.isArray(raw)) {
+      return raw
+        .map((v) => (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' ? String(v) : ''))
+        .filter((s) => s !== '')
+        .join(', ');
+    }
+    if (typeof raw === 'string') return raw;
+    if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw);
+    return '';
+  }, []);
+
   const filteredIds = React.useMemo(() => {
     if (disableClientFiltering) {
       return ids;
     }
     const t0 = performance.now();
-    const ds = datasetColumns;
-    const toText = (val: unknown): string => {
-      if (typeof val === 'string') return val;
-      if (typeof val === 'number' || typeof val === 'boolean') return String(val);
-      if (Array.isArray(val)) return val.map((v) => String(v ?? '')).filter((v) => v !== '').join(',');
-      return '';
-    };
-    const entries = Object.entries(headerFilters).filter(([, v]) => {
-      if (Array.isArray(v)) return v.length > 0;
-      if (typeof v === 'string') return v.trim() !== '';
-      if (v && typeof v === 'object') return JSON.stringify(v) !== '{}';
-      return false;
-    });
-    if (entries.length === 0) return ids;
-    const out = ids.filter((id) => {
-      const rec = records[id] as unknown as Record<string, unknown>;
-      return entries.every(([field, v]) => {
-        const value = toText(rec[field]);
-        if (Array.isArray(v)) {
-          const needles = v
-            .map((s) => toFilterValueString(s as ColumnFilterValue).trim().toLowerCase())
-            .filter((s) => s !== '');
-          if (needles.length === 0) return true;
-          return needles.some((n) => value.trim().toLowerCase() === n);
-        }
-        const needle = toFilterValueString(v as ColumnFilterValue).trim().toLowerCase();
-        if (needle === '') return true;
-        return value.toLowerCase().includes(needle);
-      });
-    });
+    const out = filterItemsByColumnFilters(
+      ids,
+      headerFilters,
+      tableKey,
+      getFilterableText,
+      (id, field) => (records[id] as Record<string, unknown>)[field],
+    );
     const t1 = performance.now();
-    logPerf('[Grid Perf] Host filter ids (ms):', Math.round(t1 - t0), 'ids:', ids.length, 'filters:', entries.length, 'result:', out.length);
+    logPerf('[Grid Perf] Host filter ids (ms):', Math.round(t1 - t0), 'ids:', ids.length, 'filters:', Object.keys(headerFilters).length, 'result:', out.length);
     return out;
-  }, [disableClientFiltering, headerFilters, ids, records, datasetColumns]);
+  }, [disableClientFiltering, getFilterableText, headerFilters, ids, records, tableKey]);
 
   const sortedIds = React.useMemo(() => {
     if (!clientSideEligible || !userSortActive || !clientSort) return filteredIds;
