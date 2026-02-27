@@ -613,8 +613,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const activeClientSort = userSortActive ? clientSort : undefined;
   const serverClientSort = clientSideEligible ? undefined : activeClientSort;
   const columnFilterQuery = React.useMemo(
-    () => (clientSideEligible ? '' : buildColumnFilterQuery(tableKey, apiHeaderFilters, serverClientSort)),
-    [apiHeaderFilters, clientSideEligible, serverClientSort, tableKey],
+    () => buildColumnFilterQuery(tableKey, apiHeaderFilters, serverClientSort),
+    [apiHeaderFilters, serverClientSort, tableKey],
   );
 
   const buildCaseworkerNames = React.useCallback((users: AssignUser[]): string[] => {
