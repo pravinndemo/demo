@@ -981,7 +981,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     if (!clientSideEligible || !userSortActive || !clientSort) return filteredIds;
     const t0 = performance.now();
     const field = clientSort.name?.toLowerCase?.() ?? '';
-    const dateFields = new Set(['assigneddate', 'taskcompleteddate', 'qcassigneddate', 'qccompleteddate']);
+    const dateFields = new Set(['transactiondate', 'assigneddate', 'taskcompleteddate', 'qcassigneddate', 'qccompleteddate']);
     const desc = clientSort.sortDirection === 1;
     const getVal = (id: string): string => {
       const rec = records[id] as unknown as Record<string, unknown>;
