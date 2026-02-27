@@ -13,6 +13,7 @@ import { buildColumns } from '../../utils/ColumnsBuilder';
 import { ensureSampleColumns, buildSampleEntityRecords } from '../../utils/SampleHelpers';
 import { parseAssignableUsersResponse as parseAssignableUsersResponseBase, resolveAssignmentStatusValidation } from '../../utils/AssignmentHelpers';
 import { buildColumnFilterQuery } from '../../utils/ColumnFilterQuery';
+import { toSortableDateKey } from '../../utils/DateSortUtils';
 import { isGuidValue, normalizeSuid, normalizeUserId } from '../../utils/IdentifierUtils';
 import { buildPrefilterStorageKey, isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
 import { normalizePrefilterSearchBy } from '../../utils/PrefilterUtils';
@@ -980,10 +981,15 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     if (!clientSideEligible || !userSortActive || !clientSort) return filteredIds;
     const t0 = performance.now();
     const field = clientSort.name?.toLowerCase?.() ?? '';
+    const dateFields = new Set(['assigneddate', 'taskcompleteddate', 'qcassigneddate', 'qccompleteddate']);
     const desc = clientSort.sortDirection === 1;
     const getVal = (id: string): string => {
       const rec = records[id] as unknown as Record<string, unknown>;
       const v = rec[field];
+      if (dateFields.has(field)) {
+        const raw = typeof v === 'string' || typeof v === 'number' ? String(v) : '';
+        return toSortableDateKey(raw);
+      }
       if (typeof v === 'number') return String(v);
       if (typeof v === 'boolean') return v ? '1' : '0';
       if (typeof v === 'string') return v.toLowerCase();
@@ -1099,7 +1105,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     const trigger = String((context.parameters as unknown as Record<string, { raw?: string | number }>).searchTrigger?.raw ?? '');
     const sortKey = serverClientSort ? `${serverClientSort.name}:${serverClientSort.sortDirection}` : '';
     const nextSortKey = clientSideEligible ? lastRef.current.sort : sortKey;
-    const nextColumnFilters = clientSideEligible ? lastRef.current.columnFilters : columnFilterQuery;
+    const nextColumnFilters = columnFilterQuery;
     const changed = lastRef.current.table !== tableKey
       || lastRef.current.trigger !== trigger
       || lastRef.current.page !== currentPage
