@@ -3594,7 +3594,7 @@ export const Grid = React.memo((props: GridProps) => {
     ? getComboDisambiguationHint(filteredPrefilterWorkThatOptions, prefilterWorkThatSearch)
     : undefined;
   React.useEffect(() => {
-    if ((!isManagerAssign && !isCaseworkerView && !isQcAssign && !isQcView) || prefilters.workThat) return;
+    if ((!isCaseworkerView && !isQcView) || prefilters.workThat) return;
     const firstOption = prefilterWorkThatOptions.find((opt) => opt?.key !== undefined);
     if (!firstOption) return;
     const nextWork = String(firstOption.key) as ManagerWorkThat;
@@ -4609,7 +4609,7 @@ export const Grid = React.memo((props: GridProps) => {
                 placeholder={prefilterText.placeholders.workThat}
                 title={prefilterWorkThatTitle}
                 options={filteredPrefilterWorkThatOptions}
-                selectedKey={comboEditing.prefilterWorkThat ? null : prefilters.workThat}
+                selectedKey={comboEditing.prefilterWorkThat ? null : (prefilters.workThat ?? null)}
                 calloutProps={{ setInitialFocus: false }}
                 onChange={(event, option, _index, value) => {
                   if (consumeComboIgnoreNextChange('prefilterWorkThat', option)) return;

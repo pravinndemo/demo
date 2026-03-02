@@ -46,6 +46,14 @@ The resolver also collects **all matched teams/roles** for access checks.
 
 ---
 
+## QA/Manager-Only Access
+
+### Submit QC Remarks
+`VOA.SVT.Plugins/Plugins/CustomAPI/SvtSubmitQcRemarks.cs`
+- Allowed for Manager or QA persona.
+
+---
+
 ## Task Assignment Access
 `VOA.SVT.Plugins/Helpers/AssignmentContextResolver.cs`
 
