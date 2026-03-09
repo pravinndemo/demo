@@ -2244,15 +2244,16 @@ export const Grid = React.memo((props: GridProps) => {
       forceLoader = false,
     ) => {
       if (!item) return;
-      const rec = item as { saleid?: string; saleId?: string };
-      const saleId = rec.saleid ?? rec.saleId;
+      const rec = item as { saleid?: unknown; saleId?: unknown };
+      const saleIdRaw = rec.saleid ?? rec.saleId;
+      const saleId = typeof saleIdRaw === 'string' ? saleIdRaw : undefined;
       // Show the overlay whenever the item carries a saleId — that is the
       // real signal that onTaskClick (index.ts) will fire an async API call
       // regardless of which cell, button, or keyboard event triggered navigation.
       // forceLoader is kept for callers that want to force the overlay even
       // when saleId is not yet resolved on the record object (e.g. View Sale
       // button when selection state is async).
-      const shouldShowLoader = forceLoader || !!saleId;
+      const shouldShowLoader = forceLoader ? true : Boolean(saleId);
       let requestId = 0;
       if (shouldShowLoader) {
         viewSaleRequestSeq.current += 1;
@@ -2287,10 +2288,37 @@ export const Grid = React.memo((props: GridProps) => {
         const width = typeof cfg.ColWidth === 'number' ? cfg.ColWidth : visualSize;
         const resolvedCellType = (cfg.ColCellType ?? datasetCellType)?.toLowerCase();
         const effectiveCellType = cfg.ColCellType ?? datasetCellType;
+        const columnClassNames: string[] = [];
+        let headerClassName: string | undefined;
+        if (lowerName === 'saleid') {
+          columnClassNames.push('voa-col-saleid-cell');
+          headerClassName = 'voa-col-saleid-header';
+        }
+        if (lowerName === 'saleprice' || lowerName === 'ratio' || lowerName === 'outlierratio') {
+          columnClassNames.push('voa-col-numeric-cell');
+          headerClassName = headerClassName ? `${headerClassName} voa-col-numeric-header` : 'voa-col-numeric-header';
+        }
+        if (lowerName === 'ratio' || lowerName === 'outlierratio') {
+          columnClassNames.push('voa-col-numeric-gap-right-cell');
+          headerClassName = headerClassName
+            ? `${headerClassName} voa-col-numeric-gap-right-header`
+            : 'voa-col-numeric-gap-right-header';
+        }
+        if (lowerName === 'dwellingtype' || lowerName === 'overallflag') {
+          columnClassNames.push('voa-col-gap-left-cell');
+          headerClassName = headerClassName
+            ? `${headerClassName} voa-col-gap-left-header`
+            : 'voa-col-gap-left-header';
+        }
+        if (lowerName === 'reviewflags' || lowerName === 'overallflag' || lowerName === 'summaryflags' || lowerName === 'taskstatus') {
+          columnClassNames.push('voa-col-tag-dense');
+        }
         const col: IGridColumn = {
           key: c.name,
           name: cfg.ColDisplayName ?? c.displayName,
           fieldName: c.name,
+          className: columnClassNames.length > 0 ? columnClassNames.join(' ') : undefined,
+          headerClassName,
           minWidth: width,
           maxWidth: cfg.ColWidth,
           isResizable: cfg.ColResizable ?? true,
@@ -2324,14 +2352,22 @@ export const Grid = React.memo((props: GridProps) => {
           format: cfg.ColFormat,
           childColumns: [],
         };
-        if (
+        const configuredHorizontalAlign = (cfg.ColHorizontalAlign ?? '').trim().toLowerCase();
+        const hasConfiguredAlignment =
+          configuredHorizontalAlign === 'left' ||
+          configuredHorizontalAlign === 'center' ||
+          configuredHorizontalAlign === 'right' ||
+          !!cfg.ColVerticalAlign;
+        const shouldUseGridCellRenderer =
           resolvedCellType === 'tag' ||
           resolvedCellType === 'indicatortag' ||
           resolvedCellType === 'link' ||
           resolvedCellType === 'image' ||
           resolvedCellType === 'clickableimage' ||
-          resolvedCellType === 'expand'
-        ) {
+          resolvedCellType === 'expand' ||
+          hasConfiguredAlignment ||
+          !!cfg.ColFormat;
+        if (shouldUseGridCellRenderer) {
           col.onRender = (
             item: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
             _?: number,

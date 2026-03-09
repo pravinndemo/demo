@@ -1,4 +1,4 @@
-import { DefaultButton, FontIcon, IColumn, IconButton, Image, IRawStyle, Link, mergeStyles } from '@fluentui/react';
+﻿import { DefaultButton, FontIcon, IColumn, IconButton, Image, IRawStyle, Link, mergeStyles } from '@fluentui/react';
 import * as React from 'react';
 import { IGridColumn } from '../Component.types';
 import { DatasetArray } from '../utils/DatasetArrayItem';
@@ -56,6 +56,7 @@ export const GridCell = React.memo((props: GridCellProps) => {
             display: 'flex',
             flexDirection: 'row',
             flexWrap: 'wrap',
+            width: '100%',
             height: verticalAlign === 'end' || verticalAlign === 'center' ? '100%' : undefined,
             justifyContent: horizontalAlign,
             alignItems: verticalAlign,
@@ -137,14 +138,19 @@ function wrapContent(cellContents: JSX.Element, column: IGridColumn, isBlank: bo
     // If constrained width and multi-line=true - normal wrap
     // If constrained width and multi-line=false - nowrap
     // If constrained = false - nowrap
+    const fieldName = (column.fieldName ?? '').toLowerCase();
+    const needsNumericGapRight = fieldName === 'ratio' || fieldName === 'outlierratio';
+    const needsLeftInset = fieldName === 'dwellingtype' || fieldName === 'overallflag';
+    const effectivePaddingLeft = column.paddingLeft ?? (needsLeftInset ? '12px' : undefined);
+    const effectivePaddingRight = needsNumericGapRight ? '18px' : '4px';
     const cellStyle = {
         maxWidth: undefinedIf(constrainWidth, targetWidth),
         textOverflow: undefinedIf(constrainWidth, 'ellipsis'),
         overflow: undefinedIf(constrainWidth, 'hidden'),
         whiteSpace: whiteSpace,
-        paddingLeft: undefinedIf(!isBlank, column.paddingLeft),
+        paddingLeft: undefinedIf(!isBlank, effectivePaddingLeft),
         paddingTop: undefinedIf(!isBlank, column.paddingTop),
-        paddingRight: undefinedIf(!isBlank && moreCols, '4px'),
+        paddingRight: undefinedIf(!isBlank && moreCols, effectivePaddingRight),
         fontWeight: column.isBold ? FontStyles.Bold.fontWeight : FontStyles.Normal.fontWeight,
     } as IRawStyle;
 
@@ -479,14 +485,15 @@ function getCellValue<T>(
 /**
  * Applies a display format to a raw cell string value.
  * Supported formats:
- *   'currency' — prefixes with £ and adds thousands separators (en-GB locale).
- *                Omits pence when the value is a whole number (e.g. £250,000).
- *                Includes pence when a fractional part is present (e.g. £250,000.50).
+ *   'currency' â€” prefixes with Â£ and adds thousands separators (en-GB locale).
+ *                Omits pence when the value is a whole number (e.g. Â£250,000).
+ *                Includes pence when a fractional part is present (e.g. Â£250,000.50).
  */
 function applyFormat(value: string, format?: string): string {
     if (!format || !value) return value;
-    if (format.toLowerCase() === 'currency') {
-        // Strip any existing £ sign or commas before parsing
+    const normalizedFormat = format.toLowerCase();
+    if (normalizedFormat === 'currency') {
+        // Strip any existing currency symbol or grouping separators before parsing.
         const num = parseFloat(String(value).replace(/[£,\s]/g, ''));
         if (isNaN(num)) return value;
         const hasDecimals = num % 1 !== 0;
@@ -494,6 +501,17 @@ function applyFormat(value: string, format?: string): string {
             minimumFractionDigits: hasDecimals ? 2 : 0,
             maximumFractionDigits: hasDecimals ? 2 : 0,
         });
+    }
+    if (normalizedFormat === 'date') {
+        // Normalize dd-mm-yyyy to dd/mm/yyyy for display consistency.
+        const trimmed = String(value).trim();
+        const match = /^(\d{1,2})-(\d{1,2})-(\d{4})(.*)$/.exec(trimmed);
+        if (!match) return value;
+        const day = match[1].padStart(2, '0');
+        const month = match[2].padStart(2, '0');
+        const year = match[3];
+        const suffix = match[4] ?? '';
+        return `${day}/${month}/${year}${suffix}`;
     }
     return value;
 }
@@ -511,7 +529,7 @@ function getCellContent(
         const rawValues: string[] = overrideValues ?? getCellValue((column as IColumn).fieldName, item);
         isBlank = rawValues.length === 0 || rawValues.join('') === '';
 
-        // Apply column-level display format (e.g. 'currency' → £ prefix + thousands separators)
+        // Apply column-level display format (e.g. 'currency' â†’ Â£ prefix + thousands separators)
         const values = rawValues.map((v) => applyFormat(String(v ?? ''), column.format));
 
         // Two types of cell rendering - single value and multi-value
@@ -539,3 +557,4 @@ function getCellContent(
     }
     return { cellContents, isBlank };
 }
+

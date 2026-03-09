@@ -530,10 +530,37 @@ export const Grid = React.memo((props: GridProps) => {
         const width = typeof cfg.ColWidth === 'number' ? cfg.ColWidth : visualSize;
         const resolvedCellType = (cfg.ColCellType ?? datasetCellType)?.toLowerCase();
         const effectiveCellType = cfg.ColCellType ?? datasetCellType;
+        const columnClassNames: string[] = [];
+        let headerClassName: string | undefined;
+        if (lowerName === 'saleid') {
+          columnClassNames.push('voa-col-saleid-cell');
+          headerClassName = 'voa-col-saleid-header';
+        }
+        if (lowerName === 'saleprice' || lowerName === 'ratio' || lowerName === 'outlierratio') {
+          columnClassNames.push('voa-col-numeric-cell');
+          headerClassName = headerClassName ? `${headerClassName} voa-col-numeric-header` : 'voa-col-numeric-header';
+        }
+        if (lowerName === 'ratio' || lowerName === 'outlierratio') {
+          columnClassNames.push('voa-col-numeric-gap-right-cell');
+          headerClassName = headerClassName
+            ? `${headerClassName} voa-col-numeric-gap-right-header`
+            : 'voa-col-numeric-gap-right-header';
+        }
+        if (lowerName === 'dwellingtype' || lowerName === 'overallflag') {
+          columnClassNames.push('voa-col-gap-left-cell');
+          headerClassName = headerClassName
+            ? `${headerClassName} voa-col-gap-left-header`
+            : 'voa-col-gap-left-header';
+        }
+        if (lowerName === 'reviewflags' || lowerName === 'overallflag' || lowerName === 'summaryflags' || lowerName === 'taskstatus') {
+          columnClassNames.push('voa-col-tag-dense');
+        }
         const col: IGridColumn = {
           key: c.name,
           name: cfg.ColDisplayName ?? c.displayName,
           fieldName: c.name,
+          className: columnClassNames.length > 0 ? columnClassNames.join(' ') : undefined,
+          headerClassName,
           minWidth: width,
           maxWidth: cfg.ColWidth,
           isResizable: cfg.ColResizable ?? true,
@@ -567,14 +594,22 @@ export const Grid = React.memo((props: GridProps) => {
           format: cfg.ColFormat,
           childColumns: [],
         };
-        if (
+        const configuredHorizontalAlign = (cfg.ColHorizontalAlign ?? '').trim().toLowerCase();
+        const hasConfiguredAlignment =
+          configuredHorizontalAlign === 'left' ||
+          configuredHorizontalAlign === 'center' ||
+          configuredHorizontalAlign === 'right' ||
+          !!cfg.ColVerticalAlign;
+        const shouldUseGridCellRenderer =
           resolvedCellType === 'tag' ||
           resolvedCellType === 'indicatortag' ||
           resolvedCellType === 'link' ||
           resolvedCellType === 'image' ||
           resolvedCellType === 'clickableimage' ||
-          resolvedCellType === 'expand'
-        ) {
+          resolvedCellType === 'expand' ||
+          hasConfiguredAlignment ||
+          !!cfg.ColFormat;
+        if (shouldUseGridCellRenderer) {
           col.onRender = (
             item: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
             _?: number,

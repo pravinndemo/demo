@@ -28,6 +28,8 @@
 .PowerCATFluentDetailsList .text-tag {
   line-height: 26px;
   position: relative;
+  display: inline-block;
+  vertical-align: middle;
   padding: 4px 8px;
   border-radius: 2px;
   border-width: 1px;
@@ -36,6 +38,7 @@
   font-weight: 600;
   color: #212A35;
   overflow: hidden;
+  white-space: nowrap;
   max-width: 100%;
   text-overflow: ellipsis;
   box-sizing: border-box;
@@ -49,6 +52,66 @@
   max-width: none;
   padding: 0 6px;
   line-height: 28px;
+}
+
+.PowerCATFluentDetailsList .voa-col-tag-dense .text-tag {
+  line-height: 20px;
+  min-height: 24px;
+  padding: 2px 8px;
+}
+
+.PowerCATFluentDetailsList .voa-col-tag-dense .text-tag.voa-summary-tag {
+  line-height: 24px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 6px;
+}
+
+.PowerCATFluentDetailsList .voa-col-tag-dense .voa-summary-tags {
+  gap: 4px;
+}
+
+.PowerCATFluentDetailsList .voa-col-saleid-header .ms-DetailsHeader-cellTitle {
+  justify-content: flex-start;
+}
+
+.PowerCATFluentDetailsList .voa-col-saleid-header .ms-DetailsHeader-cellName {
+  text-align: left;
+}
+
+.PowerCATFluentDetailsList .voa-col-saleid-cell > div {
+  justify-content: flex-start !important;
+}
+
+.PowerCATFluentDetailsList .voa-col-numeric-header .ms-DetailsHeader-cellTitle {
+  justify-content: flex-end;
+  padding-right: 10px;
+}
+
+.PowerCATFluentDetailsList .voa-col-numeric-header .ms-DetailsHeader-cellName {
+  text-align: right;
+}
+
+.PowerCATFluentDetailsList .voa-col-numeric-cell > div {
+  justify-content: flex-end !important;
+  text-align: right;
+  padding-right: 10px;
+}
+
+.PowerCATFluentDetailsList .voa-col-numeric-gap-right-header .ms-DetailsHeader-cellTitle {
+  padding-right: 18px;
+}
+
+.PowerCATFluentDetailsList .voa-col-numeric-gap-right-cell > div {
+  padding-right: 18px;
+}
+
+.PowerCATFluentDetailsList .voa-col-gap-left-header .ms-DetailsHeader-cellTitle {
+  padding-left: 12px;
+}
+
+.PowerCATFluentDetailsList .voa-col-gap-left-cell > div {
+  padding-left: 12px;
 }
 
 .voa-skip-links {
