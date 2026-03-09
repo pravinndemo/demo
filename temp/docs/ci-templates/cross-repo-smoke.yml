@@ -1,0 +1,136 @@
+name: cross-repo-smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_package_url:
+        description: "HTTPS URL to plugin package artifact (zip)"
+        required: true
+        type: string
+      pcf_package_url:
+        description: "HTTPS URL to PCF solution artifact (zip)"
+        required: true
+        type: string
+      smoke_suite:
+        description: "Smoke suite id/name (for script routing)"
+        required: false
+        default: "default"
+        type: string
+  repository_dispatch:
+    types:
+      - plugin-updated
+      - pcf-updated
+      - contract-updated
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-repo-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  NODE_VERSION: "20"
+  PLUGIN_PACKAGE_FILE: "artifacts/plugin-package.zip"
+  PCF_PACKAGE_FILE: "artifacts/pcf-package.zip"
+
+jobs:
+  deploy-and-smoke:
+    runs-on: ubuntu-latest
+    environment: test
+
+    steps:
+      - name: Checkout orchestration repo
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Power Platform CLI
+        run: dotnet tool update --global Microsoft.PowerApps.CLI.Tool
+
+      - name: Add .NET tools to PATH
+        run: echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(TEST_ENV_URL PAC_APP_ID PAC_CLIENT_SECRET PAC_TENANT_ID)
+          for key in "${required[@]}"; do
+            if [ -z "${!key:-}" ]; then
+              echo "Missing required secret: ${key}"
+              exit 1
+            fi
+          done
+        env:
+          TEST_ENV_URL: ${{ secrets.TEST_ENV_URL }}
+          PAC_APP_ID: ${{ secrets.PAC_APP_ID }}
+          PAC_CLIENT_SECRET: ${{ secrets.PAC_CLIENT_SECRET }}
+          PAC_TENANT_ID: ${{ secrets.PAC_TENANT_ID }}
+
+      - name: Authenticate to Dataverse
+        run: |
+          pac auth create \
+            --url "${{ secrets.TEST_ENV_URL }}" \
+            --applicationId "${{ secrets.PAC_APP_ID }}" \
+            --clientSecret "${{ secrets.PAC_CLIENT_SECRET }}" \
+            --tenant "${{ secrets.PAC_TENANT_ID }}"
+
+      - name: Prepare artifact folder
+        run: mkdir -p artifacts logs
+
+      - name: Resolve artifact URLs
+        id: artifact_urls
+        shell: bash
+        run: |
+          set -euo pipefail
+          plugin_url="$(jq -r '.inputs.plugin_package_url // .client_payload.plugin_package_url // empty' "$GITHUB_EVENT_PATH")"
+          pcf_url="$(jq -r '.inputs.pcf_package_url // .client_payload.pcf_package_url // empty' "$GITHUB_EVENT_PATH")"
+          smoke_suite="$(jq -r '.inputs.smoke_suite // .client_payload.smoke_suite // "default"' "$GITHUB_EVENT_PATH")"
+
+          if [ -z "${plugin_url}" ] || [ -z "${pcf_url}" ]; then
+            echo "plugin_package_url and pcf_package_url are required."
+            exit 1
+          fi
+
+          echo "plugin_url=${plugin_url}" >> "$GITHUB_OUTPUT"
+          echo "pcf_url=${pcf_url}" >> "$GITHUB_OUTPUT"
+          echo "smoke_suite=${smoke_suite}" >> "$GITHUB_OUTPUT"
+
+      - name: Download plugin package
+        run: |
+          curl --fail --location --silent --show-error \
+            "${{ steps.artifact_urls.outputs.plugin_url }}" \
+            --output "${{ env.PLUGIN_PACKAGE_FILE }}"
+
+      - name: Download PCF package
+        run: |
+          curl --fail --location --silent --show-error \
+            "${{ steps.artifact_urls.outputs.pcf_url }}" \
+            --output "${{ env.PCF_PACKAGE_FILE }}"
+
+      - name: Deploy plugin package
+        run: ./scripts/ci/deploy-plugin.sh "${{ env.PLUGIN_PACKAGE_FILE }}"
+
+      - name: Deploy PCF package
+        run: ./scripts/ci/deploy-pcf.sh "${{ env.PCF_PACKAGE_FILE }}"
+
+      - name: Run smoke tests
+        run: ./scripts/ci/run-smoke-tests.sh "${{ steps.artifact_urls.outputs.smoke_suite }}"
+
+      - name: Upload smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-repo-smoke-logs
+          path: logs
+          if-no-files-found: warn

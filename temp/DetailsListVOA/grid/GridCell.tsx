@@ -476,6 +476,28 @@ function getCellValue<T>(
     return values;
 }
 
+/**
+ * Applies a display format to a raw cell string value.
+ * Supported formats:
+ *   'currency' — prefixes with £ and adds thousands separators (en-GB locale).
+ *                Omits pence when the value is a whole number (e.g. £250,000).
+ *                Includes pence when a fractional part is present (e.g. £250,000.50).
+ */
+function applyFormat(value: string, format?: string): string {
+    if (!format || !value) return value;
+    if (format.toLowerCase() === 'currency') {
+        // Strip any existing £ sign or commas before parsing
+        const num = parseFloat(String(value).replace(/[£,\s]/g, ''));
+        if (isNaN(num)) return value;
+        const hasDecimals = num % 1 !== 0;
+        return '£' + num.toLocaleString('en-GB', {
+            minimumFractionDigits: hasDecimals ? 2 : 0,
+            maximumFractionDigits: hasDecimals ? 2 : 0,
+        });
+    }
+    return value;
+}
+
 function getCellContent(
     item: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord | Record<string, unknown>,
     column: IGridColumn,
@@ -486,8 +508,11 @@ function getCellContent(
     // Is the contents an array of values - or just a text field?
     // Passing in an array of items is provided to the component as an array of objects
     if (item && (column as IColumn).fieldName) {
-        const values: string[] = overrideValues ?? getCellValue((column as IColumn).fieldName, item);
-        isBlank = values.length === 0 || values.join('') === '';
+        const rawValues: string[] = overrideValues ?? getCellValue((column as IColumn).fieldName, item);
+        isBlank = rawValues.length === 0 || rawValues.join('') === '';
+
+        // Apply column-level display format (e.g. 'currency' → £ prefix + thousands separators)
+        const values = rawValues.map((v) => applyFormat(String(v ?? ''), column.format));
 
         // Two types of cell rendering - single value and multi-value
         if (values.length > 1) {

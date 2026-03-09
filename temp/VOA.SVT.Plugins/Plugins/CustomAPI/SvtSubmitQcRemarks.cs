@@ -46,14 +46,18 @@ namespace VOA.SVT.Plugins.CustomAPI
                 throw new InvalidPluginExecutionException("Submit QC remarks is restricted to QA/Manager role/team.");
             }
 
-            var taskId = NormalizeOptionalStringValue(GetInput(context, "taskId"));
+            var taskIds = ParseTaskIds(GetInput(context, "taskList"));
+            if (taskIds.Count == 0)
+            {
+                taskIds = ParseTaskIds(GetInput(context, "taskId"));
+            }
             var qcOutcome = NormalizeOptionalStringValue(GetInput(context, "qcOutcome"));
             var qcRemark = NormalizeOptionalStringValue(GetInput(context, "qcRemark"));
             var qcReviewedBy = NormalizeOptionalStringValue(GetInput(context, "qcReviewedBy"));
 
-            if (string.IsNullOrWhiteSpace(taskId))
+            if (taskIds.Count == 0)
             {
-                throw new InvalidPluginExecutionException("taskId is required.");
+                throw new InvalidPluginExecutionException("taskId or taskList is required.");
             }
 
             if (string.IsNullOrWhiteSpace(qcOutcome))
@@ -101,16 +105,18 @@ namespace VOA.SVT.Plugins.CustomAPI
             var auth = new Authentication(localPluginContext, apiConfig);
             var authResult = auth.GenerateAuthentication();
 
-            var fullUrl = BuildUrl(apiConfig.Address, taskId);
+            var targetUrl = apiConfig.Address.Trim();
             var payload = new Dictionary<string, object>
             {
+                ["taskList"] = taskIds,
                 ["qcOutcome"] = qcOutcome ?? string.Empty,
                 ["qcRemark"] = qcRemark,
                 ["qcReviewedBy"] = qcReviewedBy ?? string.Empty
             };
             var jsonBody = JsonSerializer.Serialize(payload);
 
-            trace?.Trace($"Posting QC remarks to APIM. Url={Truncate(fullUrl, 300)} Payload={Truncate(jsonBody, 500)}");
+            trace?.Trace(
+                $"Posting QC remarks to APIM. Url={Truncate(targetUrl, 300)} TaskCount={taskIds.Count} Payload={Truncate(jsonBody, 500)}");
 
             using (var httpClient = new HttpClient())
             {
@@ -133,7 +139,7 @@ namespace VOA.SVT.Plugins.CustomAPI
                         new AuthenticationHeaderValue("Bearer", authResult.AccessToken);
                 }
 
-                using (var request = new HttpRequestMessage(HttpMethod.Post, fullUrl))
+                using (var request = new HttpRequestMessage(HttpMethod.Post, targetUrl))
                 {
                     request.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
                     HttpResponseMessage response = null;
@@ -175,30 +181,75 @@ namespace VOA.SVT.Plugins.CustomAPI
         private static string GetInput(IPluginExecutionContext context, string key)
             => context.InputParameters.Contains(key) ? context.InputParameters[key]?.ToString() : null;
 
+        private static List<string> ParseTaskIds(string raw)
+        {
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return result;
+            }
+
+            var trimmed = raw.Trim();
+            if (trimmed.StartsWith("["))
+            {
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<string[]>(trimmed);
+                    if (parsed != null)
+                    {
+                        foreach (var item in parsed)
+                        {
+                            AddTaskId(result, item);
+                        }
+                        return result;
+                    }
+                }
+                catch
+                {
+                    // fall back to simple parsing
+                }
+            }
+
+            if (trimmed.Contains(","))
+            {
+                foreach (var part in trimmed.Split(','))
+                {
+                    AddTaskId(result, part);
+                }
+                return result;
+            }
+
+            AddTaskId(result, trimmed);
+            return result;
+        }
+
+        private static void AddTaskId(ICollection<string> list, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            var normalized = NormalizeTaskId(value);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                list.Add(normalized);
+            }
+        }
+
+        private static string NormalizeTaskId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            var sb = new StringBuilder();
+            foreach (var ch in value)
+            {
+                if (char.IsDigit(ch))
+                {
+                    sb.Append(ch);
+                }
+            }
+            var digits = sb.ToString();
+            return string.IsNullOrWhiteSpace(digits) ? value.Trim() : digits;
+        }
+
         private static string NormalizeOptionalStringValue(string value)
             => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-        private static string BuildUrl(string baseAddress, string taskId)
-        {
-            if (string.IsNullOrWhiteSpace(baseAddress))
-            {
-                return baseAddress;
-            }
-
-            var trimmed = baseAddress.TrimEnd('/');
-
-            if (trimmed.Contains("{taskId}", StringComparison.Ordinal))
-            {
-                return trimmed.Replace("{taskId}", taskId);
-            }
-
-            if (trimmed.Contains("{id}", StringComparison.Ordinal))
-            {
-                return trimmed.Replace("{id}", taskId);
-            }
-
-            return $"{trimmed}/{taskId}/qc-remarks";
-        }
 
         private static string Truncate(string s, int maxLen)
             => string.IsNullOrEmpty(s) ? s : (s.Length > maxLen ? s.Substring(0, maxLen) : s);

@@ -8,6 +8,7 @@ export const CONTROL_CONFIG = {
   tableKey: 'sales',
   serverDrivenThreshold: 2000,
   taskAssignmentApiName: 'voa_SvtTaskAssignment',
+  submitQcRemarksApiName: 'voa_SvtSubmitQcRemarks',
   assignableUsersApiName: 'voa_SvtGetAssignableUsers',
   assignableUsersApiType: 'function',
   taskAssignment: {

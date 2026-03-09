@@ -11,6 +11,14 @@ This project contains a Power Apps Component Framework (PCF) control that render
   - `columnDisplayNames` (optional): JSON mapping of dataset field → display label.
   - `columnConfig` (optional): JSON array configuring column behavior (width, sorting, cell type, etc.).
 
+## Security Review
+
+- Security review guide: `docs/security-review-readme.md`
+- Cross-repo behavior test strategy: `docs/cross-repo-behavior-testing.md`
+- Security gate test: `DetailsListVOA/tests/security-review-gate.test.ts`
+- Run the gate locally:
+  - `npx jest DetailsListVOA/tests/security-review-gate.test.ts --no-coverage`
+
 ## Column Display Name Overrides
 
 Dataset column display names are read-only in the property pane. To override them, use the **Column Display Names** property and provide a JSON object that maps dataset column names to display labels.

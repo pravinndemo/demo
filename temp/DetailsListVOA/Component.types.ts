@@ -24,6 +24,7 @@ export interface IGridColumn extends IColumn {
     horizontalAligned?: string;
     sortable?: boolean;
     sortBy?: string;
+    format?: string;
 }
 
 export interface ColumnConfig {
@@ -57,6 +58,7 @@ export interface ColumnConfig {
     ColImagePadding?: number;
     ColRowHeader?: boolean;
     ColSortBy?: string;
+    ColFormat?: string;
 }
 
 export interface AssignUser {

@@ -564,6 +564,7 @@ export const Grid = React.memo((props: GridProps) => {
           columnActionsMode:
             cfg.ColSortable !== false ? ColumnActionsMode.hasDropdown : ColumnActionsMode.disabled,
           sortBy: cfg.ColSortBy,
+          format: cfg.ColFormat,
           childColumns: [],
         };
         if (

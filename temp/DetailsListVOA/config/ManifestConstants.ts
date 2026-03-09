@@ -35,6 +35,7 @@ export const enum ColumnsColumns {
     ColImageWidth = 'ColImageWidth',
     ColImagePadding = 'ColImagePadding',
     ColRowHeader = 'ColRowHeader',
+    ColFormat = 'ColFormat',
 }
 
 export const enum InputProperties {

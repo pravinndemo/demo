@@ -41,6 +41,7 @@ import {
   FocusTrapZone,
   IconButton,
   IDatePickerStrings,
+  TooltipHost,
 } from '@fluentui/react';
 import * as React from 'react';
 import { NoFields } from '../DetailsListVOA/grid/NoFields';
@@ -87,6 +88,8 @@ import { computeCompletedToDateIso, getPrefilterFromDateError } from './utils/Pr
 import { normalizePrefilterSearchBy, shouldRemoveStoredPrefilter, shouldSkipPrefilterAutoApply } from './utils/PrefilterUtils';
 import { type ScreenKind } from './utils/ScreenResolution';
 import { SCREEN_TEXT } from '../DetailsListVOA/constants/ScreenText';
+import { CONTROL_CONFIG } from './config/ControlConfig';
+import { resolveAssignmentStatusValidation, type AssignmentConfig } from './utils/AssignmentHelpers';
 
 type DataSet = ComponentFramework.PropertyHelper.DataSetApi.EntityRecord & IObjectWithKey;
 const ASSIGN_LOADING_ROW_ID = '__loading__';
@@ -145,6 +148,7 @@ export interface GridProps {
   disableClientFiltering?: boolean;
   canvasScreenName?: string;
   onAssignTasks?: (user: AssignUser) => Promise<boolean>;
+  onMarkPassedQc?: () => Promise<void>;
   statusMessage?: { text: string; type: MessageBarType };
   onStatusMessageDismiss?: () => void;
   prefilterApplied?: boolean;
@@ -644,6 +648,7 @@ export const Grid = React.memo((props: GridProps) => {
     assignUsersInfo,
     onAssignPanelToggle,
     currentUserId,
+    onMarkPassedQc,
   } = props;
 
   const theme = useTheme(themeJSON);
@@ -712,6 +717,7 @@ export const Grid = React.memo((props: GridProps) => {
   const [assignSelectedUserId, setAssignSelectedUserId] = React.useState<string | undefined>();
   const [viewSaleLoading, setViewSaleLoading] = React.useState(false);
   const viewSaleRequestSeq = React.useRef(0);
+  const [markPassedQcLoading, setMarkPassedQcLoading] = React.useState(false);
   const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState>(MANAGER_PREFILTER_DEFAULT);
   const [prefilterExpanded, setPrefilterExpanded] = React.useState(true);
   const [prefilterContainerWidth, setPrefilterContainerWidth] = React.useState<number | null>(null);
@@ -918,6 +924,7 @@ export const Grid = React.memo((props: GridProps) => {
   const isSalesSearch = derivedScreenKind === 'salesSearch';
   const isAssignment = isManagerAssign || isQcAssign;
   const showAssign = isManagerAssign || isQcAssign;
+  const showMarkPassedQc = isQcView;
   const useAssignmentLayout = isManagerAssign || isCaseworkerView || isQcAssign || isQcView;
   const commonText = SCREEN_TEXT.common;
   const managerText = SCREEN_TEXT.managerAssignment;
@@ -925,8 +932,53 @@ export const Grid = React.memo((props: GridProps) => {
   const qcViewText = SCREEN_TEXT.qcView;
   const assignTasksText = SCREEN_TEXT.assignTasks;
   const viewSaleLoadingText = commonText.messages.loadingSaleRecord ?? assignTasksText.loadingText;
+
+  const assignButtonState = React.useMemo((): { disabled: boolean; tooltip?: string } => {
+    if (selectedCount === 0) {
+      return { disabled: true, tooltip: assignTasksText.messages.selectTasksWarning };
+    }
+    if (isAssignment) {
+      const selected = selection.getSelection() as Record<string, unknown>[];
+      if (selected.length > 0) {
+        const config: AssignmentConfig = CONTROL_CONFIG.taskAssignment ?? {
+          allowedStatusesManager: [] as string[],
+          allowedStatusesQc: [] as string[],
+          allowedStatuses: [] as string[],
+        };
+        const screenKindForAssign: ScreenKind = isManagerAssign ? 'managerAssign' : 'qcAssign';
+        const result = resolveAssignmentStatusValidation(
+          selected,
+          screenKindForAssign,
+          config,
+          assignTasksText.messages.invalidStatus,
+        );
+        if (result.error) {
+          return { disabled: true, tooltip: result.error };
+        }
+      }
+    }
+    return { disabled: false };
+  }, [selectedCount, isAssignment, isManagerAssign, selection, assignTasksText.messages]);
   const salesSearchText = SCREEN_TEXT.salesSearch;
   const caseworkerText = SCREEN_TEXT.caseworkerView;
+  const markPassedQcText = SCREEN_TEXT.qcView.markPassedQc;
+
+  const REASSIGNED_TO_QC_STATUS_NORMALIZED = 'reassigned to qc';
+  const markPassedQcButtonState = React.useMemo((): { disabled: boolean; tooltip?: string } => {
+    if (selectedCount === 0) {
+      return { disabled: true, tooltip: markPassedQcText.messages.noSelection };
+    }
+    const selected = selection.getSelection() as Record<string, unknown>[];
+    const allReassigned = selected.length > 0 && selected.every((rec) => {
+      const statusRaw = (rec.taskstatus ?? rec.taskStatus ?? '') as string;
+      return String(statusRaw).trim().toLowerCase() === REASSIGNED_TO_QC_STATUS_NORMALIZED;
+    });
+    if (!allReassigned) {
+      return { disabled: true, tooltip: markPassedQcText.messages.invalidStatus };
+    }
+    return { disabled: false };
+  }, [markPassedQcText.messages, selectedCount, selection]);
+
   const prefilterText = isQcAssign ? qcText.prefilter : isQcView ? qcViewText.prefilter : managerText.prefilter;
   const prefilterTooltips: PrefilterTooltips = isQcAssign
     ? qcText.prefilter.tooltips
@@ -2194,10 +2246,13 @@ export const Grid = React.memo((props: GridProps) => {
       if (!item) return;
       const rec = item as { saleid?: string; saleId?: string };
       const saleId = rec.saleid ?? rec.saleId;
-      const rawField = (column?.fieldName ?? column?.key ?? '').toString();
-      const normalizedField = rawField.replace(/[^a-z0-9]/gi, '').toLowerCase();
-      const isSaleIdColumn = normalizedField === 'saleid';
-      const shouldShowLoader = forceLoader ? true : (isSaleIdColumn && !!saleId);
+      // Show the overlay whenever the item carries a saleId — that is the
+      // real signal that onTaskClick (index.ts) will fire an async API call
+      // regardless of which cell, button, or keyboard event triggered navigation.
+      // forceLoader is kept for callers that want to force the overlay even
+      // when saleId is not yet resolved on the record object (e.g. View Sale
+      // button when selection state is async).
+      const shouldShowLoader = forceLoader || !!saleId;
       let requestId = 0;
       if (shouldShowLoader) {
         viewSaleRequestSeq.current += 1;
@@ -2266,6 +2321,7 @@ export const Grid = React.memo((props: GridProps) => {
           columnActionsMode:
             cfg.ColSortable !== false ? ColumnActionsMode.hasDropdown : ColumnActionsMode.disabled,
           sortBy: cfg.ColSortBy,
+          format: cfg.ColFormat,
           childColumns: [],
         };
         if (
@@ -3540,6 +3596,16 @@ export const Grid = React.memo((props: GridProps) => {
     }
   }, [assignLoading, closeAssignPanel, onAssignTasks]);
 
+  const handleMarkPassedQcClick = React.useCallback(async () => {
+    if (!onMarkPassedQc || markPassedQcLoading) return;
+    setMarkPassedQcLoading(true);
+    try {
+      await onMarkPassedQc();
+    } finally {
+      setMarkPassedQcLoading(false);
+    }
+  }, [markPassedQcLoading, onMarkPassedQc]);
+
   const assignColumns = React.useMemo<IColumn[]>(
     () => [
       {
@@ -3702,7 +3768,8 @@ export const Grid = React.memo((props: GridProps) => {
       || hasColumnFilters
       || (useAssignmentLayout && showPrefilterToggle)
       || showViewSalesRecord
-      || showAssign);
+      || showAssign
+      || showMarkPassedQc);
 
   const menuItems = React.useMemo<IContextualMenuItem[]>(() => {
     if (!menuState) return [];
@@ -4974,13 +5041,26 @@ export const Grid = React.memo((props: GridProps) => {
                   />
                 )}
                 {showAssign && (
-                  <DefaultButton
-                    text={assignActionText}
-                    iconProps={{ iconName: 'AddFriend' }}
-                    onClick={openAssignPanel}
-                    disabled={selectedCount === 0}
-                    ariaLabel={assignActionText}
-                  />
+                  <TooltipHost content={assignButtonState.tooltip}>
+                    <DefaultButton
+                      text={assignActionText}
+                      iconProps={{ iconName: 'AddFriend' }}
+                      onClick={openAssignPanel}
+                      disabled={assignButtonState.disabled}
+                      ariaLabel={assignActionText}
+                    />
+                  </TooltipHost>
+                )}
+                {showMarkPassedQc && (
+                  <TooltipHost content={markPassedQcButtonState.tooltip}>
+                    <DefaultButton
+                      text={markPassedQcText.buttonText}
+                      iconProps={{ iconName: 'CompletedSolid' }}
+                      onClick={() => { void handleMarkPassedQcClick(); }}
+                      disabled={markPassedQcButtonState.disabled || markPassedQcLoading}
+                      ariaLabel={markPassedQcText.buttonText}
+                    />
+                  </TooltipHost>
                 )}
               </div>
             </div>

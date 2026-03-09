@@ -324,6 +324,20 @@ export const SCREEN_TEXT = {
       title: 'No results found',
       message: '',
     },
+    markPassedQc: {
+      buttonText: 'Mark Passed QC',
+      qcOutcome: 'Complete Passed QC',
+      qcRemark: 'Task was reassigned to QC and passed without additional review',
+      messages: {
+        noSelection: 'Please select one or more tasks to mark as passed QC.',
+        invalidStatus: "Mark Passed QC is only available for tasks with status 'Reassigned to QC'.",
+        success: 'The selected task has been marked as passed QC successfully.',
+        successMultiple: 'The selected {count} tasks have been marked as passed QC successfully.',
+        apiNotConfigured: 'Submit QC Remarks API name is not configured.',
+        noValidTaskIds: 'No valid task IDs were selected.',
+        failed: 'Technical error. Please try again in some time.',
+      },
+    },
     prefilter: {
       labels: {
         searchBy: 'Search by',
@@ -415,8 +429,8 @@ export const SCREEN_TEXT = {
       assignedSuccess: 'The selected tasks have been assigned successfully.',
       assignedSuccessSingle: 'The task has been assigned successfully.',
       assignedSuccessMultiple: 'The selected tasks have been assigned successfully.',
-      assignedSuccessWithUserSingle: 'Assigned 1 task to {user}.',
-      assignedSuccessWithUserMultiple: 'Assigned {count} tasks to {user}.',
+      assignedSuccessWithUserSingle: 'The task has been successfully assigned to {user}.',
+      assignedSuccessWithUserMultiple: 'The selected {count} tasks have been successfully assigned to {user}.',
       alreadyAssigned: 'One or more of the selected tasks has already been assigned. Please refresh the page and try again.',
       assignmentFailed: 'Technical error. Please try again in some time.',
       invalidStatus: 'Assignment is not available for the selected status. Check the task status and try this option again.',

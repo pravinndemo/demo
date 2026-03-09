@@ -23,7 +23,8 @@ The Custom API writes output parameters directly (not a JSON string). These are 
 | `svtPersona` | string | Resolved persona (`Manager`, `QA`, `User`, or `None`). |
 | `resolutionSource` | string | `Team`, `Role`, or `None`. |
 | `hasSvtAccess` | boolean | `true` if persona is not `None`. |
-| `matchedTeamName` | string | Team name that matched (if any). |
+| `matchedTeamName` | string | Winning team name (highest-priority match). |
+| `matchedTeamNames` | string | Semicolon-delimited list of **all** SVT teams the user belongs to. |
 | `matchedRoleName` | string | Primary role name that matched (if any). |
 | `matchedRoleNames` | string | Semicolon-delimited list of matched roles. |
 
@@ -49,3 +50,5 @@ Set(gblIsManager, gblSvtUserContext.svtPersona = "Manager");
 
 ## Related docs
 - `docs/svtTaskAssignment.md` (assignment API authorization uses the same persona mapping).
+- `docs/security-review-readme.md` (security review process, PCF checks, and current repo status snapshot).
+- `DetailsListVOA/tests/security-review-gate.test.ts` (automated security contract tests).

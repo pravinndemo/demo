@@ -1,0 +1,87 @@
+name: pcf-ci
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "DetailsListVOA/**"
+      - "docs/**"
+      - "package.json"
+      - "package-lock.json"
+      - "jest.config.js"
+      - "tsconfig*.json"
+      - ".github/workflows/pcf-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "DetailsListVOA/**"
+      - "docs/**"
+      - "package.json"
+      - "package-lock.json"
+      - "jest.config.js"
+      - "tsconfig*.json"
+      - ".github/workflows/pcf-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pcf-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  LINT_CMD: "npm run lint --if-present"
+  BUILD_CMD: "npm run build"
+  UNIT_TEST_CMD: "npm test -- --coverage=false"
+  CONTRACT_TEST_DIR: "DetailsListVOA/tests/consumer-contract"
+  CONTRACT_TEST_CMD: "npx jest DetailsListVOA/tests/consumer-contract --no-coverage"
+  SECURITY_TEST_FILE: "DetailsListVOA/tests/security-review-gate.test.ts"
+  SECURITY_TEST_CMD: "npx jest DetailsListVOA/tests/security-review-gate.test.ts --no-coverage"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: ${{ env.LINT_CMD }}
+
+      - name: Build
+        run: ${{ env.BUILD_CMD }}
+
+      - name: Run unit tests
+        run: ${{ env.UNIT_TEST_CMD }}
+
+      - name: Run consumer-contract tests (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "${CONTRACT_TEST_DIR}" ]; then
+            ${CONTRACT_TEST_CMD}
+          else
+            echo "No consumer-contract test directory found at ${CONTRACT_TEST_DIR}; skipping."
+          fi
+
+      - name: Run security gate tests (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "${SECURITY_TEST_FILE}" ]; then
+            ${SECURITY_TEST_CMD}
+          else
+            echo "Security test file not found at ${SECURITY_TEST_FILE}; skipping."
+          fi

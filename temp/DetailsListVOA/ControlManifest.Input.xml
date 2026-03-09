@@ -74,6 +74,15 @@
       default-value="voa_SvtTaskAssignment"
     />
     <property
+      name="submitQcRemarksApiName"
+      display-name-key="Submit QC Remarks API Name"
+      description-key="Name of the Dataverse Custom API used to submit QC remarks and mark tasks as passed QC (e.g., voa_SvtSubmitQcRemarks)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_SvtSubmitQcRemarks"
+    />
+    <property
       name="viewSaleRecordApiName"
       display-name-key="View Sale Record API Name"
       description-key="Name of the Dataverse Custom API used to fetch sale details by ID (e.g., voa_GetViewSaleRecordById)."

@@ -4,29 +4,38 @@ import { ColumnConfig } from '../Component.types';
 // Any JSON provided in `columnConfig` will be merged on top to override.
 
 const SALES_COLUMNS: ColumnConfig[] = [
-  { ColName: 'saleid', ColDisplayName: 'Sale ID', ColWidth: 120,    },
-  { ColName: 'taskid', ColDisplayName: 'Task ID', ColWidth: 120 },
-  { ColName: 'uprn', ColDisplayName: 'UPRN', ColWidth: 120 },
-  { ColName: 'address', ColDisplayName: 'Address', ColWidth: 280, ColMultiLine: true, ColCellType: 'link' },
-  { ColName: 'postcode', ColDisplayName: 'Postcode', ColWidth: 110 },
-  { ColName: 'billingauthority', ColDisplayName: 'Billing Authority', ColWidth: 180 },
-  { ColName: 'transactiondate', ColDisplayName: 'Transaction Date', ColWidth: 160 },
-  { ColName: 'saleprice', ColDisplayName: 'Sale Price', ColWidth: 140 },
-  { ColName: 'ratio', ColDisplayName: 'Ratio', ColWidth: 140 },
-  { ColName: 'dwellingtype', ColDisplayName: 'Dwelling Type', ColWidth: 160 },
-  { ColName: 'flaggedforreview', ColDisplayName: 'Flagged For Review', ColWidth: 160, ColCellType: 'tag' },
-  { ColName: 'reviewflags', ColDisplayName: 'Review Flags', ColWidth: 160, ColCellType: 'tag' },
-  { ColName: 'outlierratio', ColDisplayName: 'Outlier Ratio', ColWidth: 140 },
-  { ColName: 'overallflag', ColDisplayName: 'Overall Flag', ColWidth: 140, ColCellType: 'tag' },
-  { ColName: 'summaryflags', ColDisplayName: 'Summary Flag', ColWidth: 120, ColCellType: 'tag' },
-  { ColName: 'taskstatus', ColDisplayName: 'Task Status', ColWidth: 140, ColCellType: 'tag' },
-  { ColName: 'assignedto', ColDisplayName: 'Assigned To', ColWidth: 160 },
-  { ColName: 'assigneddate', ColDisplayName: 'Assigned Date', ColWidth: 160 },
-  { ColName: 'taskcompleteddate', ColDisplayName: 'Task Completed Date', ColWidth: 160 },
-  { ColName: 'qcassignedto', ColDisplayName: 'QC Assigned To', ColWidth: 170 },
-  { ColName: 'qcassigneddate', ColDisplayName: 'QC Assigned Date', ColWidth: 170 },
-  { ColName: 'qccompleteddate', ColDisplayName: 'QC Completed Date', ColWidth: 160 },
+  // ID columns: center-aligned horizontally (fixed-width identifiers), vertically centered
+  { ColName: 'saleid',           ColDisplayName: 'Sale ID',            ColWidth: 120, ColHorizontalAlign: 'center', ColVerticalAlign: 'center' },
+  { ColName: 'taskid',           ColDisplayName: 'Task ID',            ColWidth: 120, ColHorizontalAlign: 'center', ColVerticalAlign: 'center' },
+  { ColName: 'uprn',             ColDisplayName: 'UPRN',               ColWidth: 120, ColHorizontalAlign: 'center', ColVerticalAlign: 'center' },
 
+  // Text columns: left-aligned, vertically centered
+  { ColName: 'address',          ColDisplayName: 'Address',            ColWidth: 280, ColMultiLine: true, ColCellType: 'link', ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'postcode',         ColDisplayName: 'Postcode',           ColWidth: 110, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'billingauthority', ColDisplayName: 'Billing Authority',  ColWidth: 180, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'dwellingtype',     ColDisplayName: 'Dwelling Type',      ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'assignedto',       ColDisplayName: 'Assigned To',        ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'qcassignedto',     ColDisplayName: 'QC Assigned To',     ColWidth: 170, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+
+  // Date columns: left-aligned (consistent format width), vertically centered
+  { ColName: 'transactiondate',  ColDisplayName: 'Transaction Date',   ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'assigneddate',     ColDisplayName: 'Assigned Date',      ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'taskcompleteddate',ColDisplayName: 'Task Completed Date',ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'qcassigneddate',   ColDisplayName: 'QC Assigned Date',   ColWidth: 170, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'qccompleteddate',  ColDisplayName: 'QC Completed Date',  ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+
+  // Numeric/decimal columns: right-aligned (digit alignment for comparison), vertically centered
+  // saleprice uses ColFormat: 'currency' to render with £ prefix and thousands separators
+  { ColName: 'saleprice',        ColDisplayName: 'Sale Price',         ColWidth: 140, ColHorizontalAlign: 'right', ColVerticalAlign: 'center', ColFormat: 'currency' },
+  { ColName: 'ratio',            ColDisplayName: 'Ratio',              ColWidth: 140, ColHorizontalAlign: 'right', ColVerticalAlign: 'center' },
+  { ColName: 'outlierratio',     ColDisplayName: 'Outlier Ratio',      ColWidth: 140, ColHorizontalAlign: 'right', ColVerticalAlign: 'center' },
+
+  // Tag/status columns: center-aligned (visual symmetry for badges), vertically centered
+  { ColName: 'flaggedforreview', ColDisplayName: 'Flagged For Review', ColWidth: 160, ColCellType: 'tag', ColHorizontalAlign: 'center', ColVerticalAlign: 'center' },
+  { ColName: 'reviewflags',      ColDisplayName: 'Review Flags',       ColWidth: 160, ColCellType: 'tag', ColHorizontalAlign: 'center', ColVerticalAlign: 'center' },
+  { ColName: 'overallflag',      ColDisplayName: 'Overall Flag',       ColWidth: 140, ColCellType: 'tag', ColHorizontalAlign: 'center', ColVerticalAlign: 'center' },
+  { ColName: 'summaryflags',     ColDisplayName: 'Summary Flag',       ColWidth: 120, ColCellType: 'tag', ColHorizontalAlign: 'center', ColVerticalAlign: 'center' },
+  { ColName: 'taskstatus',       ColDisplayName: 'Task Status',        ColWidth: 140, ColCellType: 'tag', ColHorizontalAlign: 'center', ColVerticalAlign: 'center' },
 ];
 
 export const COLUMN_PROFILES: Record<string, ColumnConfig[]> = {

@@ -1567,6 +1567,13 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return fromContext || fallback || '';
   };
 
+  const resolveSubmitQcRemarksApiName = (): string => {
+    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).submitQcRemarksApiName?.raw;
+    const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
+    const fallback = normalizeCustomApiName(CONTROL_CONFIG.submitQcRemarksApiName);
+    return fromContext || fallback || '';
+  };
+
   const resolveCustomApiTypeForAssign = (): number => {
     const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiType?.raw;
     const fromContext = typeof raw === 'string' ? raw : undefined;
@@ -1884,6 +1891,71 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     }
   };
 
+  const markPassedQcTasks = async (): Promise<void> => {
+    const markPassedQcText = SCREEN_TEXT.qcView.markPassedQc;
+    try {
+      const selected = selection.getSelection() as Record<string, unknown>[];
+      if (selected.length === 0) {
+        setAssignMessage({ text: markPassedQcText.messages.noSelection, type: MessageBarType.warning });
+        return;
+      }
+      const apiName = resolveSubmitQcRemarksApiName();
+      if (!apiName) {
+        setAssignMessage({ text: markPassedQcText.messages.apiNotConfigured, type: MessageBarType.error });
+        return;
+      }
+      const REASSIGNED_TO_QC_STATUS_NORMALIZED = 'reassigned to qc';
+      const allReassigned = selected.every((rec) => {
+        const statusRaw = (rec.taskstatus ?? rec.taskStatus ?? '') as string;
+        return String(statusRaw).trim().toLowerCase() === REASSIGNED_TO_QC_STATUS_NORMALIZED;
+      });
+      if (!allReassigned) {
+        setAssignMessage({ text: markPassedQcText.messages.invalidStatus, type: MessageBarType.error });
+        return;
+      }
+      const toNumericTaskId = (value: unknown): string => {
+        const raw = typeof value === 'string' ? value : typeof value === 'number' || typeof value === 'boolean' ? String(value) : '';
+        if (!raw) return '';
+        const digitsOnly = raw.replace(/\D/g, '');
+        return digitsOnly || raw;
+      };
+      const taskIds = selected
+        .map((rec) => toNumericTaskId(rec.taskid ?? rec.taskId ?? ''))
+        .map((value) => value.trim())
+        .filter((value) => value !== '');
+      const uniqueTaskIds = Array.from(new Set(taskIds));
+      if (uniqueTaskIds.length === 0) {
+        setAssignMessage({ text: markPassedQcText.messages.noValidTaskIds, type: MessageBarType.error });
+        return;
+      }
+      const reviewedBy = resolveAssignedByUserId(context);
+      const customApiType = resolveCustomApiOperationType('action');
+      await executeUnboundCustomApi<Record<string, unknown>>(
+        context,
+        apiName,
+        {
+          taskId: JSON.stringify(uniqueTaskIds),
+          qcOutcome: markPassedQcText.qcOutcome,
+          qcRemark: markPassedQcText.qcRemark,
+          qcReviewedBy: reviewedBy,
+        },
+        { operationType: customApiType },
+      );
+      const successText = uniqueTaskIds.length === 1
+        ? markPassedQcText.messages.success
+        : markPassedQcText.messages.successMultiple.replace(/\{count\}/g, String(uniqueTaskIds.length));
+      setAssignMessage({ text: successText, type: MessageBarType.success });
+      selection.setAllSelected(false);
+      setSelectedCount(0);
+      onSelectionCountChange?.(0);
+      onSelectionChange?.({ selectedTaskIds: [], selectedSaleIds: [] });
+      setSearchNonce((n) => n + 1);
+    } catch {
+      setAssignMessage({ text: SCREEN_TEXT.qcView.markPassedQc.messages.failed, type: MessageBarType.error });
+      setSearchNonce((n) => n + 1);
+    }
+  };
+
   const applyPrefilters = React.useCallback((
     next: ManagerPrefilterState,
     options?: { source?: 'auto' | 'user' },
@@ -2065,6 +2137,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     onAssignPanelToggle: handleAssignPanelToggle,
     currentUserId,
     onAssignTasks: assignTasksToUser,
+    onMarkPassedQc: isQcView ? markPassedQcTasks : undefined,
     onLoadFilterOptions: (field, query) => {
       const key = normalizeFilterKey(String(field ?? ''));
       const options = displayFilterOptions[key] ?? [];

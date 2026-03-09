@@ -54,7 +54,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
           onRowInvoke: (args) => {
             this.selectedTaskId = args?.taskId;
             this.selectedSaleId = args?.saleId;
-            console.log('[DetailsListVOA] Row invoke:', { taskId: args?.taskId, saleId: args?.saleId });
             return this.onTaskClick(args?.taskId, args?.saleId);
           },
           onSelectionChange: (args) => {
@@ -74,7 +73,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
           },
           onBackRequested: () => {
             this._saleDetails = '';
-            console.log('[DetailsListVOA] Back requested');
             this.viewSalePending = false;
             this.emitAction('back');
           },
@@ -97,7 +95,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       actionRequestId: this.actionRequestId,
       backRequestId: this.backRequestId,
     } as IOutputs;
-    console.log('[DetailsListVOA] getOutputs:', outputs);
     return outputs;
   }
 
@@ -107,15 +104,17 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
 
   private async onTaskClick(taskId?: string, saleId?: string): Promise<void> {
     const requestId = this.beginViewSaleRequest();
-    console.log('[DetailsListVOA] Fetching sale details:', { taskId, saleId, requestId });
 
     if (!saleId) {
-      const emptyDetails = JSON.stringify(this.getEmptySaleRecord());
-      console.log('[DetailsListVOA] Empty sale details returned (no saleId).');
-      this.finishViewSaleRequest(requestId, emptyDetails);
+      // No API call needed — emit navigation immediately with empty details.
+      this.finishViewSaleRequest(requestId, JSON.stringify(this.getEmptySaleRecord()));
       return;
     }
 
+    // Await the API response before emitting the navigation action.
+    // The PCF overlay spinner is shown on Page 1 (viewSalePending=true) while
+    // the API runs. Canvas only navigates to Page 2 once saleDetails is ready,
+    // ensuring the data is available as soon as Page 2 opens.
     let detailsPayload = '';
     try {
       const apiName = this.resolveViewSaleRecordApiName();
@@ -158,11 +157,7 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
     }
     this._saleDetails = detailsPayload;
     this.viewSalePending = false;
-    console.log('[DetailsListVOA] Sale details updated.', {
-      hasDetails: !!this._saleDetails,
-      length: this._saleDetails.length,
-      requestId,
-    });
+    // Emit once — saleDetails is populated before Canvas navigates to Page 2.
     this.emitAction('viewSale');
   }
 
@@ -179,11 +174,6 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
     this.actionSequence += 1;
     this.actionRequestId = `${this.actionSequence}-${Date.now()}`;
     this.backRequestId = this.actionRequestId;
-    console.log('[DetailsListVOA] Action emitted:', {
-      actionType: this.actionType,
-      actionRequestId: this.actionRequestId,
-      backRequestId: this.backRequestId,
-    });
     this._notifyOutputChanged();
   }
 

@@ -11,6 +11,7 @@ export interface IInputs {
     metadataApiName: ComponentFramework.PropertyTypes.StringProperty;
     metadataApiType: ComponentFramework.PropertyTypes.StringProperty;
     taskAssignmentApiName: ComponentFramework.PropertyTypes.StringProperty;
+    submitQcRemarksApiName: ComponentFramework.PropertyTypes.StringProperty;
     viewSaleRecordApiName: ComponentFramework.PropertyTypes.StringProperty;
     pageSize: ComponentFramework.PropertyTypes.WholeNumberProperty;
     serverDrivenThreshold: ComponentFramework.PropertyTypes.WholeNumberProperty;

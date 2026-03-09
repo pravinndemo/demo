@@ -1,0 +1,159 @@
+name: static-analysis
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+concurrency:
+  group: static-analysis-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  NODE_VERSION: "20"
+  RUN_CODEQL: "true"
+  RUN_SEMGREP: "true"
+  RUN_GITLEAKS: "true"
+  RUN_NPM_AUDIT: "true"
+  RUN_DOTNET_LIST_PACKAGE: "true"
+  NPM_AUDIT_LEVEL: "high"
+
+jobs:
+  codeql:
+    if: env.RUN_CODEQL == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - javascript-typescript
+          - csharp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Setup .NET
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        if: matrix.language == 'javascript-typescript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Build for CodeQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.language }}" = "javascript-typescript" ]; then
+            if [ -f "package-lock.json" ]; then
+              npm ci
+              npm run build --if-present
+            else
+              echo "No package-lock.json found; skipping JS/TS build."
+            fi
+          fi
+
+          if [ "${{ matrix.language }}" = "csharp" ]; then
+            if compgen -G "*.sln" > /dev/null || compgen -G "**/*.sln" > /dev/null; then
+              sln_file="$(find . -name '*.sln' | head -n 1)"
+              dotnet restore "${sln_file}"
+              dotnet build "${sln_file}" --configuration Release --no-restore
+            else
+              echo "No .sln file found; skipping C# build."
+            fi
+          fi
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+
+  semgrep:
+    if: env.RUN_SEMGREP == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/security-audit
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  secret-scan:
+    if: env.RUN_GITLEAKS == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-scan-js:
+    if: env.RUN_NPM_AUDIT == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: npm audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "package-lock.json" ]; then
+            npm ci
+            npm audit --audit-level "${NPM_AUDIT_LEVEL}"
+          else
+            echo "No package-lock.json found; skipping npm audit."
+          fi
+
+  dependency-scan-dotnet:
+    if: env.RUN_DOTNET_LIST_PACKAGE == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: dotnet list package --vulnerable
+        shell: bash
+        run: |
+          set -euo pipefail
+          if compgen -G "*.sln" > /dev/null || compgen -G "**/*.sln" > /dev/null; then
+            sln_file="$(find . -name '*.sln' | head -n 1)"
+            dotnet restore "${sln_file}"
+            dotnet list "${sln_file}" package --vulnerable --include-transitive
+          else
+            echo "No .sln file found; skipping dotnet dependency scan."
+          fi
