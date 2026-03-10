@@ -46,18 +46,14 @@ namespace VOA.SVT.Plugins.CustomAPI
                 throw new InvalidPluginExecutionException("Submit QC remarks is restricted to QA/Manager role/team.");
             }
 
-            var taskIds = ParseTaskIds(GetInput(context, "taskList"));
-            if (taskIds.Count == 0)
-            {
-                taskIds = ParseTaskIds(GetInput(context, "taskId"));
-            }
+            var taskIds = ParseTaskIds(GetInput(context, "taskId"));
             var qcOutcome = NormalizeOptionalStringValue(GetInput(context, "qcOutcome"));
             var qcRemark = NormalizeOptionalStringValue(GetInput(context, "qcRemark"));
             var qcReviewedBy = NormalizeOptionalStringValue(GetInput(context, "qcReviewedBy"));
 
             if (taskIds.Count == 0)
             {
-                throw new InvalidPluginExecutionException("taskId or taskList is required.");
+                throw new InvalidPluginExecutionException("taskId is required.");
             }
 
             if (string.IsNullOrWhiteSpace(qcOutcome))
@@ -108,7 +104,7 @@ namespace VOA.SVT.Plugins.CustomAPI
             var targetUrl = apiConfig.Address.Trim();
             var payload = new Dictionary<string, object>
             {
-                ["taskList"] = taskIds,
+                ["taskId"] = taskIds,
                 ["qcOutcome"] = qcOutcome ?? string.Empty,
                 ["qcRemark"] = qcRemark,
                 ["qcReviewedBy"] = qcReviewedBy ?? string.Empty

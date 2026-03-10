@@ -326,7 +326,7 @@ export const SCREEN_TEXT = {
     },
     markPassedQc: {
       buttonText: 'Mark Passed QC',
-      qcOutcome: 'Complete Passed QC',
+      qcOutcome: 'Pass',
       qcRemark: 'Task was reassigned to QC and passed without additional review',
       messages: {
         noSelection: 'Please select one or more tasks to mark as passed QC.',
