@@ -6,7 +6,7 @@ import { ColumnConfig, AssignUser } from '../../Component.types';
 import { GridFilterState, createDefaultGridFilters, sanitizeFilters, NumericFilter, DateRangeFilter } from '../../Filters';
 import { getProfileConfigs } from '../../config/ColumnProfiles';
 import { CONTROL_CONFIG } from '../../config/ControlConfig';
-import { getColumnFilterConfigFor, isLookupFieldFor, type TableKey } from '../../config/TableConfigs';
+import { getColumnFilterConfigFor, type TableKey } from '../../config/TableConfigs';
 import { COLUMN_FILTER_VALUE_SEPARATOR, type ManagerPrefilterState } from '../../config/PrefilterConfigs';
 import { SCREEN_TEXT, MANAGER_BILLING_AUTHORITY_OPTIONS, MANAGER_CASEWORKER_OPTIONS } from '../../constants/ScreenText';
 import { buildColumns } from '../../utils/ColumnsBuilder';
@@ -15,6 +15,7 @@ import { parseAssignableUsersResponse as parseAssignableUsersResponseBase, resol
 import { buildColumnFilterQuery } from '../../utils/ColumnFilterQuery';
 import { filterItemsByColumnFilters } from '../../utils/GridColumnFilters';
 import { toSortableDateKey } from '../../utils/DateSortUtils';
+import { deserializeColumnFiltersFromStorage, parseStoredSortState, serializeColumnFiltersForStorage, shouldPersistSortState } from '../../utils/GridStatePersistence';
 import { isGuidValue, normalizeSuid, normalizeUserId } from '../../utils/IdentifierUtils';
 import { buildPrefilterStorageKey, isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
 import { normalizePrefilterSearchBy } from '../../utils/PrefilterUtils';
@@ -747,35 +748,26 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       } catch {
         // ignore session storage failures
       }
-      // Filters (disabled for now to avoid auto-prefill from localStorage)
+      // Restore retained grid state only when returning to the same screen in-session or after reload.
       const rawLocalFilters = localStorage.getItem(storageKey) ?? localStorage.getItem(storageKeyNC);
       if (rawLocalFilters && shouldRestoreFilters) {
-        // Stored as arrays for every field; coerce to proper types per lookup/text
-        const parsed = JSON.parse(rawLocalFilters) as Record<string, string[]>;
-        const normalized: Record<string, ColumnFilterValue> = {};
-        Object.entries(parsed).forEach(([k, v]) => {
-          const keyLower = k.toLowerCase();
-          const isLookup = isLookupFieldFor(String(tableKey), keyLower);
-          normalized[keyLower] = isLookup ? (Array.isArray(v) ? v : [String(v ?? '')]) : (Array.isArray(v) ? (v[0] ?? '') : String(v ?? ''));
-        });
+        const normalized = deserializeColumnFiltersFromStorage(String(tableKey), rawLocalFilters) as Record<string, ColumnFilterValue>;
         lastAppliedFiltersRef.current = normalized;
         setHeaderFilters(normalized);
         try { onColumnFiltersApply?.(toApiHeaderFilters(mapColumnFiltersForApi(normalized))); } catch { /* ignore */ }
       }
       // Sort
       const rawLocalSort = localStorage.getItem(storageKeySort) ?? localStorage.getItem(storageKeySortNC);
-      if (rawLocalSort) {
-        try {
-          const parsed = JSON.parse(rawLocalSort) as { name?: string; sortDirection?: number };
-          if (parsed?.name && (parsed.sortDirection === 0 || parsed.sortDirection === 1)) {
-            setClientSort({ name: parsed.name, sortDirection: parsed.sortDirection });
-            setUserSortActive(false);
-          }
-        } catch { /* ignore invalid */ }
+      if (rawLocalSort && shouldRestoreFilters) {
+        const parsed = parseStoredSortState(rawLocalSort);
+        if (parsed) {
+          setClientSort(parsed);
+          setUserSortActive(true);
+        }
       }
       // Page
       const rawLocalPage = localStorage.getItem(storageKeyPage) ?? localStorage.getItem(storageKeyPageNC);
-      if (rawLocalPage) {
+      if (rawLocalPage && shouldRestoreFilters) {
         const n = Number(rawLocalPage);
         if (!Number.isNaN(n) && n >= 0) setCurrentPage(n);
       }
@@ -812,22 +804,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       if (Object.keys(headerFilters).length === 0) {
         localStorage.removeItem(storageKey); localStorage.removeItem(storageKeyNC);
       } else {
-        // Persist as arrays for all fields (non-string values are stringified)
-        const arrayStore: Record<string, string[]> = {};
-        Object.entries(headerFilters).forEach(([k, v]) => {
-          if (Array.isArray(v)) {
-            arrayStore[k] = v.map((x) => String(x ?? ''));
-          } else if (typeof v === 'string') {
-            arrayStore[k] = [v];
-          } else {
-            arrayStore[k] = [JSON.stringify(v ?? {})];
-          }
-        });
+        const arrayStore = serializeColumnFiltersForStorage(headerFilters);
         const filtersJSON = JSON.stringify(arrayStore);
         localStorage.setItem(storageKey, filtersJSON);
         localStorage.setItem(storageKeyNC, filtersJSON);
       }
-      if (clientSort) {
+      if (shouldPersistSortState(clientSort, userSortActive)) {
         const sortJSON = JSON.stringify(clientSort);
         localStorage.setItem(storageKeySort, sortJSON);
         localStorage.setItem(storageKeySortNC, sortJSON);
@@ -839,7 +821,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     } catch {
       // ignore persist failures
     }
-  }, [headerFilters, clientSort, currentPage, storageKey, storageKeyNC, storageKeySort, storageKeySortNC, storageKeyPage, storageKeyPageNC, hydrated]);
+  }, [headerFilters, clientSort, currentPage, storageKey, storageKeyNC, storageKeySort, storageKeySortNC, storageKeyPage, storageKeyPageNC, hydrated, userSortActive]);
 
   React.useEffect(() => {
     if (!isSalesSearch) return;
@@ -1560,6 +1542,15 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     setUserSortActive(true);
   };
 
+  const clearStoredSort = React.useCallback(() => {
+    try {
+      localStorage.removeItem(storageKeySort);
+      localStorage.removeItem(storageKeySortNC);
+    } catch {
+      // ignore storage failures
+    }
+  }, [storageKeySort, storageKeySortNC]);
+
   const resolveAssignmentApiName = (): string => {
     const raw = (context.parameters as unknown as Record<string, { raw?: string }>).taskAssignmentApiName?.raw;
     const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
@@ -1996,6 +1987,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       } catch {
         // ignore storage failures
       }
+      clearStoredSort();
     }
     selection.setAllSelected(false);
     setSelectedCount(0);
@@ -2011,6 +2003,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     onSelectionCountChange,
     screenKind,
     selection,
+    clearStoredSort,
     storageKey,
     storageKeyNC,
   ]);
@@ -2095,6 +2088,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setSearchFilters(sanitized);
       setCurrentPage(0);
       setUserSortActive(false);
+      clearStoredSort();
       if (isSalesSearch) {
         const isDefault = isSalesSearchDefaultFilters(sanitized);
         setSalesSearchApplied(!isDefault);
@@ -2159,16 +2153,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           if (Object.keys(normalized).length === 0) {
             localStorage.removeItem(storageKey); localStorage.removeItem(storageKeyNC);
           } else {
-            const arrayStore: Record<string, string[]> = {};
-            Object.entries(normalized).forEach(([k, v]) => {
-              if (Array.isArray(v)) {
-                arrayStore[k] = v.map((x) => String(x ?? ''));
-              } else if (typeof v === 'string') {
-                arrayStore[k] = [v];
-              } else {
-                arrayStore[k] = [JSON.stringify(v ?? {})];
-              }
-            });
+            const arrayStore = serializeColumnFiltersForStorage(normalized);
             const filtersJSON = JSON.stringify(arrayStore);
             localStorage.setItem(storageKey, filtersJSON);
             localStorage.setItem(storageKeyNC, filtersJSON);
@@ -2212,6 +2197,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       } catch {
         // ignore storage failures
       }
+      clearStoredSort();
     },
     rowInvokeEnabled: false,
   };
