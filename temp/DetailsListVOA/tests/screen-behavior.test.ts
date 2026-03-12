@@ -3,6 +3,7 @@ import {
   isPrefilterScreenKind,
   isSalesSearchDefaultFilters,
   buildPrefilterStorageKey,
+  buildGridSessionKey,
   resolveAssignmentScreenName,
   shouldShowResults,
   shouldResetPrefiltersOnScreenChange,
@@ -75,5 +76,10 @@ describe('screen behavior', () => {
   test('buildPrefilterStorageKey is stable per screen kind', () => {
     expect(buildPrefilterStorageKey('qaassign', 'qcAssign')).toBe('voa-prefilters:qaassign:qcAssign');
     expect(buildPrefilterStorageKey('qaview', 'qcView')).toBe('voa-prefilters:qaview:qcView');
+  });
+
+  test('buildGridSessionKey is stable per screen kind', () => {
+    expect(buildGridSessionKey('manager', 'managerAssign')).toBe('voa-grid-session:manager:managerAssign');
+    expect(buildGridSessionKey('qaview', 'qcView')).toBe('voa-grid-session:qaview:qcView');
   });
 });

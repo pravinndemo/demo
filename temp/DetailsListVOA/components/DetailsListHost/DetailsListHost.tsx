@@ -17,8 +17,7 @@ import { filterItemsByColumnFilters } from '../../utils/GridColumnFilters';
 import { toSortableDateKey } from '../../utils/DateSortUtils';
 import { deserializeColumnFiltersFromStorage, parseStoredSortState, serializeColumnFiltersForStorage, shouldPersistSortState } from '../../utils/GridStatePersistence';
 import { isGuidValue, normalizeSuid, normalizeUserId } from '../../utils/IdentifierUtils';
-import { buildPrefilterStorageKey, isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
-import { normalizePrefilterSearchBy } from '../../utils/PrefilterUtils';
+import { buildGridSessionKey, buildPrefilterStorageKey, isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
 import { resolveScreenConfig, toKnownTableKey, normalizeTableKey, type ScreenKind } from '../../utils/ScreenResolution';
 import { loadGridData } from '../../services/GridDataController';
 import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from '../../services/CustomApi';
@@ -56,8 +55,6 @@ const QC_ASSIGNMENT_SCREEN_NAME = 'quality control assignment';
 const normalizeGroupName = (value?: string): string => (value ?? '').trim().toLowerCase();
 const normalizeGroupList = (values?: string[]): string[] =>
   (Array.isArray(values) ? values.map((value) => normalizeGroupName(value)).filter((value) => value !== '') : []);
-const normalizePrefilterArray = (value: unknown): string[] =>
-  (Array.isArray(value) ? value.map((item) => String(item)) : []);
 const isAssignableUserInGroup = (user: AssignUser, teamNames: Set<string>, roleNames: Set<string>): boolean => {
   if (!user) return false;
   const team = normalizeGroupName(user.team);
@@ -686,11 +683,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     () => `voa-prefilters:${tableKey}:${screenName || 'default'}`,
     [screenName, tableKey],
   );
-  const prefilterAutoAppliedRef = React.useRef<string>('');
-  React.useEffect(() => {
-    prefilterAutoAppliedRef.current = '';
-  }, [prefilterStorageKey]);
-  const screenInstanceKey = React.useMemo(() => `${tableKey}:${screenName || 'default'}`, [screenName, tableKey]);
+  const screenInstanceKey = React.useMemo(() => buildGridSessionKey(tableKey, screenKind), [screenKind, tableKey]);
   const salesSearchStorageKey = React.useMemo(
     () => `voa-sales-search:${tableKey}:${screenName || 'default'}`,
     [screenName, tableKey],
@@ -734,42 +727,47 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   // Hydrate from localStorage on table change (URL persistence disabled by policy)
   React.useEffect(() => {
     try {
-      let shouldRestoreFilters = false;
       let sessionScreens: Record<string, boolean> = {};
       try {
         const rawScreens = sessionStorage.getItem('voa-session-screens');
         if (rawScreens) {
           sessionScreens = JSON.parse(rawScreens) as Record<string, boolean>;
         }
-        shouldRestoreFilters = !!sessionScreens[screenInstanceKey];
-        if (!shouldRestoreFilters) {
-          shouldRestoreFilters = sessionStorage.getItem('voa-last-screen') === screenInstanceKey;
-        }
       } catch {
         // ignore session storage failures
       }
-      // Restore retained grid state only when returning to the same screen in-session or after reload.
+      // Restore directly from localStorage. In Power Apps hosted navigation, sessionStorage is not
+      // always stable across screen transitions even when the user returns to the same logical screen.
       const rawLocalFilters = localStorage.getItem(storageKey) ?? localStorage.getItem(storageKeyNC);
-      if (rawLocalFilters && shouldRestoreFilters) {
+      if (rawLocalFilters) {
         const normalized = deserializeColumnFiltersFromStorage(String(tableKey), rawLocalFilters) as Record<string, ColumnFilterValue>;
         lastAppliedFiltersRef.current = normalized;
         setHeaderFilters(normalized);
         try { onColumnFiltersApply?.(toApiHeaderFilters(mapColumnFiltersForApi(normalized))); } catch { /* ignore */ }
+      } else {
+        lastAppliedFiltersRef.current = {};
+        setHeaderFilters({});
       }
       // Sort
       const rawLocalSort = localStorage.getItem(storageKeySort) ?? localStorage.getItem(storageKeySortNC);
-      if (rawLocalSort && shouldRestoreFilters) {
+      if (rawLocalSort) {
         const parsed = parseStoredSortState(rawLocalSort);
         if (parsed) {
           setClientSort(parsed);
           setUserSortActive(true);
+        } else {
+          setUserSortActive(false);
         }
+      } else {
+        setUserSortActive(false);
       }
       // Page
       const rawLocalPage = localStorage.getItem(storageKeyPage) ?? localStorage.getItem(storageKeyPageNC);
-      if (rawLocalPage && shouldRestoreFilters) {
+      if (rawLocalPage) {
         const n = Number(rawLocalPage);
         if (!Number.isNaN(n) && n >= 0) setCurrentPage(n);
+      } else {
+        setCurrentPage(0);
       }
       try {
         sessionScreens[screenInstanceKey] = true;
@@ -1018,7 +1016,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   }>({});
   React.useEffect(() => {
     const prevKind = lastScreenKindRef.current;
-    const screenKindChanged = prevKind !== screenKind;
+    const screenKindChanged = prevKind !== undefined && prevKind !== screenKind;
     const switchedSalesToManager = screenKindChanged && prevKind === 'salesSearch' && isManagerAssign;
     const switchedToCaseworker = screenKindChanged && isCaseworkerView;
     const switchedToQcAssign = screenKindChanged && isQcAssign;
@@ -1026,12 +1024,18 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     lastScreenKindRef.current = screenKind;
 
     if (switchedSalesToManager || switchedToCaseworker || switchedToQcAssign || switchedToQcView) {
-      // Force a clean slate when entering a prefilter-driven screen.
+      let hasStoredPrefilter = false;
+      try {
+        hasStoredPrefilter = !!localStorage.getItem(prefilterStorageKey);
+        if (!hasStoredPrefilter && legacyPrefilterStorageKey !== prefilterStorageKey) {
+          hasStoredPrefilter = !!localStorage.getItem(legacyPrefilterStorageKey);
+        }
+      } catch {
+        hasStoredPrefilter = false;
+      }
+
       setPrefilters(undefined);
       setPrefilterApplied(false);
-      setCurrentPage(0);
-      setSearchFilters(createDefaultGridFilters());
-      setUserSortActive(false);
       setHasLoadedApim(false);
       setApimItems([]);
       setTotalCount(0);
@@ -1042,6 +1046,13 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setSelectedCount(0);
       onSelectionCountChange?.(0);
       onSelectionChange?.({ selectedTaskIds: [], selectedSaleIds: [] });
+      if (!hasStoredPrefilter) {
+        setCurrentPage(0);
+        setSearchFilters(createDefaultGridFilters());
+        setUserSortActive(false);
+        setHeaderFilters({});
+        lastAppliedFiltersRef.current = {};
+      }
       return;
     }
 
@@ -1057,6 +1068,11 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setServerDriven(false);
       setApiFilterOptions({});
       setLoadErrorMessage(undefined);
+      return;
+    }
+    const pendingScreenKindChange = lastScreenKindRef.current !== undefined && lastScreenKindRef.current !== screenKind;
+    if (pendingScreenKindChange) {
+      setApimLoading(false);
       return;
     }
     if (isPrefilterScreen && !prefilterApplied) {
@@ -2006,54 +2022,6 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     clearStoredSort,
     storageKey,
     storageKeyNC,
-  ]);
-
-  React.useEffect(() => {
-    if (!isPrefilterScreen || prefilterApplied) return;
-    const autoKey = `${prefilterStorageKey}|${screenKind}`;
-    if (prefilterAutoAppliedRef.current === autoKey) return;
-    let raw: string | null = null;
-    try {
-      raw = localStorage.getItem(prefilterStorageKey);
-      if (!raw && legacyPrefilterStorageKey !== prefilterStorageKey) {
-        raw = localStorage.getItem(legacyPrefilterStorageKey);
-      }
-    } catch {
-      raw = null;
-    }
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as {
-        searchBy?: unknown;
-        billingAuthorities?: unknown;
-        caseworkers?: unknown;
-        workThat?: unknown;
-        completedFrom?: unknown;
-        completedTo?: unknown;
-        applied?: unknown;
-      };
-      if (parsed?.applied === false) return;
-      const next: ManagerPrefilterState = {
-        searchBy: normalizePrefilterSearchBy(parsed?.searchBy, screenKind),
-        billingAuthorities: normalizePrefilterArray(parsed?.billingAuthorities),
-        caseworkers: normalizePrefilterArray(parsed?.caseworkers),
-        workThat: typeof parsed?.workThat === 'string' ? (parsed.workThat as ManagerPrefilterState['workThat']) : undefined,
-        completedFrom: typeof parsed?.completedFrom === 'string' ? parsed.completedFrom : undefined,
-        completedTo: typeof parsed?.completedTo === 'string' ? parsed.completedTo : undefined,
-      };
-      prefilterAutoAppliedRef.current = autoKey;
-      console.debug('[Prefilter] host auto-apply', { screen: screenKind, next });
-      applyPrefilters(next, { source: 'auto' });
-    } catch {
-      // ignore parse errors
-    }
-  }, [
-    applyPrefilters,
-    isPrefilterScreen,
-    legacyPrefilterStorageKey,
-    prefilterApplied,
-    prefilterStorageKey,
-    screenKind,
   ]);
 
   const props: GridProps = {

@@ -22,6 +22,9 @@ export const shouldResetPrefiltersOnScreenChange = (
 export const buildPrefilterStorageKey = (tableKey: string, kind: ScreenKind): string =>
   `voa-prefilters:${tableKey}:${kind}`;
 
+export const buildGridSessionKey = (tableKey: string, kind: ScreenKind): string =>
+  `voa-grid-session:${tableKey}:${kind}`;
+
 export const resolveAssignmentScreenName = (raw: string, kind: ScreenKind): string => {
   switch (kind) {
     case 'managerAssign':
