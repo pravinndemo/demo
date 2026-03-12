@@ -1,4 +1,9 @@
-import { normalizePrefilterSearchBy, shouldRemoveStoredPrefilter, shouldSkipPrefilterAutoApply } from '../utils/PrefilterUtils';
+import {
+  isPrefilterUserAutoApplyReady,
+  normalizePrefilterSearchBy,
+  shouldRemoveStoredPrefilter,
+  shouldSkipPrefilterAutoApply,
+} from '../utils/PrefilterUtils';
 import { MANAGER_PREFILTER_DEFAULT, QC_PREFILTER_DEFAULT } from '../config/PrefilterConfigs';
 
 describe('prefilter utils', () => {
@@ -38,5 +43,55 @@ describe('prefilter utils', () => {
     expect(shouldSkipPrefilterAutoApply(true, false)).toBe(true);
     expect(shouldSkipPrefilterAutoApply(true, true)).toBe(false);
     expect(shouldSkipPrefilterAutoApply(false, false)).toBe(false);
+  });
+
+  test('manager assignment waits for caseworker options when restoring named caseworker search', () => {
+    expect(isPrefilterUserAutoApplyReady({
+      screenKind: 'managerAssign',
+      searchBy: 'caseworker',
+      selectedUsers: ['Avinaba Hazra'],
+      caseworkerOptionsLoading: true,
+    })).toBe(false);
+
+    expect(isPrefilterUserAutoApplyReady({
+      screenKind: 'managerAssign',
+      searchBy: 'caseworker',
+      selectedUsers: ['Avinaba Hazra'],
+      caseworkerOptionsLoading: false,
+      caseworkerOptions: ['Avinaba Hazra'],
+    })).toBe(true);
+  });
+
+  test('auto-apply does not wait when selected user is already a guid or all', () => {
+    expect(isPrefilterUserAutoApplyReady({
+      screenKind: 'managerAssign',
+      searchBy: 'caseworker',
+      selectedUsers: ['__all__'],
+      caseworkerOptionsLoading: true,
+    })).toBe(true);
+
+    expect(isPrefilterUserAutoApplyReady({
+      screenKind: 'caseworkerView',
+      searchBy: 'caseworker',
+      selectedUsers: ['ABCDEFAB-1234-1234-1234-ABCDEFABCDEF'],
+      caseworkerOptionsLoading: true,
+    })).toBe(true);
+  });
+
+  test('qc assignment waits for qc user options when restoring named qc user search', () => {
+    expect(isPrefilterUserAutoApplyReady({
+      screenKind: 'qcAssign',
+      searchBy: 'qcUser',
+      selectedUsers: ['Quality User'],
+      qcUserOptionsLoading: true,
+    })).toBe(false);
+
+    expect(isPrefilterUserAutoApplyReady({
+      screenKind: 'qcAssign',
+      searchBy: 'qcUser',
+      selectedUsers: ['Quality User'],
+      qcUserOptionsLoading: false,
+      qcUserOptions: ['Quality User'],
+    })).toBe(true);
   });
 });

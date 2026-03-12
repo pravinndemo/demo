@@ -85,7 +85,12 @@ import {
   type QcSearchBy,
 } from './config/PrefilterConfigs';
 import { computeCompletedToDateIso, getPrefilterFromDateError } from './utils/PrefilterDateUtils';
-import { normalizePrefilterSearchBy, shouldRemoveStoredPrefilter, shouldSkipPrefilterAutoApply } from './utils/PrefilterUtils';
+import {
+  isPrefilterUserAutoApplyReady,
+  normalizePrefilterSearchBy,
+  shouldRemoveStoredPrefilter,
+  shouldSkipPrefilterAutoApply,
+} from './utils/PrefilterUtils';
 import { type ScreenKind } from './utils/ScreenResolution';
 import { SCREEN_TEXT } from '../DetailsListVOA/constants/ScreenText';
 import { CONTROL_CONFIG } from './config/ControlConfig';
@@ -1195,7 +1200,18 @@ export const Grid = React.memo((props: GridProps) => {
             : normalizedNext.caseworkers.length > 0;
       const hasWorkThat = !!normalizedNext.workThat;
       const hasFromDate = !needsCompleted || !!normalizedNext.completedFrom;
-      const canAutoApply = hasOwner && hasWorkThat && hasFromDate;
+      const userResolutionReady = isPrefilterUserAutoApplyReady({
+        screenKind: derivedScreenKind,
+        searchBy: normalizedNext.searchBy,
+        selectedUsers: normalizedNext.caseworkers,
+        caseworkerOptionsLoading,
+        caseworkerOptionsError,
+        caseworkerOptions,
+        qcUserOptionsLoading,
+        qcUserOptionsError,
+        qcUserOptions,
+      });
+      const canAutoApply = hasOwner && hasWorkThat && hasFromDate && userResolutionReady;
       const shouldAutoApply = storedApplied === false ? false : canAutoApply;
       const autoKey = `${prefilterStorageKey}|${derivedScreenKind}`;
       if (prefilterAutoApplyDebugRef.current !== autoKey) {
@@ -1207,6 +1223,7 @@ export const Grid = React.memo((props: GridProps) => {
           hasOwner,
           hasWorkThat,
           hasFromDate,
+          userResolutionReady,
           canAutoApply,
           shouldAutoApply,
           prefilterApplied,
@@ -1254,6 +1271,9 @@ export const Grid = React.memo((props: GridProps) => {
     caseworkerOptions,
     caseworkerOptionsError,
     caseworkerOptionsLoading,
+    qcUserOptions,
+    qcUserOptionsError,
+    qcUserOptionsLoading,
     markPrefilterHydrating,
     useAssignmentLayout,
   ]);
