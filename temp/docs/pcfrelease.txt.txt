@@ -1,0 +1,73 @@
+- stage: BuildSVTPCFComponents
+  displayName: 'Build SVT PCF Components'
+  jobs:
+    - job: BuildSVTPCFComponents
+      displayName: 'Build SVT PCF grid component'
+      steps:
+        - checkout: self
+
+        - task: PowerPlatformToolInstaller@2
+          inputs:
+            DefaultVersion: true
+
+        - task: AdvancedSecurity-Codeql-Init@1
+          inputs:
+            languages: 'csharp'
+            querysuite: 'security-extended'
+
+        - task: Npm@1
+          displayName: 'Install npm packages'
+          inputs:
+            command: 'install'
+            workingDir: 'D365/VOA/VOA.SVT.PCF/VOA.SVT.DetailsList/'
+            customRegistry: 'useFeed'
+            customFeed: 'b94b657a-6009-4206-a1ff-2a044df9daa3'
+
+        - task: MSBuild@1
+          displayName: 'Build PCF solution'
+          inputs:
+            solution: 'D365/VOA/VOA.SVT.PCF/VOA.SVT.DetailsList/DetailsListVOASolution/DetailsListVOASolution.cdsproj'
+            msbuildArguments: '/t:build /p:Configuration=Release /restore'
+
+        - task: Npm@1
+          displayName: 'Run PCF unit tests'
+          inputs:
+            command: 'custom'
+            workingDir: 'D365/VOA/VOA.SVT.PCF/VOA.SVT.DetailsList/'
+            customCommand: 'run test:ci'
+          env:
+            JEST_JUNIT_OUTPUT_DIR: '$(Common.TestResultsDirectory)'
+            JEST_JUNIT_OUTPUT_NAME: 'pcf-junit.xml'
+
+        - task: PublishTestResults@2
+          displayName: 'Publish PCF test results'
+          condition: succeededOrFailed()
+          inputs:
+            testResultsFormat: 'JUnit'
+            testResultsFiles: '$(Common.TestResultsDirectory)/pcf-junit.xml'
+            failTaskOnFailedTests: true
+            testRunTitle: 'PCF Jest Tests'
+
+        - task: PublishCodeCoverageResults@2
+          displayName: 'Publish PCF code coverage'
+          condition: succeededOrFailed()
+          inputs:
+            codeCoverageTool: 'Cobertura'
+            summaryFileLocation: '$(Build.SourcesDirectory)/D365/VOA/VOA.SVT.PCF/VOA.SVT.DetailsList/coverage/cobertura-coverage.xml'
+            reportDirectory: '$(Build.SourcesDirectory)/D365/VOA/VOA.SVT.PCF/VOA.SVT.DetailsList/coverage/lcov-report'
+            failIfCoverageEmpty: true
+
+        - task: AdvancedSecurity-Dependency-Scanning@1
+          displayName: 'Advanced Security Dependency Scanning'
+
+        - task: CopyFiles@2
+          inputs:
+            SourceFolder: 'D365/VOA/VOA.SVT.PCF/VOA.SVT.DetailsList/DetailsListVOASolution/bin/Release/'
+            Contents: '*.zip'
+            TargetFolder: '$(Build.ArtifactStagingDirectory)/svt_pcfcomponents/'
+
+        - task: PublishBuildArtifacts@1
+          inputs:
+            PathtoPublish: '$(Build.ArtifactStagingDirectory)/svt_pcfcomponents/'
+            ArtifactName: 'SVT_PCF_Components'
+            publishLocation: 'Container'

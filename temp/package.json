@@ -11,7 +11,8 @@
     "start": "pcf-scripts start",
     "start:watch": "pcf-scripts start watch",
     "refreshTypes": "pcf-scripts refreshTypes",
-    "test": "jest"
+    "test": "jest",
+    "test:ci": "jest --ci --coverage --coverageReporters=cobertura --coverageReporters=lcov --coverageReporters=text-summary --reporters=default --reporters=jest-junit"
   },
   "dependencies": {
     "react": "16.14.0",
