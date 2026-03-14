@@ -43,18 +43,18 @@ describe('Sales search validation', () => {
       expect(errors.uprn).toBe('Please enter a valid UPRN');
     });
 
-    test('billingAuthority | requires selection when searchBy is billingAuthority', () => {
+    test('billingAuthority | stays neutral until the field is interacted with', () => {
       const errors = getSalesSearchErrors(
         withFilters({ searchBy: 'billingAuthority', billingAuthority: [] }),
       );
-      expect(errors.billingAuthority).toBe('Billing Authority is required');
+      expect(errors.billingAuthority).toBeUndefined();
     });
 
-    test('bacode | requires reference when billing authority is selected', () => {
+    test('bacode | stays neutral until the reference field is interacted with', () => {
       const errors = getSalesSearchErrors(
         withFilters({ searchBy: 'billingAuthority', billingAuthority: ['Cardiff'], bacode: '' }),
       );
-      expect(errors.bacode).toBe('Billing Authority Reference is required');
+      expect(errors.bacode).toBeUndefined();
     });
 
     test('address | rejects invalid postcode', () => {

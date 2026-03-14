@@ -159,6 +159,9 @@ export const SCREEN_TEXT = {
       selectFirstHelperText: 'Uses the current page order.',
       selectFirstErrorText: 'Enter a number between 1 and {max}.',
       selectionSummaryText: 'Selected: {selected} of {pageTotal} on this page',
+      resultsSummaryText: 'Showing {from}-{to} of {total}',
+      resultsSummaryEmptyText: 'Showing 0 of 0',
+      resultsScrollHintText: 'Scroll for more columns',
     },
     tableActions: {
       viewSalesRecord: 'View Sales Record',
@@ -245,6 +248,9 @@ export const SCREEN_TEXT = {
         fromDate: 'Select the start date for completed tasks.',
         toDate: 'End date is set automatically based on the start date.',
       },
+      accessibility: {
+        requiredFieldKey: 'Fields marked with * are required',
+      },
       buttons: {
         search: 'Search',
         clearSearch: 'Clear search',
@@ -292,6 +298,9 @@ export const SCREEN_TEXT = {
         workThat: 'Choose a task status bucket.',
         fromDate: 'Select the start date for completed tasks.',
         toDate: 'End date is set automatically based on the start date.',
+      },
+      accessibility: {
+        requiredFieldKey: 'Fields marked with * are required',
       },
       buttons: {
         search: 'Search',
@@ -364,6 +373,9 @@ export const SCREEN_TEXT = {
         fromDate: 'Select the start date for completed tasks.',
         toDate: 'End date is set automatically based on the start date.',
       },
+      accessibility: {
+        requiredFieldKey: 'Fields marked with * are required',
+      },
       buttons: {
         search: 'Search',
         clearSearch: 'Clear search',
@@ -377,6 +389,9 @@ export const SCREEN_TEXT = {
     title: 'Sales Record Search',
     searchPanel: {
       searchByLabel: 'Search by',
+    },
+    accessibility: {
+      requiredFieldKey: 'Fields marked with * are required',
     },
     fields: {
       buildingNameNumber: 'Building Name/Number',
@@ -410,6 +425,9 @@ export const SCREEN_TEXT = {
       saleId: 'Format: S-1234567.',
       taskId: 'Use A- or M- prefix (e.g. A-1000001) or numbers only.',
       uprn: 'Digits only.',
+    },
+    hints: {
+      uprnInput: 'Digits only. Letters and symbols are removed automatically.',
     },
   },
   assignTasks: {

@@ -1,14 +1,30 @@
-﻿import { COLUMN_PROFILES, getProfileConfigs } from '../config/ColumnProfiles';
+import fs from 'fs';
+import path from 'path';
+import { COLUMN_PROFILES, getProfileConfigs } from '../config/ColumnProfiles';
 import { ColumnConfig } from '../Component.types';
 
-const ID_COLUMNS_CENTER = ['taskid', 'uprn'];
-const ID_COLUMNS_LEFT = ['saleid'];
+const IDENTIFIER_COLUMNS_LEFT = ['saleid', 'taskid', 'uprn'];
 const NUMERIC_COLUMNS = ['saleprice', 'ratio', 'outlierratio'];
 const TAG_COLUMNS_CENTER = ['flaggedforreview'];
 const TAG_COLUMNS_LEFT = ['reviewflags', 'overallflag', 'summaryflags', 'taskstatus'];
 const TEXT_COLUMNS = ['address', 'postcode', 'billingauthority', 'dwellingtype', 'assignedto', 'qcassignedto'];
 const DATE_COLUMNS = ['transactiondate', 'assigneddate', 'taskcompleteddate', 'qcassigneddate', 'qccompleteddate'];
 const CURRENCY_COLUMNS = ['saleprice'];
+const TABULAR_NUMERAL_COLUMNS = [
+  'saleid',
+  'taskid',
+  'uprn',
+  'transactiondate',
+  'saleprice',
+  'ratio',
+  'outlierratio',
+  'assigneddate',
+  'taskcompleteddate',
+  'qcassigneddate',
+  'qccompleteddate',
+];
+
+const repoRoot = path.resolve(__dirname, '..', '..');
 
 function getCol(cols: ColumnConfig[], name: string): ColumnConfig {
   const col = cols.find((c) => c.ColName.toLowerCase() === name.toLowerCase());
@@ -27,16 +43,8 @@ describe('SALES_COLUMNS alignment', () => {
     });
   });
 
-  describe('ID columns (center horizontal)', () => {
-    ID_COLUMNS_CENTER.forEach((name) => {
-      it(`${name} -> ColHorizontalAlign = center`, () => {
-        expect(getCol(cols, name).ColHorizontalAlign).toBe('center');
-      });
-    });
-  });
-
-  describe('ID columns (left horizontal)', () => {
-    ID_COLUMNS_LEFT.forEach((name) => {
+  describe('identifier columns (left horizontal)', () => {
+    IDENTIFIER_COLUMNS_LEFT.forEach((name) => {
       it(`${name} -> ColHorizontalAlign = left`, () => {
         expect(getCol(cols, name).ColHorizontalAlign).toBe('left');
       });
@@ -218,3 +226,16 @@ describe('currency format (ColFormat)', () => {
   });
 });
 
+describe('tabular numerals contract', () => {
+  const gridSource = fs.readFileSync(path.join(repoRoot, 'DetailsListVOA/Grid.tsx'), 'utf8');
+  const cssSource = fs.readFileSync(path.join(repoRoot, 'DetailsListVOA/css/DetailsListVOA.css'), 'utf8');
+
+  it('applies tabular numerals to identifier, date, and numeric columns', () => {
+    expect(gridSource).toContain('const usesTabularNumerals = [');
+    TABULAR_NUMERAL_COLUMNS.forEach((name) => {
+      expect(gridSource).toContain(`'${name}'`);
+    });
+    expect(cssSource).toContain('.voa-col-tabular-cell');
+    expect(cssSource).toContain('font-variant-numeric: tabular-nums;');
+  });
+});

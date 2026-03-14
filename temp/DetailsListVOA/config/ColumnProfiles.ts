@@ -4,10 +4,10 @@ import { ColumnConfig } from '../Component.types';
 // Any JSON provided in `columnConfig` will be merged on top to override.
 
 const SALES_COLUMNS: ColumnConfig[] = [
-  // ID columns: center-aligned horizontally (fixed-width identifiers), vertically centered
+  // Identifiers are left-aligned because users scan and copy them like labels, not quantities.
   { ColName: 'saleid',           ColDisplayName: 'Sale ID',            ColWidth: 140, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
   { ColName: 'taskid',           ColDisplayName: 'Task ID',            ColWidth: 140, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
-  { ColName: 'uprn',             ColDisplayName: 'UPRN',               ColWidth: 120, ColHorizontalAlign: 'center', ColVerticalAlign: 'center' },
+  { ColName: 'uprn',             ColDisplayName: 'UPRN',               ColWidth: 120, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
   // Text columns: left-aligned, vertically centered
   { ColName: 'address',          ColDisplayName: 'Address',            ColWidth: 280, ColMultiLine: true, ColCellType: 'link', ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
   { ColName: 'postcode',         ColDisplayName: 'Postcode',           ColWidth: 110, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },

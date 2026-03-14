@@ -65,15 +65,17 @@ scanning down the column — the standard convention in financial and data table
 
 ---
 
-### Rule 5 — ID / reference columns: `center` horizontal
+### Rule 5 — Fixed-width identifier columns: `center` horizontal
 
-Fixed-width identifier strings (Sale ID, Task ID, UPRN) are center-aligned.
+Fixed-width identifier strings that are rendered as plain identifiers (Task ID, UPRN) are center-aligned.
 
 **Why:** IDs are not read as prose and are not compared numerically. Centering them treats the
 column as a badge/reference cell rather than a text field, making it visually distinct and easier
 to locate at a glance. All three IDs have a consistent prefix-plus-digits format.
 
-**Applies to:** saleid, taskid, uprn
+**Applies to:** taskid, uprn
+
+Sale ID remains left-aligned because it is rendered as a link cell rather than a plain badge/reference cell.
 
 ---
 
@@ -106,7 +108,7 @@ same `ColHorizontalAlign` value, so they stay in sync automatically.
 
 | Column | Display Name | Data Type | H-Align | V-Align | Format | Rule |
 | --- | --- | --- | --- | --- | --- | --- |
-| `saleid` | Sale ID | ID / Reference | `center` | `center` | — | 5, 1 |
+| `saleid` | Sale ID | Link / Reference | `left` | `center` | — | 2, 1 |
 | `taskid` | Task ID | ID / Reference | `center` | `center` | — | 5, 1 |
 | `uprn` | UPRN | ID / Reference | `center` | `center` | — | 5, 1 |
 | `address` | Address | Text (link, multiline) | `left` | `center` | — | 2, 1 |

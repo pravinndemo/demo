@@ -2083,6 +2083,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     },
     currentPage,
     totalPages,
+    pageSize,
     canNext,
     canPrev,
     searchFilters,

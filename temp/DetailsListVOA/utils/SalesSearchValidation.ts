@@ -48,8 +48,6 @@ export const getSalesSearchErrors = (fs: GridFilterState): SalesSearchErrors => 
   const street = (fs.street ?? '').trim();
   const town = (fs.townCity ?? '').trim();
   const postcode = normalizeUkPostcode(fs.postcode ?? '').trim();
-  const billingAuthority = (fs.billingAuthority?.[0] ?? '').trim();
-  const billingAuthorityRef = (fs.bacode ?? '').trim();
   const saleIdError =
     fs.searchBy === 'saleId' && saleId.length > 0 && (!SALE_ID_REGEX.test(saleId) || saleId.length < 3)
       ? 'Please enter a valid Sale ID'
@@ -66,16 +64,6 @@ export const getSalesSearchErrors = (fs: GridFilterState): SalesSearchErrors => 
     fs.searchBy === 'uprn' && uprnRaw.length > 0 && (uprn.length === 0 || /[^0-9]/.test(uprnRaw))
       ? 'Please enter a valid UPRN'
       : undefined;
-
-  let billingAuthorityError: string | undefined;
-  let billingAuthorityRefError: string | undefined;
-  if (fs.searchBy === 'billingAuthority') {
-    if (billingAuthority.length === 0) {
-      billingAuthorityError = 'Billing Authority is required';
-    } else if (billingAuthorityRef.length === 0) {
-      billingAuthorityRefError = 'Billing Authority Reference is required';
-    }
-  }
 
   let postcodeError: string | undefined;
   let streetError: string | undefined;
@@ -113,8 +101,8 @@ export const getSalesSearchErrors = (fs: GridFilterState): SalesSearchErrors => 
     saleId: saleIdError,
     taskId: taskIdError,
     uprn: uprnError,
-    billingAuthority: billingAuthorityError,
-    bacode: billingAuthorityRefError,
+    billingAuthority: undefined,
+    bacode: undefined,
     summaryFlag: undefined,
     searchField: undefined,
   };

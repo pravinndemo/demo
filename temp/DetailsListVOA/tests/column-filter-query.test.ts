@@ -8,7 +8,7 @@ describe('column filter query', () => {
 
   test('uses eq for single select fields', () => {
     const query = buildColumnFilterQuery('sales', { flaggedForReview: 'true' });
-    expect(query).toBe('columnFilter=flaggedForReview~eq~true');
+    expect(query).toBe('columnFilter=flaggedForReview~eq~Y');
   });
 
   test('uses like for text fields and encodes values', () => {

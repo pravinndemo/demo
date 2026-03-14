@@ -41,6 +41,7 @@ import {
   FocusTrapZone,
   IconButton,
   IDatePickerStrings,
+  IButtonStyles,
   TooltipHost,
 } from '@fluentui/react';
 import * as React from 'react';
@@ -85,6 +86,7 @@ import {
   type QcSearchBy,
 } from './config/PrefilterConfigs';
 import { computeCompletedToDateIso, getPrefilterFromDateError } from './utils/PrefilterDateUtils';
+import { parseDateInput } from './utils/DateInputUtils';
 import {
   isPrefilterUserAutoApplyReady,
   normalizePrefilterSearchBy,
@@ -131,6 +133,7 @@ export interface GridProps {
   onSetPage: (page: number) => void;
   currentPage: number;
   totalPages: number;
+  pageSize?: number;
   canNext: boolean;
   canPrev: boolean;
   overlayOnSort?: boolean;
@@ -266,6 +269,129 @@ const buildAriaDescribedBy = (...ids: (string | undefined)[]): string | undefine
   const values = ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
   return values.length > 0 ? values.join(' ') : undefined;
 };
+const joinClassNames = (...classNames: (string | undefined | false)[]): string | undefined => {
+  const values = classNames.filter((className): className is string => typeof className === 'string' && className.trim().length > 0);
+  return values.length > 0 ? values.join(' ') : undefined;
+};
+const formatRequiredAriaLabel = (label: string, required?: boolean): string => (
+  required ? `${label}, required` : label
+);
+
+interface FocusableActionButtonProps {
+  ariaCurrent?: 'page';
+  ariaDescribedBy?: string;
+  ariaLabel: string;
+  buttonType?: 'default' | 'primary';
+  children?: React.ReactNode;
+  className?: string;
+  iconProps?: { iconName: string };
+  onClick: () => void;
+  onUnavailableClick?: () => void;
+  styles?: IButtonStyles;
+  text?: string;
+  title?: string;
+  unavailable?: boolean;
+  unavailableReason?: string;
+  unavailableReasonId?: string;
+}
+
+const FocusableActionButton = ({
+  ariaCurrent,
+  ariaDescribedBy,
+  ariaLabel,
+  buttonType = 'default',
+  children,
+  className,
+  iconProps,
+  onClick,
+  onUnavailableClick,
+  styles,
+  text,
+  title,
+  unavailable = false,
+  unavailableReason,
+  unavailableReasonId,
+}: FocusableActionButtonProps) => {
+  const ButtonComponent = buttonType === 'primary' ? PrimaryButton : DefaultButton;
+  const handleClick = React.useCallback((event?: React.MouseEvent<unknown>) => {
+    if (unavailable) {
+      onUnavailableClick?.();
+      event?.preventDefault();
+      event?.stopPropagation();
+      return;
+    }
+    onClick();
+  }, [onClick, onUnavailableClick, unavailable]);
+  const describedBy = buildAriaDescribedBy(
+    ariaDescribedBy,
+    unavailable && unavailableReason ? unavailableReasonId : undefined,
+  );
+
+  return (
+    <>
+      {unavailable && unavailableReason && unavailableReasonId && (
+        <span id={unavailableReasonId} className="voa-sr-only">
+          {unavailableReason}
+        </span>
+      )}
+      <ButtonComponent
+        text={text}
+        iconProps={iconProps}
+        onClick={handleClick}
+        aria-disabled={unavailable || undefined}
+        aria-describedby={describedBy}
+        ariaLabel={ariaLabel}
+        aria-current={ariaCurrent}
+        className={joinClassNames(className, unavailable ? 'voa-focusable-disabled-button' : undefined)}
+        styles={styles}
+        title={unavailable ? unavailableReason ?? title : title}
+      >
+        {children}
+      </ButtonComponent>
+    </>
+  );
+};
+
+const renderLabelWithRequired = (
+  text: string,
+  options?: {
+    htmlFor?: string;
+    id?: string;
+    className?: string;
+    required?: boolean;
+  },
+) => (
+  <Label htmlFor={options?.htmlFor} id={options?.id} className={options?.className}>
+    <span>{text}</span>
+    {options?.required && (
+      <>
+        <span className="voa-required-indicator" aria-hidden="true"> *</span>
+        <span className="voa-sr-only"> required</span>
+      </>
+    )}
+  </Label>
+);
+
+type SalesSearchFieldKey =
+  | 'buildingNameNumber'
+  | 'street'
+  | 'townCity'
+  | 'postcode'
+  | 'billingAuthority'
+  | 'bacode'
+  | 'saleId'
+  | 'taskId'
+  | 'uprn';
+
+const focusSalesSearchFieldById = (fieldId: string): void => {
+  if (typeof document === 'undefined') return;
+  const fieldRoot = document.getElementById(fieldId);
+  if (!fieldRoot) return;
+  const focusTarget = (fieldRoot.matches('input,button,textarea,[tabindex]') ? fieldRoot : fieldRoot.querySelector<HTMLElement>('input,button,textarea,[tabindex]'))
+    ?? undefined;
+  focusTarget?.focus();
+};
+
 const normalizePrefilterArray = (value: unknown): string[] =>
   (Array.isArray(value) ? value.map((item) => String(item)) : []);
 
@@ -307,22 +433,11 @@ const normalizeMultiSelectSearchText = (
 
 const normalizeSingleSelectSearchText = (
   value: string | undefined,
-  options: IComboBoxOption[],
-  selectedKey: string | number | boolean | undefined,
+  _options: IComboBoxOption[],
 ): string => {
   const raw = value ?? '';
   const trimmed = raw.trim();
   if (!trimmed) return '';
-  if (selectedKey !== undefined) {
-    const selected = options.find((opt) => String(opt.key) === String(selectedKey));
-    const selectedText = String(selected?.text ?? selected?.key ?? '');
-    const selectedTextLower = selectedText.trim().toLowerCase();
-    const trimmedLower = trimmed.toLowerCase();
-    if ((selectedTextLower && trimmedLower === selectedTextLower)
-      || trimmedLower === String(selectedKey).trim().toLowerCase()) {
-      return '';
-    }
-  }
   return normalizeComboSearchText(raw);
 };
 
@@ -380,16 +495,32 @@ const getOptionText = (options: IComboBoxOption[], key: string): string => {
   return String(match?.text ?? match?.key ?? key);
 };
 
+const getSelectedOptionLabels = (selectedKeys: string[], options: IComboBoxOption[]): string[] =>
+  selectedKeys.map((key) => getOptionText(options, key)).filter((text) => text.trim().length > 0);
+
 const buildSelectedTooltip = (
   selectedKeys: string[],
   options: IComboBoxOption[],
   emptyHint?: string,
 ): string | undefined => {
   if (!selectedKeys || selectedKeys.length === 0) return emptyHint;
-  const labels = selectedKeys.map((key) => getOptionText(options, key)).filter((text) => text.trim().length > 0);
+  const labels = getSelectedOptionLabels(selectedKeys, options);
   if (labels.length === 0) return emptyHint;
   const prefix = labels.length > 1 ? `Selected (${labels.length}): ` : 'Selected: ';
   return `${prefix}${labels.join(', ')}`;
+};
+
+const buildCompactSelectedSummary = (
+  selectedKeys: string[],
+  options: IComboBoxOption[],
+): string | undefined => {
+  if (!selectedKeys || selectedKeys.length === 0) return undefined;
+  const labels = getSelectedOptionLabels(selectedKeys, options);
+  if (labels.length <= 1) return undefined;
+  if (labels.some((label) => label.trim().toLowerCase() === 'all')) {
+    return 'All selected';
+  }
+  return `${labels.length} selected`;
 };
 
 const buildValueTooltip = (value: string | undefined, emptyHint?: string): string | undefined => {
@@ -399,6 +530,8 @@ const buildValueTooltip = (value: string | undefined, emptyHint?: string): strin
 };
 
 const COMBO_DISAMBIGUATION_HINT = 'Type more or use arrow keys to choose.';
+const SEARCH_BY_RESET_NOTICE = 'Changing Search by cleared the previous search values.';
+const PREFILTER_RESET_NOTICE = 'Changing Search by cleared dependent filters.';
 
 const getComboDisambiguationHint = (options: IComboBoxOption[], value?: string): string | undefined => {
   const trimmed = (value ?? '').trim();
@@ -617,6 +750,7 @@ export const Grid = React.memo((props: GridProps) => {
     onSetPage,
     currentPage,
     totalPages,
+    pageSize,
     canNext,
     canPrev,
     searchFilters,
@@ -659,6 +793,12 @@ export const Grid = React.memo((props: GridProps) => {
   const theme = useTheme(themeJSON);
   const topRef = React.useRef<HTMLDivElement>(null);
   const resultsRef = React.useRef<HTMLDivElement>(null);
+  const [horizontalOverflowState, setHorizontalOverflowState] = React.useState({
+    hasOverflow: false,
+    canScrollLeft: false,
+    canScrollRight: false,
+  });
+  const hasSelectionColumn = selectionType !== SelectionMode.none;
   const paginationButtonStyles = React.useMemo(
     () => ({
       root: {
@@ -722,6 +862,8 @@ export const Grid = React.memo((props: GridProps) => {
   const [assignSelectedUserId, setAssignSelectedUserId] = React.useState<string | undefined>();
   const [viewSaleLoading, setViewSaleLoading] = React.useState(false);
   const viewSaleRequestSeq = React.useRef(0);
+  const viewSaleNavigationLockRef = React.useRef(false);
+  const [viewSaleNavigationPending, setViewSaleNavigationPending] = React.useState(false);
   const [markPassedQcLoading, setMarkPassedQcLoading] = React.useState(false);
   const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState>(MANAGER_PREFILTER_DEFAULT);
   const [prefilterExpanded, setPrefilterExpanded] = React.useState(true);
@@ -731,12 +873,17 @@ export const Grid = React.memo((props: GridProps) => {
   const comboIgnoreNextInputRef = React.useRef<Record<string, boolean>>({});
   const comboIgnoreNextChangeRef = React.useRef<Record<string, boolean>>({});
   const comboExpectedSelectionRef = React.useRef<Record<string, { key: string; expiresAt: number }>>({});
+  const comboCancelNextDismissRef = React.useRef<Record<string, boolean>>({});
   const lastManagerBillingSelectionRef = React.useRef<string>('');
   const lastCaseworkerSelectionRef = React.useRef<string>('');
   const [dismissedColumnConfigMessage, setDismissedColumnConfigMessage] = React.useState(false);
   const [dismissedErrorMessage, setDismissedErrorMessage] = React.useState(false);
   const [dismissedAssignUsersInfo, setDismissedAssignUsersInfo] = React.useState(false);
   const [dismissedAssignUsersError, setDismissedAssignUsersError] = React.useState(false);
+  const [searchResetNotice, setSearchResetNotice] = React.useState<string | undefined>();
+  const [salesSearchTouched, setSalesSearchTouched] = React.useState<Partial<Record<SalesSearchFieldKey, boolean>>>({});
+  const [salesSearchAttempted, setSalesSearchAttempted] = React.useState(false);
+  const [prefilterResetNotice, setPrefilterResetNotice] = React.useState<string | undefined>();
 
   const setComboEditingFor = React.useCallback((key: string, isEditing: boolean) => {
     setComboEditing((prev) => (prev[key] === isEditing ? prev : { ...prev, [key]: isEditing }));
@@ -774,6 +921,14 @@ export const Grid = React.memo((props: GridProps) => {
       key: expectedKey,
       expiresAt: Date.now() + 500,
     };
+  }, []);
+  const setComboCancelNextDismiss = React.useCallback((key: string) => {
+    comboCancelNextDismissRef.current[key] = true;
+  }, []);
+  const consumeComboCancelNextDismiss = React.useCallback((key: string) => {
+    if (!comboCancelNextDismissRef.current[key]) return false;
+    delete comboCancelNextDismissRef.current[key];
+    return true;
   }, []);
   const shouldIgnoreComboChange = React.useCallback((key: string, option?: IComboBoxOption) => {
     const expected = comboExpectedSelectionRef.current[key];
@@ -847,12 +1002,35 @@ export const Grid = React.memo((props: GridProps) => {
         event.preventDefault();
       }
       if (ignoreKey) {
+        setComboCancelNextDismiss(ignoreKey);
         setComboIgnoreNextChange(ignoreKey);
         setComboExpectedSelection(ignoreKey, String(resolvedKey));
       }
       onSelect(match);
     },
-    [setComboExpectedSelection, setComboIgnoreNextChange],
+    [setComboCancelNextDismiss, setComboExpectedSelection, setComboIgnoreNextChange],
+  );
+
+  const commitComboSingleSelectOnDismiss = React.useCallback(
+    (
+      searchValue: string,
+      options: IComboBoxOption[],
+      selectedKey: string | number | boolean | undefined,
+      onSelect: (option: IComboBoxOption) => void,
+    ) => {
+      const trimmed = searchValue.trim();
+      if (!trimmed) return false;
+      const resolvedKey = resolveComboKeyFromSearch(options, trimmed, selectedKey);
+      if (!resolvedKey) return false;
+      if (selectedKey !== undefined && String(selectedKey) === String(resolvedKey)) {
+        return true;
+      }
+      const match = options.find((opt) => String(opt.key) === String(resolvedKey));
+      if (!match || match.disabled) return false;
+      onSelect(match);
+      return true;
+    },
+    [],
   );
 
   React.useEffect(() => {
@@ -1326,6 +1504,29 @@ export const Grid = React.memo((props: GridProps) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [useAssignmentLayout]);
 
+  const updateHorizontalOverflowState = React.useCallback(() => {
+    const element = resultsRef.current;
+    if (!element) {
+      setHorizontalOverflowState((prev) => (
+        prev.hasOverflow || prev.canScrollLeft || prev.canScrollRight
+          ? { hasOverflow: false, canScrollLeft: false, canScrollRight: false }
+          : prev
+      ));
+      return;
+    }
+    const maxScrollLeft = Math.max(element.scrollWidth - element.clientWidth, 0);
+    const hasOverflow = maxScrollLeft > 1;
+    const canScrollLeft = hasOverflow && element.scrollLeft > 1;
+    const canScrollRight = hasOverflow && element.scrollLeft < maxScrollLeft - 1;
+    setHorizontalOverflowState((prev) => (
+      prev.hasOverflow === hasOverflow
+      && prev.canScrollLeft === canScrollLeft
+      && prev.canScrollRight === canScrollRight
+        ? prev
+        : { hasOverflow, canScrollLeft, canScrollRight }
+    ));
+  }, []);
+
   const isPrefilterNarrow = useAssignmentLayout
     && prefilterContainerWidth !== null
     && prefilterContainerWidth < PREFILTER_COLLAPSE_BREAKPOINT;
@@ -1362,7 +1563,7 @@ export const Grid = React.memo((props: GridProps) => {
       nextYearRangeAriaLabel: 'Go to next year range',
       closeButtonAriaLabel: 'Close date picker',
       isRequiredErrorMessage: 'This field is required.',
-      invalidInputErrorMessage: 'Invalid date format.',
+      invalidInputErrorMessage: 'Invalid date format. Use DD/MM/YYYY.',
     }),
     [],
   );
@@ -1494,12 +1695,13 @@ export const Grid = React.memo((props: GridProps) => {
       const options = (isQcAssign ? QC_SEARCH_BY_OPTIONS : MANAGER_SEARCH_BY_OPTIONS) as IComboBoxOption[];
       const resolvedKey = option?.key ?? resolveComboOptionKey(options, value);
       if (!resolvedKey) return;
+      let showResetNotice = false;
       if (isQcAssign) {
         const next = String(resolvedKey) as ManagerSearchBy;
         setPrefilters((prev) => {
           const sameSearchBy = prev.searchBy === next;
           const keepUsers = sameSearchBy && (next === 'qcUser' || next === 'caseworker');
-          return {
+          const nextState: ManagerPrefilterState = {
             ...prev,
             searchBy: next,
             billingAuthorities: [],
@@ -1508,19 +1710,38 @@ export const Grid = React.memo((props: GridProps) => {
             completedFrom: undefined,
             completedTo: undefined,
           };
+          showResetNotice = prev.searchBy !== next && (
+            prev.billingAuthorities.length > 0
+            || (!keepUsers && prev.caseworkers.length > 0)
+            || !!prev.workThat
+            || !!prev.completedFrom
+            || !!prev.completedTo
+          );
+          return nextState;
         });
       } else {
         const next = resolvedKey === 'caseworker' ? 'caseworker' : 'billingAuthority';
-        setPrefilters((prev) => ({
-          ...prev,
-          searchBy: next as ManagerSearchBy,
-          billingAuthorities: next === 'billingAuthority' ? prev.billingAuthorities : [],
-          caseworkers: next === 'caseworker' ? prev.caseworkers : [],
-          workThat: undefined,
-          completedFrom: undefined,
-          completedTo: undefined,
-        }));
+        setPrefilters((prev) => {
+          const nextState: ManagerPrefilterState = {
+            ...prev,
+            searchBy: next as ManagerSearchBy,
+            billingAuthorities: next === 'billingAuthority' ? prev.billingAuthorities : [],
+            caseworkers: next === 'caseworker' ? prev.caseworkers : [],
+            workThat: undefined,
+            completedFrom: undefined,
+            completedTo: undefined,
+          };
+          showResetNotice = prev.searchBy !== next && (
+            (next !== 'billingAuthority' && prev.billingAuthorities.length > 0)
+            || (next !== 'caseworker' && prev.caseworkers.length > 0)
+            || !!prev.workThat
+            || !!prev.completedFrom
+            || !!prev.completedTo
+          );
+          return nextState;
+        });
       }
+      setPrefilterResetNotice(showResetNotice ? PREFILTER_RESET_NOTICE : undefined);
       setComboEditingFor('prefilterWorkThat', false);
       setPrefilterWorkThatSearch('');
       markPrefilterDirty();
@@ -1614,6 +1835,7 @@ export const Grid = React.memo((props: GridProps) => {
   const onPrefilterCaseworkerChange = React.useCallback(
     (_: React.FormEvent<IComboBox>, option?: IComboBoxOption) => {
       if (!option || option.disabled) return;
+      setPrefilterResetNotice(undefined);
       const key = String(option.key);
       if (key === CASEWORKER_ALL_KEY) {
         setPrefilters((prev) => ({
@@ -1648,6 +1870,7 @@ export const Grid = React.memo((props: GridProps) => {
       const resolvedKey = option?.key ?? resolveComboOptionKey(options, value);
       const nextWork = resolvedKey as ManagerWorkThat | undefined;
       const needsCompleted = (isQcAssign || isQcView) ? isQcCompletedWorkThat(nextWork) : isManagerCompletedWorkThat(nextWork);
+      setPrefilterResetNotice(undefined);
       setPrefilters((prev) => ({
         ...prev,
         workThat: nextWork,
@@ -1663,6 +1886,7 @@ export const Grid = React.memo((props: GridProps) => {
     (date?: Date | null) => {
       const fromIso = date ? toISODateString(date) : undefined;
       const toIso = computeCompletedToDateIso(date, today);
+      setPrefilterResetNotice(undefined);
       setPrefilters((prev) => ({
         ...prev,
         completedFrom: fromIso,
@@ -1693,6 +1917,7 @@ export const Grid = React.memo((props: GridProps) => {
       // ignore storage failures
     }
     onPrefilterApply(normalized, { source: 'user' });
+    setPrefilterResetNotice(undefined);
     prefilterDirtyRef.current = false;
     clearAutoApplyInFlight();
     comboIgnoreNextInputRef.current = {};
@@ -1705,6 +1930,7 @@ export const Grid = React.memo((props: GridProps) => {
 
   const handlePrefilterClear = React.useCallback(() => {
     dismissResultMessages();
+    setPrefilterResetNotice(undefined);
     prefilterDirtyRef.current = true;
     prefilterClearedRef.current = true;
     clearAutoApplyInFlight();
@@ -1894,6 +2120,45 @@ export const Grid = React.memo((props: GridProps) => {
     () => filterComboOptions(billingAuthorityOptionsList, billingAuthoritySearch),
     [billingAuthorityOptionsList, billingAuthoritySearch],
   );
+  const salesSearchRequiredErrors = React.useMemo(() => {
+    if (!isSalesSearch) {
+      return {
+        saleId: undefined,
+        taskId: undefined,
+        uprn: undefined,
+        billingAuthority: undefined,
+        bacode: undefined,
+      };
+    }
+
+    const shouldShow = (key: SalesSearchFieldKey): boolean => salesSearchAttempted || !!salesSearchTouched[key];
+    const saleIdValue = sanitizeAlphaNumHyphen(filters.saleId, ID_FIELD_MAX_LENGTH).trim();
+    const taskIdValue = sanitizeTaskIdInput(filters.taskId, ID_FIELD_MAX_LENGTH).trim();
+    const uprnValue = (filters.uprn ?? '').trim();
+    const billingAuthorityValue = (filters.billingAuthority?.[0] ?? '').trim();
+    const billingAuthorityRefValue = (filters.bacode ?? '').trim();
+
+    return {
+      saleId: filters.searchBy === 'saleId' && shouldShow('saleId') && saleIdValue.length === 0
+        ? 'Sale ID is required'
+        : undefined,
+      taskId: filters.searchBy === 'taskId' && shouldShow('taskId') && taskIdValue.length === 0
+        ? 'Task ID is required'
+        : undefined,
+      uprn: filters.searchBy === 'uprn' && shouldShow('uprn') && uprnValue.length === 0
+        ? 'UPRN is required'
+        : undefined,
+      billingAuthority: filters.searchBy === 'billingAuthority' && shouldShow('billingAuthority') && billingAuthorityValue.length === 0
+        ? 'Billing Authority is required'
+        : undefined,
+      bacode: filters.searchBy === 'billingAuthority'
+        && shouldShow('bacode')
+        && billingAuthorityValue.length > 0
+        && billingAuthorityRefValue.length === 0
+        ? 'Billing Authority Reference is required'
+        : undefined,
+    };
+  }, [filters.bacode, filters.billingAuthority, filters.saleId, filters.searchBy, filters.taskId, filters.uprn, isSalesSearch, salesSearchAttempted, salesSearchTouched]);
 
   const managerBillingAuthorityOptions = React.useMemo<IDropdownOption[]>(() => {
     if (billingAuthorityOptionsLoading) {
@@ -1965,6 +2230,7 @@ export const Grid = React.memo((props: GridProps) => {
   const onPrefilterBillingChange = React.useCallback(
     (_: React.FormEvent<IComboBox>, option?: IComboBoxOption) => {
       if (!option) return;
+      setPrefilterResetNotice(undefined);
       const key = String(option.key);
       if (key === '__loading__' || key === '__error__') return;
       if (key === BILLING_AUTHORITY_ALL_KEY) {
@@ -1986,9 +2252,19 @@ export const Grid = React.memo((props: GridProps) => {
   );
   const summaryFlagError = lengthErrors.summaryFlag;
   const searchFieldError = lengthErrors.searchField;
+  const resetSalesSearchValidationUi = React.useCallback(() => {
+    setSalesSearchTouched({});
+    setSalesSearchAttempted(false);
+  }, []);
+  const markSalesSearchFieldTouched = React.useCallback((key: SalesSearchFieldKey) => {
+    setSalesSearchTouched((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  }, []);
 
   const updateFilters = React.useCallback(
     (key: keyof GridFilterState, value: GridFilterState[keyof GridFilterState]) => {
+      if (key !== 'searchBy') {
+        setSearchResetNotice(undefined);
+      }
       setFilters((prev) => ({ ...prev, [key]: value }));
     },
     [],
@@ -2003,18 +2279,39 @@ export const Grid = React.memo((props: GridProps) => {
       const selected = resolvedKey as SearchByOption;
       if (isSalesSearch) {
         onSearchDirty?.();
-        setFilters({
+        resetSalesSearchValidationUi();
+        const nextFilters = {
           ...createDefaultGridFilters(),
           searchBy: selected,
+        };
+        const hasSalesSearchValues =
+          !!(filters.saleId ?? '').trim()
+          || !!(filters.taskId ?? '').trim()
+          || !!(filters.uprn ?? '').trim()
+          || !!(filters.address ?? '').trim()
+          || !!(filters.buildingNameNumber ?? '').trim()
+          || !!(filters.street ?? '').trim()
+          || !!(filters.townCity ?? '').trim()
+          || !!(filters.postcode ?? '').trim()
+          || (filters.billingAuthority?.length ?? 0) > 0
+          || !!(filters.bacode ?? '').trim();
+        setSearchResetNotice(
+          filters.searchBy !== selected && hasSalesSearchValues
+            ? SEARCH_BY_RESET_NOTICE
+            : undefined,
+        );
+        setFilters({
+          ...nextFilters,
         });
         return;
       }
+      setSearchResetNotice(undefined);
       setFilters((prev) => ({
         ...prev,
         searchBy: selected,
       }));
     },
-    [isSalesSearch, onSearchDirty, searchByOptions],
+    [filters, isSalesSearch, onSearchDirty, resetSalesSearchValidationUi, searchByOptions],
   );
 
   type NumericFilterKey = 'salePrice' | 'ratio' | 'outlierRatio';
@@ -2089,6 +2386,11 @@ export const Grid = React.memo((props: GridProps) => {
     }
     return 'UPRN must be 8 to 10 digits';
   }, [filters.searchBy, filters.uprn, isSalesSearch, lengthErrors.uprn]);
+  const displaySaleIdError = salesSearchRequiredErrors.saleId ?? saleIdError;
+  const displayTaskIdError = salesSearchRequiredErrors.taskId ?? taskIdError;
+  const displayUprnError = salesSearchRequiredErrors.uprn ?? uprnError;
+  const displayBillingAuthorityError = billingAuthorityOptionsError ?? salesSearchRequiredErrors.billingAuthority ?? billingAuthorityError;
+  const displayBillingAuthorityRefError = salesSearchRequiredErrors.bacode ?? billingAuthorityRefError;
 
   const salesSearchCanSearch = React.useMemo(() => {
     if (!isSalesSearch) return true;
@@ -2127,6 +2429,59 @@ export const Grid = React.memo((props: GridProps) => {
         return false;
     }
   }, [filters, isSalesSearch, isValidUkPostcode, normalizeUkPostcode]);
+  const getFirstInvalidSalesSearchFieldId = React.useCallback((): string | undefined => {
+    if (!isSalesSearch) return undefined;
+
+    const saleIdValue = sanitizeAlphaNumHyphen(filters.saleId, ID_FIELD_MAX_LENGTH).trim();
+    const taskIdValue = sanitizeTaskIdInput(filters.taskId, ID_FIELD_MAX_LENGTH).trim();
+    const uprnValue = (filters.uprn ?? '').trim();
+    const billingAuthorityValue = (filters.billingAuthority?.[0] ?? '').trim();
+    const billingAuthorityRefValue = (filters.bacode ?? '').trim();
+    const postcodeValue = normalizeUkPostcode(filters.postcode ?? '').trim();
+
+    switch (filters.searchBy) {
+      case 'saleId':
+        return saleIdValue.length === 0 || !!saleIdError ? 'sales-saleid' : undefined;
+      case 'taskId':
+        return taskIdValue.length === 0 || !!taskIdError ? 'sales-taskid' : undefined;
+      case 'uprn':
+        return uprnValue.length === 0 || !!uprnError ? 'sales-uprn' : undefined;
+      case 'billingAuthority':
+        if (!!billingAuthorityOptionsError || billingAuthorityValue.length === 0) {
+          return 'sales-billingauthority';
+        }
+        if (billingAuthorityRefValue.length === 0) {
+          return 'sales-bacode';
+        }
+        return undefined;
+      case 'address': {
+        if (postcodeValue.length > 0 && postcodeError) {
+          return 'sales-postcode';
+        }
+        if (streetError) {
+          return 'sales-street';
+        }
+        if (townError) {
+          return 'sales-towncity';
+        }
+        if (addressError) {
+          return 'sales-buildingnamenumber';
+        }
+        return undefined;
+      }
+      default:
+        return undefined;
+    }
+  }, [addressError, billingAuthorityOptionsError, filters.bacode, filters.billingAuthority, filters.postcode, filters.saleId, filters.searchBy, filters.taskId, filters.uprn, isSalesSearch, normalizeUkPostcode, postcodeError, saleIdError, streetError, taskIdError, townError, uprnError]);
+  const handleSalesSearchUnavailableAttempt = React.useCallback(() => {
+    if (!isSalesSearch) return;
+    setSalesSearchAttempted(true);
+    const fieldId = getFirstInvalidSalesSearchFieldId();
+    if (!fieldId) return;
+    window.setTimeout(() => {
+      focusSalesSearchFieldById(fieldId);
+    }, 0);
+  }, [getFirstInvalidSalesSearchFieldId, isSalesSearch]);
 
   const salesSearchHasErrors = React.useMemo(() => {
     if (!isSalesSearch) return false;
@@ -2206,6 +2561,8 @@ export const Grid = React.memo((props: GridProps) => {
         next.postcode = normalizeUkPostcode(filters.postcode ?? '').trim() || undefined;
       }
       setFilters(next);
+      setSearchResetNotice(undefined);
+      setSalesSearchAttempted(false);
       dismissResultMessages();
       onSearch(next);
       return;
@@ -2219,6 +2576,7 @@ export const Grid = React.memo((props: GridProps) => {
       return;
     }
     setFilters(sanitized);
+    setSearchResetNotice(undefined);
     dismissResultMessages();
     onSearch(sanitized);
   }, [
@@ -2242,10 +2600,14 @@ export const Grid = React.memo((props: GridProps) => {
     const defaults = isSalesSearch
       ? { ...createDefaultGridFilters(), searchBy: 'address' as SearchByOption }
       : createDefaultGridFilters();
+    if (isSalesSearch) {
+      resetSalesSearchValidationUi();
+    }
     setFilters(defaults);
+    setSearchResetNotice(undefined);
     dismissResultMessages();
     onSearch(defaults);
-  }, [dismissResultMessages, isSalesSearch, onSearch]);
+  }, [dismissResultMessages, isSalesSearch, onSearch, resetSalesSearchValidationUi]);
 
   const showPostcodeHint = React.useMemo(() => {
     if (isSalesSearch) {
@@ -2261,29 +2623,25 @@ export const Grid = React.memo((props: GridProps) => {
     async (
       item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
       column?: IColumn,
-      forceLoader = false,
+      _forceLoader = false,
     ) => {
       if (!item) return;
-      const rec = item as { saleid?: unknown; saleId?: unknown };
-      const saleIdRaw = rec.saleid ?? rec.saleId;
-      const saleId = typeof saleIdRaw === 'string' ? saleIdRaw : undefined;
-      // Show the overlay whenever the item carries a saleId — that is the
-      // real signal that onTaskClick (index.ts) will fire an async API call
-      // regardless of which cell, button, or keyboard event triggered navigation.
-      // forceLoader is kept for callers that want to force the overlay even
-      // when saleId is not yet resolved on the record object (e.g. View Sale
-      // button when selection state is async).
-      const shouldShowLoader = forceLoader ? true : Boolean(saleId);
-      let requestId = 0;
-      if (shouldShowLoader) {
-        viewSaleRequestSeq.current += 1;
-        requestId = viewSaleRequestSeq.current;
-        setViewSaleLoading(true);
+      if (viewSaleNavigationLockRef.current) {
+        return;
       }
+      viewSaleNavigationLockRef.current = true;
+      viewSaleRequestSeq.current += 1;
+      const requestId = viewSaleRequestSeq.current;
+      setViewSaleNavigationPending(true);
+      // Canvas owns the navigation loader for sales-record transitions.
+      // Keep the PCF responsive but ignore repeat activations until the current
+      // navigation attempt settles.
       try {
         await Promise.resolve(onNavigate(item));
       } finally {
-        if (shouldShowLoader && viewSaleRequestSeq.current === requestId) {
+        if (viewSaleRequestSeq.current === requestId) {
+          viewSaleNavigationLockRef.current = false;
+          setViewSaleNavigationPending(false);
           setViewSaleLoading(false);
         }
       }
@@ -2317,6 +2675,23 @@ export const Grid = React.memo((props: GridProps) => {
         if (lowerName === 'saleprice' || lowerName === 'ratio' || lowerName === 'outlierratio') {
           columnClassNames.push('voa-col-numeric-cell');
           headerClassName = headerClassName ? `${headerClassName} voa-col-numeric-header` : 'voa-col-numeric-header';
+        }
+        const usesTabularNumerals = [
+          'saleid',
+          'taskid',
+          'uprn',
+          'transactiondate',
+          'saleprice',
+          'ratio',
+          'outlierratio',
+          'assigneddate',
+          'taskcompleteddate',
+          'qcassigneddate',
+          'qccompleteddate',
+        ].includes(lowerName);
+        if (usesTabularNumerals) {
+          columnClassNames.push('voa-col-tabular-cell');
+          headerClassName = headerClassName ? `${headerClassName} voa-col-tabular-header` : 'voa-col-tabular-header';
         }
         if (lowerName === 'ratio' || lowerName === 'outlierratio') {
           columnClassNames.push('voa-col-numeric-gap-right-cell');
@@ -2521,8 +2896,16 @@ export const Grid = React.memo((props: GridProps) => {
       const columnName = c.name ?? String(field ?? '');
       const sortState = sort ? (Number(sort.sortDirection) === 1 ? 'sorted descending' : 'sorted ascending') : 'not sorted';
       const filterState = activeFilter ? 'filtered' : 'not filtered';
+      const hasActiveColumnState = sort !== undefined || activeFilter;
+      const headerClassName = joinClassNames(
+        c.headerClassName,
+        hasActiveColumnState && 'voa-col-header--active',
+        sort && 'voa-col-header--sorted',
+        activeFilter && 'voa-col-header--filtered',
+      );
       return {
         ...c,
+        headerClassName,
         iconName,
         isFiltered: activeFilter,
         isSorted: !!sort,
@@ -2546,15 +2929,82 @@ export const Grid = React.memo((props: GridProps) => {
     );
   }, [columnFiltersState, disableClientFiltering, getFilterableText, items, tableKey]);
 
+  React.useEffect(() => {
+    if (!showResults) {
+      setHorizontalOverflowState((prev) => (
+        prev.hasOverflow || prev.canScrollLeft || prev.canScrollRight
+          ? { hasOverflow: false, canScrollLeft: false, canScrollRight: false }
+          : prev
+      ));
+      return;
+    }
+    const element = resultsRef.current;
+    if (!element) return;
+    const handleScroll = () => updateHorizontalOverflowState();
+    handleScroll();
+    element.addEventListener('scroll', handleScroll, { passive: true });
+    let observer: ResizeObserver | undefined;
+    const content = element.querySelector('.voa-grid-list');
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => handleScroll());
+      observer.observe(element);
+      if (content instanceof HTMLElement) {
+        observer.observe(content);
+      }
+    } else {
+      window.addEventListener('resize', handleScroll);
+    }
+    return () => {
+      element.removeEventListener('scroll', handleScroll);
+      observer?.disconnect();
+      if (!observer) {
+        window.removeEventListener('resize', handleScroll);
+      }
+    };
+  }, [
+    columnsWithIcons.length,
+    currentPage,
+    filteredItems.length,
+    itemsLoading,
+    shimmer,
+    showResults,
+    updateHorizontalOverflowState,
+  ]);
+
+  const resultTotal = React.useMemo(
+    () => (typeof taskCount === 'number' ? taskCount : filteredItems.length),
+    [filteredItems.length, taskCount],
+  );
+
   const selectionSummaryText = React.useMemo(() => {
     const template = commonText.selectionControls.selectionSummaryText;
-    const resultTotal = typeof taskCount === 'number' ? taskCount : filteredItems.length;
     return formatTemplate(template, {
       selected: selectedCount,
       pageTotal: pageItemCount,
       resultTotal,
     });
-  }, [commonText.selectionControls.selectionSummaryText, filteredItems.length, pageItemCount, selectedCount, taskCount]);
+  }, [commonText.selectionControls.selectionSummaryText, pageItemCount, resultTotal, selectedCount]);
+
+  const resultsSummaryText = React.useMemo(() => {
+    if (resultTotal === 0 || pageItemCount === 0) {
+      return commonText.selectionControls.resultsSummaryEmptyText;
+    }
+    const effectivePageSize = Math.max(pageSize ?? pageItemCount, pageItemCount);
+    const from = currentPage * effectivePageSize + 1;
+    const to = Math.min(from + pageItemCount - 1, resultTotal);
+    return formatTemplate(commonText.selectionControls.resultsSummaryText, {
+      from,
+      to,
+      total: resultTotal,
+    });
+  }, [
+    commonText.selectionControls.resultsSummaryEmptyText,
+    commonText.selectionControls.resultsSummaryText,
+    currentPage,
+    pageItemCount,
+    pageSize,
+    resultTotal,
+  ]);
 
   const clearAllColumnFilters = React.useCallback(() => {
     setColumnFilters(() => {
@@ -2637,6 +3087,7 @@ export const Grid = React.memo((props: GridProps) => {
           <>
             <Stack.Item styles={{ root: { minWidth: 220 } }}>
               <TextField
+                id="sales-buildingnamenumber"
                 label={salesSearchText.fields.buildingNameNumber}
                 placeholder={salesSearchText.placeholders.buildingNameNumber}
                 title={buildingTitle}
@@ -2648,6 +3099,7 @@ export const Grid = React.memo((props: GridProps) => {
             </Stack.Item>
             <Stack.Item styles={{ root: { minWidth: 220 } }}>
               <TextField
+                id="sales-street"
                 label={salesSearchText.fields.street}
                 placeholder={salesSearchText.placeholders.street}
                 title={streetTitle}
@@ -2659,6 +3111,7 @@ export const Grid = React.memo((props: GridProps) => {
             </Stack.Item>
             <Stack.Item styles={{ root: { minWidth: 220 } }}>
               <TextField
+                id="sales-towncity"
                 label={salesSearchText.fields.townCity}
                 placeholder={salesSearchText.placeholders.townCity}
                 title={townTitle}
@@ -2670,6 +3123,7 @@ export const Grid = React.memo((props: GridProps) => {
             </Stack.Item>
             <Stack.Item styles={{ root: { minWidth: 200 } }}>
               <TextField
+                id="sales-postcode"
                 label={salesSearchText.fields.postcode}
                 placeholder={salesSearchText.placeholders.postcode}
                 title={postcodeTitle}
@@ -2702,17 +3156,19 @@ export const Grid = React.memo((props: GridProps) => {
           <>
             <Stack.Item styles={{ root: { minWidth: 240 } }}>
               <ComboBox
+                id="sales-billingauthority"
                 label={salesSearchText.fields.billingAuthority}
+                ariaLabel={formatRequiredAriaLabel(salesSearchText.fields.billingAuthority, true)}
                 aria-describedby={buildAriaDescribedBy(billingAuthorityHint ? billingAuthorityHintId : undefined)}
                 placeholder={salesSearchText.placeholders.billingAuthority}
                 title={billingAuthorityTitle}
+                onRenderLabel={() => renderSalesSearchLabel(salesSearchText.fields.billingAuthority, true)}
                 options={filteredBillingAuthorityOptionsList}
                 selectedKey={comboEditing.salesBillingAuthority ? null : authority}
                 allowFreeform={false}
                 allowFreeInput
                 autoComplete="off"
                 text={comboEditing.salesBillingAuthority ? billingAuthoritySearch : undefined}
-                disabled={billingAuthorityOptionsLoading}
                 onChange={(event, opt, _index, value) => {
                   if (consumeComboIgnoreNextChange('salesBillingAuthority', opt)) return;
                   if (shouldIgnoreComboChange('salesBillingAuthority', opt)) return;
@@ -2721,11 +3177,16 @@ export const Grid = React.memo((props: GridProps) => {
                   const resolvedKey = opt?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, authority);
                   if (!resolvedKey || resolvedKey === '__loading__' || resolvedKey === '__error__') return;
                   const next = String(resolvedKey ?? '');
+                  setComboCancelNextDismiss('salesBillingAuthority');
                   updateFilters('billingAuthority', next ? [next] : undefined);
                   setComboEditingFor('salesBillingAuthority', false);
                   setBillingAuthoritySearch('');
                 }}
                 onKeyDownCapture={(event) => {
+                  if (event.key === 'Escape') {
+                    setComboCancelNextDismiss('salesBillingAuthority');
+                    return;
+                  }
                   const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
                   if (!isEnter) return;
                   const inputValue = getComboInputValue(event) || billingAuthoritySearch;
@@ -2747,7 +3208,7 @@ export const Grid = React.memo((props: GridProps) => {
                   );
                 }}
                 onInputValueChange={(value) => {
-                  const next = normalizeSingleSelectSearchText(value, billingAuthorityOptionsList, authority);
+                  const next = normalizeSingleSelectSearchText(value, billingAuthorityOptionsList);
                   if (!next) {
                     setComboEditingFor('salesBillingAuthority', false);
                     setBillingAuthoritySearch('');
@@ -2777,10 +3238,23 @@ export const Grid = React.memo((props: GridProps) => {
                   );
                 }}
                 onMenuDismissed={() => {
+                  if (!consumeComboCancelNextDismiss('salesBillingAuthority')) {
+                    commitComboSingleSelectOnDismiss(
+                      billingAuthoritySearch,
+                      billingAuthorityOptionsList,
+                      authority,
+                      (opt) => {
+                        if (!opt || opt.key === '__loading__' || opt.key === '__error__') return;
+                        const next = String(opt.key ?? '');
+                        updateFilters('billingAuthority', next ? [next] : undefined);
+                      },
+                    );
+                  }
                   setComboEditingFor('salesBillingAuthority', false);
                   setBillingAuthoritySearch('');
                 }}
-                errorMessage={billingAuthorityError ?? billingAuthorityOptionsError}
+                onBlur={() => markSalesSearchFieldTouched('billingAuthority')}
+                errorMessage={displayBillingAuthorityError}
                 styles={{
                   root: { width: '100%' },
                   callout: { minWidth: 240 },
@@ -2795,12 +3269,16 @@ export const Grid = React.memo((props: GridProps) => {
             </Stack.Item>
             <Stack.Item styles={{ root: { minWidth: 240 } }}>
               <TextField
+                id="sales-bacode"
                 label={salesSearchText.fields.billingAuthorityReference}
+                ariaLabel={formatRequiredAriaLabel(salesSearchText.fields.billingAuthorityReference, true)}
                 placeholder={salesSearchText.placeholders.billingAuthorityReference}
                 title={billingAuthorityRefTitle}
+                onRenderLabel={() => renderSalesSearchLabel(salesSearchText.fields.billingAuthorityReference, true)}
                 value={filters.bacode ?? ''}
                 onChange={(_, v) => updateFilters('bacode', (v ?? '').slice(0, ADDRESS_FIELD_MAX_LENGTH))}
-                errorMessage={billingAuthorityRefError}
+                onBlur={() => markSalesSearchFieldTouched('bacode')}
+                errorMessage={displayBillingAuthorityRefError}
                 maxLength={ADDRESS_FIELD_MAX_LENGTH}
               />
             </Stack.Item>
@@ -2813,12 +3291,16 @@ export const Grid = React.memo((props: GridProps) => {
         return (
           <Stack.Item styles={{ root: { minWidth: 260 } }}>
             <TextField
+              id="sales-saleid"
               label={salesSearchText.fields.saleId}
+              ariaLabel={formatRequiredAriaLabel(salesSearchText.fields.saleId, true)}
               placeholder={salesSearchText.placeholders.saleId}
               title={saleIdTitle}
+              onRenderLabel={() => renderSalesSearchLabel(salesSearchText.fields.saleId, true)}
               value={filters.saleId ?? ''}
               onChange={(_, v) => updateFilters('saleId', sanitizeAlphaNumHyphen(v, ID_FIELD_MAX_LENGTH))}
-              errorMessage={saleIdError}
+              onBlur={() => markSalesSearchFieldTouched('saleId')}
+              errorMessage={displaySaleIdError}
               maxLength={ID_FIELD_MAX_LENGTH}
             />
           </Stack.Item>
@@ -2830,12 +3312,16 @@ export const Grid = React.memo((props: GridProps) => {
         return (
           <Stack.Item styles={{ root: { minWidth: 260 } }}>
             <TextField
+              id="sales-taskid"
               label={salesSearchText.fields.taskId}
+              ariaLabel={formatRequiredAriaLabel(salesSearchText.fields.taskId, true)}
               placeholder={salesSearchText.placeholders.taskId}
               title={taskIdTitle}
+              onRenderLabel={() => renderSalesSearchLabel(salesSearchText.fields.taskId, true)}
               value={filters.taskId ?? ''}
               onChange={(_, v) => updateFilters('taskId', sanitizeTaskIdInput(v, ID_FIELD_MAX_LENGTH))}
-              errorMessage={taskIdError}
+              onBlur={() => markSalesSearchFieldTouched('taskId')}
+              errorMessage={displayTaskIdError}
               maxLength={ID_FIELD_MAX_LENGTH}
             />
           </Stack.Item>
@@ -2846,16 +3332,26 @@ export const Grid = React.memo((props: GridProps) => {
         const uprnTitle = buildValueTooltip(filters.uprn, salesSearchText.tooltips?.uprn);
         return (
           <Stack.Item styles={{ root: { minWidth: 260 } }}>
-            <TextField
-              label={salesSearchText.fields.uprn}
-              placeholder={salesSearchText.placeholders.uprn}
-              title={uprnTitle}
-              value={filters.uprn ?? ''}
-              onChange={(_, v) => updateFilters('uprn', (v ?? '').slice(0, UPRN_MAX_LENGTH))}
-              errorMessage={uprnError}
-              inputMode="numeric"
-              maxLength={UPRN_MAX_LENGTH}
-            />
+            <>
+              <TextField
+                id="sales-uprn"
+                label={salesSearchText.fields.uprn}
+                ariaLabel={formatRequiredAriaLabel(salesSearchText.fields.uprn, true)}
+                placeholder={salesSearchText.placeholders.uprn}
+                title={uprnTitle}
+                onRenderLabel={() => renderSalesSearchLabel(salesSearchText.fields.uprn, true)}
+                value={filters.uprn ?? ''}
+                onChange={(_, v) => updateFilters('uprn', sanitizeDigits(v, UPRN_MAX_LENGTH))}
+                onBlur={() => markSalesSearchFieldTouched('uprn')}
+                errorMessage={displayUprnError}
+                inputMode="numeric"
+                maxLength={UPRN_MAX_LENGTH}
+                aria-describedby={buildAriaDescribedBy('voa-sales-uprn-hint')}
+              />
+              <Text id="voa-sales-uprn-hint" variant="small" className="voa-search-field-hint">
+                {salesSearchText.hints.uprnInput}
+              </Text>
+            </>
           </Stack.Item>
         );
       }
@@ -2985,6 +3481,8 @@ export const Grid = React.memo((props: GridProps) => {
               strings={dateStrings}
               value={from}
               formatDate={formatDisplayDate}
+              allowTextInput
+              parseDateFromString={parseDateInput}
               title={fromTitle}
               onSelectDate={(d) => updateDateRange(cfg.stateKey as 'transactionDate', 'from', d)}
             />
@@ -2996,6 +3494,8 @@ export const Grid = React.memo((props: GridProps) => {
               strings={dateStrings}
               value={to}
               formatDate={formatDisplayDate}
+              allowTextInput
+              parseDateFromString={parseDateInput}
               title={toTitle}
               onSelectDate={(d) => updateDateRange(cfg.stateKey as 'transactionDate', 'to', d)}
             />
@@ -3039,11 +3539,16 @@ export const Grid = React.memo((props: GridProps) => {
               const resolvedOptions = filterComboOptions(options, searchValue);
               const resolvedKey = opt?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, selectedKey);
               if (!resolvedKey) return;
+              setComboCancelNextDismiss(cfg.key);
               updateFilters(cfg.stateKey, String(resolvedKey));
               setComboEditingFor(cfg.key, false);
               setComboSearchTextFor(cfg.key, '');
             }}
             onKeyDownCapture={(event) => {
+              if (event.key === 'Escape') {
+                setComboCancelNextDismiss(cfg.key);
+                return;
+              }
               const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
               if (!isEnter) return;
               const inputValue = getComboInputValue(event) || searchText;
@@ -3056,7 +3561,7 @@ export const Grid = React.memo((props: GridProps) => {
               }, cfg.key);
             }}
             onInputValueChange={(value) => {
-              const next = normalizeSingleSelectSearchText(value, options, selectedKey);
+              const next = normalizeSingleSelectSearchText(value, options);
               if (!next) {
                 setComboEditingFor(cfg.key, false);
                 setComboSearchTextFor(cfg.key, '');
@@ -3077,6 +3582,16 @@ export const Grid = React.memo((props: GridProps) => {
               }, cfg.key);
             }}
             onMenuDismissed={() => {
+              if (!consumeComboCancelNextDismiss(cfg.key)) {
+                commitComboSingleSelectOnDismiss(
+                  searchText,
+                  options,
+                  selectedKey,
+                  (opt) => {
+                    updateSingleSelect(cfg.stateKey, opt);
+                  },
+                );
+              }
               setComboEditingFor(cfg.key, false);
               setComboSearchTextFor(cfg.key, '');
             }}
@@ -3223,11 +3738,15 @@ export const Grid = React.memo((props: GridProps) => {
     setComboSearchTextFor,
     setComboEditingFor,
     setComboIgnoreNextInput,
+    setComboCancelNextDismiss,
     consumeComboIgnoreNextInput,
     consumeComboIgnoreNextChange,
+    consumeComboCancelNextDismiss,
     shouldIgnoreComboChange,
     commitComboSingleSelect,
+    commitComboSingleSelectOnDismiss,
     commitPrefilterMultiSelect,
+    parseDateInput,
   ]);
 
   const scheduleLiveTextFilter = React.useCallback((fieldName: string, value: string) => {
@@ -3675,13 +4194,17 @@ export const Grid = React.memo((props: GridProps) => {
             ? null
             : (
               <input
-                className="voa-assign-radio"
+                className={joinClassNames('voa-assign-radio', assignLoading ? 'voa-focusable-disabled-radio' : undefined)}
                 type="radio"
                 name="assign-user"
                 aria-label={`Select ${item.firstName} ${item.lastName}`}
+                aria-disabled={assignLoading || undefined}
                 checked={assignSelectedUserId === item.id}
-                disabled={assignLoading}
-                onChange={() => handleAssignUserSelect(item.id)}
+                title={assignLoading ? assignLoadingText : undefined}
+                onChange={() => {
+                  if (assignLoading) return;
+                  handleAssignUserSelect(item.id);
+                }}
               />
             )
         ),
@@ -3732,12 +4255,6 @@ export const Grid = React.memo((props: GridProps) => {
       };
     });
   }, [isCaseworkerView, isManagerAssign, isQcAssign, isQcView, markPrefilterHydrating, prefilterWorkThatOptions, prefilters.workThat]);
-  const caseworkerOptionsDisabled = caseworkerOptionsLoading
-    || !!caseworkerOptionsError
-    || normalizedCaseworkerOptions.length === 0;
-  const qcUserOptionsDisabled = qcUserOptionsLoading
-    || !!qcUserOptionsError
-    || normalizedQcUserOptions.length === 0;
   const prefilterUserOptions = isQcAssign && prefilters.searchBy === 'qcUser'
     ? qcUserOptionsList
     : caseworkerOptionsList;
@@ -3747,9 +4264,6 @@ export const Grid = React.memo((props: GridProps) => {
   const prefilterUserHint = caseworkerSearch.trim()
     ? getComboDisambiguationHint(prefilterUserOptionsFiltered, caseworkerSearch)
     : undefined;
-  const prefilterUserOptionsDisabled = isQcAssign && prefilters.searchBy === 'qcUser'
-    ? qcUserOptionsDisabled
-    : caseworkerOptionsDisabled;
   const prefilterUserOptionsError = isQcAssign && prefilters.searchBy === 'qcUser'
     ? qcUserOptionsError
     : caseworkerOptionsError;
@@ -3763,6 +4277,10 @@ export const Grid = React.memo((props: GridProps) => {
     ? prefilterTooltips.qcUser
     : prefilterTooltips.caseworker;
   const prefilterUserTitle = buildSelectedTooltip(caseworkerSelectedKeys, prefilterUserOptions as IComboBoxOption[], prefilterUserTooltip);
+  const prefilterUserSelectionSummary = buildCompactSelectedSummary(
+    caseworkerSelectedKeys,
+    prefilterUserOptions as IComboBoxOption[],
+  );
   const prefilterWorkThatTitle = buildSelectedTooltip(
     prefilters.workThat ? [String(prefilters.workThat)] : [],
     prefilterWorkThatOptions as IComboBoxOption[],
@@ -3772,6 +4290,10 @@ export const Grid = React.memo((props: GridProps) => {
     managerBillingSelectedKeys,
     managerBillingAuthorityOptions as IComboBoxOption[],
     prefilterTooltips.billingAuthority,
+  );
+  const prefilterBillingSelectionSummary = buildCompactSelectedSummary(
+    managerBillingSelectedKeys,
+    managerBillingAuthorityOptions as IComboBoxOption[],
   );
   const prefilterFromTitle = buildValueTooltip(
     formatDisplayDate(parseISODate(prefilters.completedFrom)),
@@ -3801,6 +4323,7 @@ export const Grid = React.memo((props: GridProps) => {
     || !prefilterHasWorkThat
     || !prefilterHasFromDate
     || !!prefilterFromDateError;
+  const prefilterRequiredLegendId = 'voa-prefilter-required-key';
   const prefilterIsDefault = isPrefilterDefault(prefilters);
   const hasColumnFilters = Object.keys(columnFiltersState).length > 0;
   const showViewSalesRecord = isViewSalesRecordEnabledFor(tableKey);
@@ -3819,6 +4342,127 @@ export const Grid = React.memo((props: GridProps) => {
   const selectFirstHelperText = commonText.selectionControls.selectFirstHelperText;
   const assignLoadingText = assignTasksText.loadingText;
   const selectionControlsDisabled = pageItemCount === 0;
+  const selectionControlsUnavailableReason = selectionControlsDisabled ? 'No rows are available on this page.' : undefined;
+  const clearSelectionUnavailableReason = selectionControlsDisabled
+    ? selectionControlsUnavailableReason
+    : selectedCount === 0
+      ? 'No rows are currently selected.'
+      : undefined;
+  const viewSalesRecordUnavailableReason = viewSaleNavigationPending
+    ? 'Opening the sales record. Please wait.'
+    : disableViewSalesRecordAction
+    ? 'Viewing the sales record is not available in this context.'
+    : selectedCount !== 1
+      ? 'Select exactly one row to view its sales record.'
+      : undefined;
+  const assignActionUnavailableReason = assignButtonState.tooltip;
+  const markPassedQcUnavailableReason = markPassedQcLoading
+    ? 'Mark Passed QC is currently in progress. Please wait.'
+    : markPassedQcButtonState.tooltip;
+  const previousPageUnavailableReason = canPrev ? undefined : 'You are already on the first page.';
+  const nextPageUnavailableReason = canNext ? undefined : 'You are already on the last page.';
+  const assignSearchUnavailableReason = assignLoading
+    ? assignTasksText.loadingAssignText
+    : assignUsersLoading
+      ? assignTasksText.loadingUsersText
+      : undefined;
+  const assignConfirmUnavailableReason = assignLoading
+    ? 'Assignment is currently in progress. Please wait.'
+    : !selectedAssignUser
+      ? 'Select a user before assigning tasks.'
+      : undefined;
+  const prefilterSearchUnavailableReason = React.useMemo(() => {
+    if (!prefilterSearchDisabled) return undefined;
+    if (!onPrefilterApply) return 'Prefilter search is not available on this screen.';
+    if (!prefilterHasOwner) {
+      if (isManagerAssign && prefilters.searchBy === 'billingAuthority') {
+        return `Select ${managerText.prefilter.labels.billingAuthority} before searching.`;
+      }
+      return `Select ${prefilterUserLabel} before searching.`;
+    }
+    if (!prefilterHasWorkThat) {
+      return `Select ${prefilterText.labels.workThat} before searching.`;
+    }
+    if (!prefilterHasFromDate) {
+      return `Select ${prefilterText.labels.fromDate} before searching.`;
+    }
+    if (prefilterFromDateError) {
+      return prefilterFromDateError;
+    }
+    return 'Complete the required prefilter fields before searching.';
+  }, [
+    isManagerAssign,
+    managerText.prefilter.labels.billingAuthority,
+    onPrefilterApply,
+    prefilterFromDateError,
+    prefilterHasFromDate,
+    prefilterHasOwner,
+    prefilterHasWorkThat,
+    prefilterSearchDisabled,
+    prefilterText.labels.fromDate,
+    prefilterText.labels.workThat,
+    prefilterUserLabel,
+    prefilters.searchBy,
+  ]);
+  const searchUnavailableReason = React.useMemo(() => {
+    if (!isSearchDisabled) return undefined;
+    if (isSalesSearch) {
+      const validationMessage = displaySaleIdError
+        ?? displayTaskIdError
+        ?? displayUprnError
+        ?? addressError
+        ?? postcodeError
+        ?? streetError
+        ?? townError
+        ?? displayBillingAuthorityError
+        ?? displayBillingAuthorityRefError;
+      if (validationMessage) {
+        return validationMessage;
+      }
+      switch (filters.searchBy) {
+        case 'saleId':
+          return 'Enter a valid Sale ID before searching.';
+        case 'taskId':
+          return 'Enter a valid Task ID before searching.';
+        case 'uprn':
+          return 'Enter a valid UPRN before searching.';
+        case 'billingAuthority':
+          return 'Select a Billing Authority and enter a Billing Authority Reference before searching.';
+        case 'address':
+          return 'Enter a valid postcode, or at least two address fields, before searching.';
+        default:
+          return 'Enter valid search criteria before searching.';
+      }
+    }
+    return uprnError
+      ?? addressError
+      ?? postcodeError
+      ?? summaryFlagError
+      ?? saleIdError
+      ?? taskIdError
+      ?? searchFieldError
+      ?? 'Enter valid search criteria before searching.';
+  }, [
+    addressError,
+    displayBillingAuthorityError,
+    displayBillingAuthorityRefError,
+    displaySaleIdError,
+    displayTaskIdError,
+    displayUprnError,
+    filters.searchBy,
+    isSalesSearch,
+    isSearchDisabled,
+    postcodeError,
+    searchFieldError,
+    streetError,
+    summaryFlagError,
+    townError,
+  ]);
+  const salesSearchShowsRequiredFields = React.useMemo(
+    () => isSalesSearch && filters.searchBy === 'billingAuthority',
+    [filters.searchBy, isSalesSearch],
+  );
+  const showSalesSearchUnavailableNote = isSalesSearch && isSearchDisabled && !!searchUnavailableReason;
   const showGridToolbar = !!showResults
     && (showSelectionControls
       || hasColumnFilters
@@ -3826,6 +4470,21 @@ export const Grid = React.memo((props: GridProps) => {
       || showViewSalesRecord
       || showAssign
       || showMarkPassedQc);
+
+  const renderPrefilterLabel = React.useCallback((
+    text: string,
+    options?: {
+      htmlFor?: string;
+      id?: string;
+      className?: string;
+      required?: boolean;
+    },
+  ) => renderLabelWithRequired(text, options), []);
+
+  const renderSalesSearchLabel = React.useCallback((
+    text: string,
+    required?: boolean,
+  ) => renderLabelWithRequired(text, { required: required ?? false }), []);
 
   const menuItems = React.useMemo<IContextualMenuItem[]>(() => {
     if (!menuState) return [];
@@ -4016,7 +4675,6 @@ export const Grid = React.memo((props: GridProps) => {
                       const next = normalizeSingleSelectSearchText(
                         value,
                         options,
-                        typeof menuFilterValue === 'string' ? menuFilterValue : undefined,
                       );
                       if (!next) {
                         setComboEditingFor(menuFilterKey, false);
@@ -4262,6 +4920,8 @@ export const Grid = React.memo((props: GridProps) => {
                 strings={dateStrings}
                 value={parseISODate(dateVal.from)}
                 formatDate={formatDisplayDate}
+                allowTextInput
+                parseDateFromString={parseDateInput}
                 onSelectDate={(d) =>
                   setMenuFilterValue((prev) => {
                     const current = (prev as DateRangeFilter) ?? {};
@@ -4275,6 +4935,8 @@ export const Grid = React.memo((props: GridProps) => {
                 strings={dateStrings}
                 value={parseISODate(dateVal.to)}
                 formatDate={formatDisplayDate}
+                allowTextInput
+                parseDateFromString={parseDateInput}
                 onSelectDate={(d) =>
                   setMenuFilterValue((prev) => {
                     const current = (prev as DateRangeFilter) ?? {};
@@ -4310,10 +4972,13 @@ export const Grid = React.memo((props: GridProps) => {
           <div style={{ padding: '0 12px 12px', width: 280 }}>
             {renderControl()}
             <Stack horizontal tokens={{ childrenGap: 8 }} style={{ marginTop: 8 }}>
-              <PrimaryButton
+              <FocusableActionButton
+                buttonType="primary"
                 text={commonText.columnMenu.apply}
                 onClick={applyFilter}
-                disabled={applyDisabled}
+                unavailable={applyDisabled}
+                unavailableReason="Enter or select a filter value before applying."
+                unavailableReasonId="voa-column-filter-apply-unavailable"
                 ariaLabel={`Apply filter for ${columnName}`}
               />
               <DefaultButton text={commonText.columnMenu.clear} onClick={clearFilter} ariaLabel={`Clear filter for ${columnName}`} />
@@ -4344,6 +5009,7 @@ export const Grid = React.memo((props: GridProps) => {
     commitComboSingleSelect,
     commitPrefilterMultiSelect,
     dateStrings,
+    parseDateInput,
     parseISODate,
     formatDisplayDate,
     toISODateString,
@@ -4356,7 +5022,11 @@ export const Grid = React.memo((props: GridProps) => {
   return (
     <ThemeProvider theme={theme}>
       <div
-        className={`voa-grid-shell${useAssignmentLayout ? ' voa-grid-shell--assignment' : ''}`}
+        className={joinClassNames(
+          'voa-grid-shell',
+          useAssignmentLayout && 'voa-grid-shell--assignment',
+          hasSelectionColumn && 'voa-grid-shell--selection',
+        )}
         style={{ height, display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}
         ref={topRef}
         tabIndex={-1}
@@ -4367,6 +5037,12 @@ export const Grid = React.memo((props: GridProps) => {
           <a href="#voa-grid-results">{commonText.aria.skipToResults}</a>
           <a href="#voa-grid-pagination">{commonText.aria.skipToPagination}</a>
         </div>
+        {viewSaleNavigationPending && (
+          <div className="voa-view-sale-pending-note" role="status" aria-live="polite" aria-label={viewSaleLoadingText}>
+            <Spinner size={SpinnerSize.small} aria-hidden />
+            <span>{viewSaleLoadingText}</span>
+          </div>
+        )}
         {viewSaleLoading && (
           <div className="voa-view-sale-overlay" role="status" aria-live="polite" aria-label={viewSaleLoadingText}>
             <Spinner size={SpinnerSize.large} label={viewSaleLoadingText} />
@@ -4451,19 +5127,30 @@ export const Grid = React.memo((props: GridProps) => {
             </div>
           )}
           {(isManagerAssign || isCaseworkerView || isQcAssign || isQcView) && prefilterExpanded && (
+        <div id="voa-prefilter-panel">
+        <Text id={prefilterRequiredLegendId} variant="small" className="voa-prefilter-required-key">
+          {prefilterText.accessibility.requiredFieldKey}
+        </Text>
+        {prefilterResetNotice && (
+          <Text variant="small" className="voa-prefilter-reset-note">
+            {prefilterResetNotice}
+          </Text>
+        )}
         <Stack
           horizontal
           wrap
           verticalAlign="end"
           tokens={{ childrenGap: 16 }}
-          id="voa-prefilter-panel"
           className={`voa-prefilter-bar${useAssignmentLayout ? ' voa-prefilter-bar--inline' : ''}${prefilterNeedsCompletedDates ? '' : ' voa-prefilter-bar--no-date'}${isCaseworkerView ? ' voa-prefilter-bar--caseworker' : ''}${prefilterOwnerHidden ? ' voa-prefilter-bar--no-owner' : ''}${isQcView ? ' voa-prefilter-bar--qcview' : ''}`}
         >
           {(isManagerAssign || isQcAssign) && (
             <>
               <Stack.Item className="voa-prefilter-col voa-prefilter-col-searchby-label">
                 <div className="voa-prefilter-field">
-                  <Label htmlFor="prefilter-searchby" className="voa-prefilter-label">{prefilterText.labels.searchBy}</Label>
+                  {renderPrefilterLabel(prefilterText.labels.searchBy, {
+                    htmlFor: 'prefilter-searchby',
+                    className: 'voa-prefilter-label',
+                  })}
                 </div>
               </Stack.Item>
               <Stack.Item className="voa-prefilter-col voa-prefilter-col-searchby-field">
@@ -4486,11 +5173,16 @@ export const Grid = React.memo((props: GridProps) => {
                       );
                       const resolvedKey = option?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, prefilters.searchBy);
                       if (!resolvedKey) return;
+                      setComboCancelNextDismiss('prefilterSearchBy');
                       onPrefilterSearchByChange(event, { key: resolvedKey } as IComboBoxOption);
                       setComboEditingFor('prefilterSearchBy', false);
                       setPrefilterSearchBySearch('');
                     }}
                     onKeyDownCapture={(event) => {
+                      if (event.key === 'Escape') {
+                        setComboCancelNextDismiss('prefilterSearchBy');
+                        return;
+                      }
                       const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
                       if (!isEnter) return;
                       const inputValue = getComboInputValue(event) || prefilterSearchBySearch;
@@ -4520,7 +5212,6 @@ export const Grid = React.memo((props: GridProps) => {
                       const next = normalizeSingleSelectSearchText(
                         value,
                         prefilterSearchByOptions as IComboBoxOption[],
-                        prefilters.searchBy,
                       );
                       if (!next) {
                         setComboEditingFor('prefilterSearchBy', false);
@@ -4552,6 +5243,14 @@ export const Grid = React.memo((props: GridProps) => {
                       );
                     }}
                     onMenuDismissed={() => {
+                      if (!consumeComboCancelNextDismiss('prefilterSearchBy')) {
+                        commitComboSingleSelectOnDismiss(
+                          prefilterSearchBySearch,
+                          prefilterSearchByOptions as IComboBoxOption[],
+                          prefilters.searchBy,
+                          (opt) => onPrefilterSearchByChange({} as React.FormEvent<IComboBox>, opt),
+                        );
+                      }
                       setComboEditingFor('prefilterSearchBy', false);
                       setPrefilterSearchBySearch('');
                     }}
@@ -4572,14 +5271,18 @@ export const Grid = React.memo((props: GridProps) => {
                 <>
                   <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner-label">
                     <div className="voa-prefilter-field">
-                      <Label htmlFor="prefilter-billing" className="voa-prefilter-label">{managerText.prefilter.labels.billingAuthority}</Label>
+                      {renderPrefilterLabel(managerText.prefilter.labels.billingAuthority, {
+                        htmlFor: 'prefilter-billing',
+                        className: 'voa-prefilter-label',
+                        required: true,
+                      })}
                     </div>
                   </Stack.Item>
                   <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner-field">
                     <div className="voa-prefilter-field">
                       <ComboBox
                         id="prefilter-billing"
-                        ariaLabel={managerText.prefilter.labels.billingAuthority}
+                        ariaLabel={formatRequiredAriaLabel(managerText.prefilter.labels.billingAuthority, true)}
                         aria-describedby={buildAriaDescribedBy(prefilterBillingHint ? 'prefilter-billing-hint' : undefined)}
                         placeholder={managerText.prefilter.placeholders.billingAuthority}
                         title={prefilterBillingTitle}
@@ -4592,7 +5295,6 @@ export const Grid = React.memo((props: GridProps) => {
                           setComboIgnoreNextInput('prefilterBilling');
                           setManagerBillingSearch('');
                         }}
-                        disabled={billingAuthorityOptionsLoading}
                         allowFreeform={false}
                         allowFreeInput
                         autoComplete="off"
@@ -4634,6 +5336,13 @@ export const Grid = React.memo((props: GridProps) => {
                           {prefilterBillingHint}
                         </Text>
                       )}
+                      {prefilterBillingSelectionSummary && (
+                        <TooltipHost content={prefilterBillingTitle ?? prefilterBillingSelectionSummary}>
+                          <Text variant="small" className="voa-prefilter-selection-summary">
+                            {prefilterBillingSelectionSummary}
+                          </Text>
+                        </TooltipHost>
+                      )}
                     </div>
                   </Stack.Item>
                 </>
@@ -4642,14 +5351,18 @@ export const Grid = React.memo((props: GridProps) => {
                 <>
                   <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner-label">
                     <div className="voa-prefilter-field">
-                      <Label htmlFor={prefilterUserId} className="voa-prefilter-label">{prefilterUserLabel}</Label>
+                      {renderPrefilterLabel(prefilterUserLabel, {
+                        htmlFor: prefilterUserId,
+                        className: 'voa-prefilter-label',
+                        required: true,
+                      })}
                     </div>
                   </Stack.Item>
                   <Stack.Item className="voa-prefilter-col voa-prefilter-col-owner-field">
                     <div className="voa-prefilter-field">
                       <ComboBox
                         id={prefilterUserId}
-                        ariaLabel={prefilterUserLabel}
+                        ariaLabel={formatRequiredAriaLabel(prefilterUserLabel, true)}
                         aria-describedby={buildAriaDescribedBy(
                           prefilterUserHint ? 'prefilter-user-hint' : undefined,
                           prefilterUserOptionsError ? 'prefilter-user-error' : undefined,
@@ -4665,7 +5378,6 @@ export const Grid = React.memo((props: GridProps) => {
                           setComboIgnoreNextInput('prefilterCaseworker');
                           setCaseworkerSearch('');
                         }}
-                        disabled={prefilterUserOptionsDisabled}
                         allowFreeform={false}
                         allowFreeInput
                         autoComplete="off"
@@ -4707,6 +5419,13 @@ export const Grid = React.memo((props: GridProps) => {
                           {prefilterUserHint}
                         </Text>
                       )}
+                      {prefilterUserSelectionSummary && (
+                        <TooltipHost content={prefilterUserTitle ?? prefilterUserSelectionSummary}>
+                          <Text variant="small" className="voa-prefilter-selection-summary">
+                            {prefilterUserSelectionSummary}
+                          </Text>
+                        </TooltipHost>
+                      )}
                       {prefilterUserOptionsError && (
                         <Text id="prefilter-user-error" variant="small" styles={{ root: { color: theme.palette.redDark, marginTop: 2 } }}>
                           {prefilterUserOptionsError}
@@ -4720,14 +5439,18 @@ export const Grid = React.memo((props: GridProps) => {
           )}
           <Stack.Item className="voa-prefilter-col voa-prefilter-col-workthat-label">
             <div className="voa-prefilter-field">
-              <Label htmlFor="prefilter-workthat" className="voa-prefilter-label">{prefilterText.labels.workThat}</Label>
+              {renderPrefilterLabel(prefilterText.labels.workThat, {
+                htmlFor: 'prefilter-workthat',
+                className: 'voa-prefilter-label',
+                required: true,
+              })}
             </div>
           </Stack.Item>
           <Stack.Item className="voa-prefilter-col voa-prefilter-col-workthat-field">
             <div className="voa-prefilter-field">
               <ComboBox
                 id="prefilter-workthat"
-                ariaLabel={prefilterText.labels.workThat}
+                ariaLabel={formatRequiredAriaLabel(prefilterText.labels.workThat, true)}
                 aria-describedby={buildAriaDescribedBy(prefilterWorkThatHint ? 'prefilter-workthat-hint' : undefined)}
                 placeholder={prefilterText.placeholders.workThat}
                 title={prefilterWorkThatTitle}
@@ -4744,6 +5467,7 @@ export const Grid = React.memo((props: GridProps) => {
                   );
                   const resolvedKey = option?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, prefilters.workThat);
                   if (!resolvedKey) return;
+                  setComboCancelNextDismiss('prefilterWorkThat');
                   onPrefilterWorkThatChange(event, { key: resolvedKey } as IComboBoxOption);
                   setComboEditingFor('prefilterWorkThat', false);
                   setPrefilterWorkThatSearch('');
@@ -4753,6 +5477,10 @@ export const Grid = React.memo((props: GridProps) => {
                 autoComplete="off"
                 text={comboEditing.prefilterWorkThat ? prefilterWorkThatSearch : undefined}
                 onKeyDownCapture={(event) => {
+                  if (event.key === 'Escape') {
+                    setComboCancelNextDismiss('prefilterWorkThat');
+                    return;
+                  }
                   const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
                   if (!isEnter) return;
                   const inputValue = getComboInputValue(event) || prefilterWorkThatSearch;
@@ -4775,11 +5503,10 @@ export const Grid = React.memo((props: GridProps) => {
                   );
                 }}
                 onInputValueChange={(value) => {
-                  const next = normalizeSingleSelectSearchText(
-                    value,
-                    prefilterWorkThatOptions as IComboBoxOption[],
-                    prefilters.workThat,
-                  );
+                      const next = normalizeSingleSelectSearchText(
+                        value,
+                        prefilterWorkThatOptions as IComboBoxOption[],
+                      );
                   if (!next) {
                     setComboEditingFor('prefilterWorkThat', false);
                     setPrefilterWorkThatSearch('');
@@ -4797,6 +5524,7 @@ export const Grid = React.memo((props: GridProps) => {
                     const enabledOptions = filteredPrefilterWorkThatOptions.filter((opt) => !opt.disabled);
                     if (enabledOptions.length === 1) {
                       event.preventDefault();
+                      setComboCancelNextDismiss('prefilterWorkThat');
                       onPrefilterWorkThatChange(event as unknown as React.FormEvent<IComboBox>, enabledOptions[0]);
                       setComboEditingFor('prefilterWorkThat', false);
                       setPrefilterWorkThatSearch('');
@@ -4821,6 +5549,14 @@ export const Grid = React.memo((props: GridProps) => {
                   );
                 }}
                 onMenuDismissed={() => {
+                  if (!consumeComboCancelNextDismiss('prefilterWorkThat')) {
+                    commitComboSingleSelectOnDismiss(
+                      prefilterWorkThatSearch,
+                      prefilterWorkThatOptions as IComboBoxOption[],
+                      prefilters.workThat,
+                      (opt) => onPrefilterWorkThatChange({} as React.FormEvent<IComboBox>, opt),
+                    );
+                  }
                   setComboEditingFor('prefilterWorkThat', false);
                   setPrefilterWorkThatSearch('');
                 }}
@@ -4841,12 +5577,11 @@ export const Grid = React.memo((props: GridProps) => {
             <>
               <Stack.Item className="voa-prefilter-col voa-prefilter-col-daterange-label">
                 <div className="voa-prefilter-field">
-                  <Label
-                    id="voa-prefilter-date-range"
-                    className="voa-prefilter-label voa-prefilter-label--daterange"
-                  >
-                    {prefilterText.labels.completedDateRange}
-                  </Label>
+                  {renderPrefilterLabel(prefilterText.labels.completedDateRange, {
+                    id: 'voa-prefilter-date-range',
+                    className: 'voa-prefilter-label voa-prefilter-label--daterange',
+                    required: true,
+                  })}
                 </div>
               </Stack.Item>
               <Stack.Item className="voa-prefilter-col voa-prefilter-col-daterange-fields">
@@ -4858,10 +5593,12 @@ export const Grid = React.memo((props: GridProps) => {
                       strings={dateStrings}
                       value={parseISODate(prefilters.completedFrom)}
                       formatDate={formatDisplayDate}
+                      allowTextInput
+                      parseDateFromString={parseDateInput}
                       onSelectDate={onPrefilterFromDateChange}
                       maxDate={today}
                       styles={{ root: { width: 180 } }}
-                      ariaLabel={prefilterText.labels.fromDate}
+                      ariaLabel={formatRequiredAriaLabel(prefilterText.labels.fromDate, true)}
                       title={prefilterFromTitle}
                     />
                     {prefilterFromDateError && (
@@ -4869,15 +5606,17 @@ export const Grid = React.memo((props: GridProps) => {
                         {prefilterFromDateError}
                       </Text>
                     )}
-                    <DatePicker
-                      placeholder={prefilterText.placeholders.completedTo}
-                      firstDayOfWeek={DayOfWeek.Monday}
-                      strings={dateStrings}
-                      value={parseISODate(prefilters.completedTo)}
-                      formatDate={formatDisplayDate}
-                      disabled
+                    <span id="voa-prefilter-to-date-note" className="voa-sr-only">
+                      {prefilterTooltips.toDate}
+                    </span>
+                    <TextField
+                      value={formatDisplayDate(parseISODate(prefilters.completedTo))}
+                      readOnly
+                      aria-disabled={true}
+                      aria-describedby="voa-prefilter-to-date-note"
+                      className="voa-focusable-disabled-field"
                       styles={{ root: { width: 180 } }}
-                      ariaLabel={prefilterText.labels.toDate}
+                      ariaLabel={`${prefilterText.labels.toDate}, calculated automatically`}
                       title={prefilterToTitle}
                     />
                   </div>
@@ -4889,11 +5628,14 @@ export const Grid = React.memo((props: GridProps) => {
             <div className="voa-prefilter-field voa-prefilter-actions">
               <span className="voa-prefilter-label-spacer" aria-hidden="true"></span>
               <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
-                <DefaultButton
+                <FocusableActionButton
                   text={prefilterText.buttons.search}
                   iconProps={{ iconName: 'Search' }}
                   onClick={handlePrefilterSearch}
-                  disabled={prefilterSearchDisabled}
+                  unavailable={prefilterSearchDisabled}
+                  unavailableReason={prefilterSearchUnavailableReason}
+                  unavailableReasonId="voa-prefilter-search-unavailable"
+                  ariaLabel={prefilterText.buttons.search}
                 />
                 {!prefilterIsDefault && (
                   <DefaultButton
@@ -4908,8 +5650,15 @@ export const Grid = React.memo((props: GridProps) => {
             </div>
           </Stack.Item>
         </Stack>
+        </div>
         )}
         {showSearchPanel && searchPanelExpanded && (
+        <>
+        {searchResetNotice && (
+          <Text variant="small" className="voa-search-reset-note">
+            {searchResetNotice}
+          </Text>
+        )}
         <Stack
           className="voa-search-panel"
           horizontal
@@ -4935,11 +5684,16 @@ export const Grid = React.memo((props: GridProps) => {
                 const resolvedOptions = filterComboOptions(searchByOptions as IComboBoxOption[], searchValue);
                 const resolvedKey = option?.key ?? resolveComboKeyFromSearch(resolvedOptions, searchValue, filters.searchBy);
                 if (!resolvedKey) return;
+                setComboCancelNextDismiss('searchBy');
                 onSearchByChange(event, { key: resolvedKey } as IComboBoxOption);
                 setComboEditingFor('searchBy', false);
                 setSearchBySearch('');
               }}
               onKeyDownCapture={(event) => {
+                if (event.key === 'Escape') {
+                  setComboCancelNextDismiss('searchBy');
+                  return;
+                }
                 const isEnter = event.key === 'Enter' || event.key === 'NumpadEnter';
                 if (!isEnter) return;
                 const inputValue = getComboInputValue(event) || searchBySearch;
@@ -4959,7 +5713,6 @@ export const Grid = React.memo((props: GridProps) => {
                 const next = normalizeSingleSelectSearchText(
                   value,
                   searchByOptions as IComboBoxOption[],
-                  filters.searchBy,
                 );
                 if (!next) {
                   setComboEditingFor('searchBy', false);
@@ -4981,6 +5734,14 @@ export const Grid = React.memo((props: GridProps) => {
                 }, 'searchBy');
               }}
               onMenuDismissed={() => {
+                if (!consumeComboCancelNextDismiss('searchBy')) {
+                  commitComboSingleSelectOnDismiss(
+                    searchBySearch,
+                    searchByOptions as IComboBoxOption[],
+                    filters.searchBy,
+                    (opt) => onSearchByChange({} as React.FormEvent<IComboBox>, opt),
+                  );
+                }
                 setComboEditingFor('searchBy', false);
                 setSearchBySearch('');
               }}
@@ -5002,11 +5763,15 @@ export const Grid = React.memo((props: GridProps) => {
               {(shimmer || itemsLoading) && (
                 <Spinner size={SpinnerSize.small} ariaLabel={commonText.aria.loadingFilterResults} />
               )}
-              <DefaultButton
+              <FocusableActionButton
                 text={commonText.buttons.search}
                 iconProps={{ iconName: 'Search' }}
                 onClick={handleSearch}
-                disabled={isSearchDisabled}
+                onUnavailableClick={isSalesSearch ? handleSalesSearchUnavailableAttempt : undefined}
+                unavailable={isSearchDisabled}
+                unavailableReason={searchUnavailableReason}
+                unavailableReasonId="voa-search-unavailable"
+                ariaLabel={commonText.buttons.search}
               />
               <DefaultButton
                 text={commonText.buttons.clearAll}
@@ -5017,7 +5782,22 @@ export const Grid = React.memo((props: GridProps) => {
               />
             </Stack>
           </Stack.Item>
+          {(salesSearchShowsRequiredFields || showSalesSearchUnavailableNote) && (
+            <Stack.Item className="voa-search-panel__meta">
+              {salesSearchShowsRequiredFields && (
+                <div className="voa-search-required-key" role="note">
+                  {salesSearchText.accessibility.requiredFieldKey}
+                </div>
+              )}
+              {showSalesSearchUnavailableNote && (
+                <div className="voa-search-unavailable-note" role="status" aria-live="polite">
+                  {searchUnavailableReason}
+                </div>
+              )}
+            </Stack.Item>
+          )}
         </Stack>
+        </>
         )}
           {showGridToolbar && (
             <div className="voa-grid-toolbar" role="toolbar" aria-label={selectionToolbarLabel}>
@@ -5031,29 +5811,42 @@ export const Grid = React.memo((props: GridProps) => {
                       <TextField
                         id="voa-select-first"
                         ariaLabel={selectFirstLabel}
-                        aria-describedby="voa-select-first-help"
+                        aria-describedby={buildAriaDescribedBy(
+                          'voa-select-first-help',
+                          selectionControlsDisabled ? 'voa-select-first-unavailable' : undefined,
+                        )}
                         value={selectFirstInput}
                         placeholder={selectFirstPlaceholder}
                         type="number"
                         min={1}
                         max={pageItemCount}
                         inputMode="numeric"
+                        readOnly={selectionControlsDisabled}
+                        aria-disabled={selectionControlsDisabled || undefined}
+                        className={selectionControlsDisabled ? 'voa-focusable-disabled-field' : undefined}
+                        title={selectionControlsUnavailableReason}
                         onChange={(_, value) => {
+                          if (selectionControlsDisabled) return;
                           setSelectFirstInput(value ?? '');
                           if (selectFirstError) {
                             setSelectFirstError(undefined);
                           }
                         }}
                         onKeyDown={(ev) => {
+                          if (selectionControlsDisabled) return;
                           if (ev.key === 'Enter') {
                             ev.preventDefault();
                             selectFirstOnPage();
                           }
                         }}
                         errorMessage={selectFirstError}
-                        disabled={selectionControlsDisabled}
                         styles={{ root: { maxWidth: 160 } }}
                       />
+                      {selectionControlsDisabled && (
+                        <span id="voa-select-first-unavailable" className="voa-sr-only">
+                          {selectionControlsUnavailableReason}
+                        </span>
+                      )}
                       <span id="voa-select-first-help" className="voa-sr-only">
                         {selectFirstHelperText}
                       </span>
@@ -5061,18 +5854,22 @@ export const Grid = React.memo((props: GridProps) => {
                         {selectFirstSuffix}
                       </Text>
                     </div>
-                    <DefaultButton
+                    <FocusableActionButton
                       text={selectFirstButtonText}
                       iconProps={{ iconName: 'Accept' }}
                       onClick={selectFirstOnPage}
-                      disabled={selectionControlsDisabled}
+                      unavailable={selectionControlsDisabled}
+                      unavailableReason={selectionControlsUnavailableReason}
+                      unavailableReasonId="voa-select-first-apply-unavailable"
                       ariaLabel={selectFirstButtonText}
                     />
-                    <DefaultButton
+                    <FocusableActionButton
                       text={clearSelectionText}
                       iconProps={{ iconName: 'Clear' }}
                       onClick={clearPageSelection}
-                      disabled={selectionControlsDisabled || selectedCount === 0}
+                      unavailable={selectionControlsDisabled || selectedCount === 0}
+                      unavailableReason={clearSelectionUnavailableReason}
+                      unavailableReasonId="voa-clear-selection-unavailable"
                       ariaLabel={clearSelectionText}
                     />
                   </div>
@@ -5088,32 +5885,38 @@ export const Grid = React.memo((props: GridProps) => {
               </div>
               <div className="voa-grid-toolbar__right">
                 {showResults && showViewSalesRecord && (
-                  <DefaultButton
+                  <FocusableActionButton
                     text={commonText.tableActions.viewSalesRecord}
                     iconProps={{ iconName: 'View' }}
                     onClick={onViewSelected}
-                    disabled={disableViewSalesRecordAction || selectedCount !== 1}
+                    unavailable={viewSaleNavigationPending || disableViewSalesRecordAction || selectedCount !== 1}
+                    unavailableReason={viewSalesRecordUnavailableReason}
+                    unavailableReasonId="voa-view-sales-record-unavailable"
                     ariaLabel={commonText.aria.viewSelectedSalesRecord}
                   />
                 )}
                 {showAssign && (
                   <TooltipHost content={assignButtonState.tooltip}>
-                    <DefaultButton
+                    <FocusableActionButton
                       text={assignActionText}
                       iconProps={{ iconName: 'AddFriend' }}
                       onClick={openAssignPanel}
-                      disabled={assignButtonState.disabled}
+                      unavailable={assignButtonState.disabled}
+                      unavailableReason={assignActionUnavailableReason}
+                      unavailableReasonId="voa-assign-action-unavailable"
                       ariaLabel={assignActionText}
                     />
                   </TooltipHost>
                 )}
                 {showMarkPassedQc && (
                   <TooltipHost content={markPassedQcButtonState.tooltip}>
-                    <DefaultButton
+                    <FocusableActionButton
                       text={markPassedQcText.buttonText}
                       iconProps={{ iconName: 'CompletedSolid' }}
                       onClick={() => { void handleMarkPassedQcClick(); }}
-                      disabled={markPassedQcButtonState.disabled || markPassedQcLoading}
+                      unavailable={markPassedQcButtonState.disabled || markPassedQcLoading}
+                      unavailableReason={markPassedQcUnavailableReason}
+                      unavailableReasonId="voa-mark-passed-qc-unavailable"
                       ariaLabel={markPassedQcText.buttonText}
                     />
                   </TooltipHost>
@@ -5122,64 +5925,81 @@ export const Grid = React.memo((props: GridProps) => {
             </div>
           )}
           {showResults && (
-            <div
-              id="voa-grid-results"
-              ref={resultsRef}
-              className="voa-grid-results"
-              data-is-scrollable="true"
-              style={{
-                flex: 1,
-                minHeight: 0,
-                minWidth: 0,
-                width: '100%',
-                maxWidth: '100%',
-                overflowY: 'scroll',
-                overflowX: 'auto',
-              }}
-              role="region"
-              aria-label={commonText.aria.resultsScrollRegion}
-              tabIndex={0}
-            >
-              <div className="voa-grid-list">
-                <ShimmeredDetailsList
-                  className={ClassNames.PowerCATFluentDetailsList}
-                  componentRef={componentRef}
-                  items={filteredItems}
-                  columns={columnsWithIcons}
-                  setKey="grid"
-                  enableShimmer={itemsLoading || shimmer}
-                  onShouldVirtualize={() => true}
-                  useReducedRowRenderer={true}
-                  enableUpdateAnimations={false}
-                  selectionMode={selectionType}
-                  selection={selection}
-                  checkboxVisibility={selectionType === SelectionMode.none ? CheckboxVisibility.hidden : CheckboxVisibility.always}
-                  constrainMode={ConstrainMode.unconstrained}
-                  layoutMode={DetailsListLayoutMode.fixedColumns}
-                  onColumnHeaderClick={onColumnHeaderClick}
-                  onColumnHeaderContextMenu={onColumnHeaderContextMenu}
-                  onItemInvoked={rowInvokeEnabled ? onItemInvoked : undefined}
-                  columnReorderOptions={props.allowColumnReorder ? columnReorderOptions : undefined}
-                  compact={compact}
-                  isHeaderVisible={isHeaderVisible}
-                />
-              </div>
-              {!itemsLoading && !shimmer && filteredItems.length === 0 && (
-                <div className="voa-empty-state" role="status" aria-live="polite">
-                  <div className="voa-empty-state__icon" aria-hidden="true">
-                    <Icon iconName="PageList" />
-                  </div>
-                  <Text variant="mediumPlus" className="voa-empty-state__title">
-                    {emptyStateText.title}
-                  </Text>
-                  {!!emptyStateText.message && (
-                    <Text variant="small" className="voa-empty-state__text">
-                      {emptyStateText.message}
-                    </Text>
-                  )}
-                </div>
+            <>
+              {horizontalOverflowState.hasOverflow && (
+                <span id="voa-grid-results-scroll-hint" className="voa-sr-only">
+                  This table scrolls horizontally. Use Shift and mouse wheel, a trackpad, or the scrollbar at the bottom to view more columns.
+                </span>
               )}
-            </div>
+              <div
+                id="voa-grid-results"
+                ref={resultsRef}
+                className={joinClassNames(
+                  'voa-grid-results',
+                  horizontalOverflowState.canScrollLeft && 'voa-grid-results--scroll-left',
+                  horizontalOverflowState.canScrollRight && 'voa-grid-results--scroll-right',
+                )}
+                data-is-scrollable="true"
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  minWidth: 0,
+                  width: '100%',
+                  maxWidth: '100%',
+                  overflowY: 'scroll',
+                  overflowX: 'auto',
+                }}
+                role="region"
+                aria-label={commonText.aria.resultsScrollRegion}
+                aria-describedby={horizontalOverflowState.hasOverflow ? 'voa-grid-results-scroll-hint' : undefined}
+                tabIndex={0}
+              >
+                {horizontalOverflowState.hasOverflow && horizontalOverflowState.canScrollRight && (
+                  <div className="voa-grid-results__overflow-hint" aria-hidden="true">
+                    {commonText.selectionControls.resultsScrollHintText}
+                  </div>
+                )}
+                <div className="voa-grid-list">
+                  <ShimmeredDetailsList
+                    className={ClassNames.PowerCATFluentDetailsList}
+                    componentRef={componentRef}
+                    items={filteredItems}
+                    columns={columnsWithIcons}
+                    setKey="grid"
+                    enableShimmer={itemsLoading || shimmer}
+                    onShouldVirtualize={() => true}
+                    useReducedRowRenderer={true}
+                    enableUpdateAnimations={false}
+                    selectionMode={selectionType}
+                    selection={selection}
+                    checkboxVisibility={selectionType === SelectionMode.none ? CheckboxVisibility.hidden : CheckboxVisibility.always}
+                    constrainMode={ConstrainMode.unconstrained}
+                    layoutMode={DetailsListLayoutMode.fixedColumns}
+                    onColumnHeaderClick={onColumnHeaderClick}
+                    onColumnHeaderContextMenu={onColumnHeaderContextMenu}
+                    onItemInvoked={rowInvokeEnabled ? onItemInvoked : undefined}
+                    columnReorderOptions={props.allowColumnReorder ? columnReorderOptions : undefined}
+                    compact={compact}
+                    isHeaderVisible={isHeaderVisible}
+                  />
+                </div>
+                {!itemsLoading && !shimmer && filteredItems.length === 0 && (
+                  <div className="voa-empty-state" role="status" aria-live="polite">
+                    <div className="voa-empty-state__icon" aria-hidden="true">
+                      <Icon iconName="PageList" />
+                    </div>
+                    <Text variant="mediumPlus" className="voa-empty-state__title">
+                      {emptyStateText.title}
+                    </Text>
+                    {!!emptyStateText.message && (
+                      <Text variant="small" className="voa-empty-state__text">
+                        {emptyStateText.message}
+                      </Text>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         {showResults && menuState && (
           <ContextualMenu
@@ -5194,6 +6014,7 @@ export const Grid = React.memo((props: GridProps) => {
           <Stack
             id="voa-grid-pagination"
             horizontal
+            wrap
             tokens={{ childrenGap: 6 }}
             className="voa-grid-pagination"
             style={{ width: '100%' }}
@@ -5202,12 +6023,17 @@ export const Grid = React.memo((props: GridProps) => {
             aria-label={commonText.aria.pagination}
             tabIndex={-1}
           >
-            <DefaultButton
-              aria-label={commonText.aria.previousPage}
+            <Text variant="small" className="voa-grid-pagination__summary">
+              {resultsSummaryText}
+            </Text>
+            <FocusableActionButton
               text={commonText.buttons.previous}
               iconProps={{ iconName: 'ChevronLeft' }}
               onClick={onPrevPage}
-              disabled={!canPrev}
+              unavailable={!canPrev}
+              unavailableReason={previousPageUnavailableReason}
+              unavailableReasonId="voa-pagination-previous-unavailable"
+              ariaLabel={commonText.aria.previousPage}
               styles={paginationButtonStyles}
             />
             {(() => {
@@ -5245,12 +6071,14 @@ export const Grid = React.memo((props: GridProps) => {
                 );
               });
             })()}
-            <DefaultButton
-              aria-label={commonText.aria.nextPage}
+            <FocusableActionButton
               text={commonText.buttons.next}
               iconProps={{ iconName: 'ChevronRight' }}
               onClick={onNextPage}
-              disabled={!canNext}
+              unavailable={!canNext}
+              unavailableReason={nextPageUnavailableReason}
+              unavailableReasonId="voa-pagination-next-unavailable"
+              ariaLabel={commonText.aria.nextPage}
               styles={paginationButtonStyles}
             />
             <Stack.Item styles={{ root: { marginLeft: 'auto' } }}>
@@ -5289,10 +6117,23 @@ export const Grid = React.memo((props: GridProps) => {
                 <SearchBox
                   placeholder={assignTasksText.searchPlaceholder}
                   ariaLabel={assignTasksText.searchPlaceholder}
+                  aria-describedby={buildAriaDescribedBy(
+                    assignSearchUnavailableReason ? 'voa-assign-search-unavailable' : undefined,
+                  )}
+                  aria-disabled={assignSearchUnavailableReason ? true : undefined}
                   value={assignSearch}
-                  onChange={(_, v) => setAssignSearch(v ?? '')}
-                  disabled={assignLoading || assignUsersLoading}
+                  onChange={(_, v) => {
+                    if (assignLoading || assignUsersLoading) return;
+                    setAssignSearch(v ?? '');
+                  }}
+                  className={assignSearchUnavailableReason ? 'voa-focusable-disabled-field' : undefined}
+                  title={assignSearchUnavailableReason}
                 />
+                {assignSearchUnavailableReason && (
+                  <span id="voa-assign-search-unavailable" className="voa-sr-only">
+                    {assignSearchUnavailableReason}
+                  </span>
+                )}
                 {assignUsersLoading && <Spinner size={SpinnerSize.small} ariaLabel={assignTasksText.loadingUsersText} />}
                 {assignLoading && (
                   <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
@@ -5333,7 +6174,7 @@ export const Grid = React.memo((props: GridProps) => {
                   }}
                 />
                 <Stack horizontal horizontalAlign="end" tokens={{ childrenGap: 12 }}>
-                  <DefaultButton
+                  <FocusableActionButton
                     text={assignActionText}
                     iconProps={{ iconName: 'AddFriend' }}
                     onClick={() => {
@@ -5341,7 +6182,9 @@ export const Grid = React.memo((props: GridProps) => {
                         void handleAssignClick(selectedAssignUser);
                       }
                     }}
-                    disabled={!selectedAssignUser || assignLoading}
+                    unavailable={!selectedAssignUser || assignLoading}
+                    unavailableReason={assignConfirmUnavailableReason}
+                    unavailableReasonId="voa-assign-confirm-unavailable"
                     ariaLabel={assignActionText}
                   />
                 </Stack>
