@@ -291,6 +291,8 @@
 
 .voa-grid-results {
   scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: #8f99a5 #f3f2f1;
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
@@ -304,13 +306,32 @@
   flex-direction: column;
   position: relative;
   box-sizing: border-box;
-  padding-bottom: var(--voa-pagination-height);
+  padding-bottom: 0;
+}
+
+.voa-grid-results::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.voa-grid-results::-webkit-scrollbar-track {
+  background: #f3f2f1;
+  border-radius: 999px;
+}
+
+.voa-grid-results::-webkit-scrollbar-thumb {
+  background: #8f99a5;
+  border-radius: 999px;
+}
+
+.voa-grid-results::-webkit-scrollbar-thumb:hover {
+  background: #6f7a86;
 }
 
 .voa-grid-results__overflow-hint {
   position: absolute;
   right: 14px;
-  bottom: calc(var(--voa-pagination-height) + 12px);
+  bottom: 12px;
   z-index: 6;
   pointer-events: none;
   padding: 6px 10px;
@@ -466,7 +487,7 @@
 
   .voa-grid-results__overflow-hint {
     right: 10px;
-    bottom: calc(var(--voa-pagination-height) + 8px);
+    bottom: 8px;
   }
 }
 
@@ -796,6 +817,10 @@
   max-width: var(--voa-selection-sticky-width);
 }
 
+.voa-grid-shell--selection .PowerCATFluentDetailsList {
+  --voa-grid-left-pad: 0px;
+}
+
 .voa-grid-shell--selection .PowerCATFluentDetailsList .ms-DetailsHeader-cellIsCheck {
   z-index: 8;
   background: #f7f7f7;
@@ -858,10 +883,8 @@
 }
 
 .voa-grid-pagination {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: static;
+  flex: 0 0 auto;
   background: #ffffff;
   padding: 8px 8px;
   border-top: 1px solid #e6e6e6;
@@ -872,6 +895,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 8px;
+  margin-bottom: 16px;
 }
 
 .voa-grid-pagination__summary {
@@ -1728,4 +1752,3 @@
     grid-row: auto;
   }
 }
-

@@ -12,11 +12,16 @@ export type ColumnFilterControl =
   | 'singleSelect'
   | 'multiSelect';
 
+export interface ColumnFilterOption {
+  key: string;
+  text: string;
+}
+
 export interface ColumnFilterConfig {
   control: ColumnFilterControl;
   minLength?: number;
   optionFields?: string[];
-  options?: string[];
+  options?: (string | ColumnFilterOption)[];
   selectAllValues?: string[];
   multiLimit?: number;
 }
@@ -57,7 +62,14 @@ const SALES_COLUMN_FILTERS: Record<string, ColumnFilterConfig> = {
   saleprice: { control: 'numeric', minLength: 1 },
   ratio: { control: 'numeric', minLength: 1 },
   dwellingtype: { control: 'multiSelect', optionFields: ['dwellingtype'], selectAllValues: ['ALL'], minLength: 1 },
-  flaggedforreview: { control: 'singleSelect', options: ['true', 'false'], minLength: 1 },
+  flaggedforreview: {
+    control: 'singleSelect',
+    options: [
+      { key: 'true', text: 'Yes' },
+      { key: 'false', text: 'No' },
+    ],
+    minLength: 1,
+  },
   reviewflags: { control: 'multiSelect', optionFields: ['reviewflags'], selectAllValues: ['ALL'], minLength: 1 },
   outlierratio: { control: 'numeric', minLength: 1 },
   overallflag: {

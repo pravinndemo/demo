@@ -3815,7 +3815,13 @@ export const Grid = React.memo((props: GridProps) => {
         seen.add(key);
         opts.push({ key, text: text ?? key });
       };
-      (cfg?.options ?? []).forEach((o) => push(o, o));
+      (cfg?.options ?? []).forEach((o) => {
+        if (typeof o === 'string') {
+          push(o, o);
+          return;
+        }
+        push(String(o.key ?? ''), o.text);
+      });
       if (cfg?.optionFields) {
         if (menuExtraOptions.length > 0) {
           menuExtraOptions

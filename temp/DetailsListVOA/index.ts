@@ -31,6 +31,11 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   ): void {
     this._context = context;
     this._notifyOutputChanged = notifyOutputChanged;
+    try {
+      context.mode.trackContainerResize(true);
+    } catch {
+      // Ignore hosts that do not support container resize tracking.
+    }
   }
 
   public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
