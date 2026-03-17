@@ -1,9 +1,13 @@
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Extensions;
+using Microsoft.Xrm.Sdk.Query;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Web;
 using VOA.Common;
 using VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model;
@@ -13,6 +17,16 @@ namespace VOA.SVT.Plugins.CustomAPI
 {
     public class SvtGetAuditLogs : PluginBase
     {
+        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        private static readonly Regex GuidTokenRegex = new Regex(
+            @"(?i)\{?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}?",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
         /// <summary>
         /// Name of the API configuration returned by voa_CredentialProvider.
         /// Expected Address example:
@@ -120,8 +134,13 @@ namespace VOA.SVT.Plugins.CustomAPI
                             return;
                         }
 
-                        localPluginContext.TracingService.Trace($"Audit logs response snippet: {Truncate(body, 200)}");
-                        context.OutputParameters["Result"] = body;
+                        var transformedBody = TransformAuditLogPayload(
+                            body,
+                            localPluginContext.SystemUserService,
+                            localPluginContext.TracingService);
+
+                        localPluginContext.TracingService.Trace($"Audit logs response snippet: {Truncate(transformedBody, 200)}");
+                        context.OutputParameters["Result"] = transformedBody;
                         localPluginContext.TracingService.Trace("SvtGetAuditLogs completed successfully.");
                     }
                     catch (Exception ex)
@@ -193,6 +212,282 @@ namespace VOA.SVT.Plugins.CustomAPI
         private static string NormalizeOptionalStringValue(string value)
             => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+        private static string TransformAuditLogPayload(
+            string responseBody,
+            IOrganizationService service,
+            ITracingService trace)
+        {
+            if (string.IsNullOrWhiteSpace(responseBody))
+            {
+                return responseBody;
+            }
+
+            try
+            {
+                var payload = JsonSerializer.Deserialize<AuditLogsPayload>(responseBody, JsonOptions);
+                if (payload?.AuditHistory == null || payload.AuditHistory.Count == 0)
+                {
+                    return responseBody;
+                }
+
+                var assigneeIds = CollectAssigneeIds(payload);
+                if (assigneeIds.Count == 0)
+                {
+                    return responseBody;
+                }
+
+                var userNames = ResolveUserNames(service, assigneeIds, trace);
+                if (userNames.Count == 0)
+                {
+                    return responseBody;
+                }
+
+                var changed = false;
+                foreach (var historyItem in payload.AuditHistory)
+                {
+                    if (historyItem?.Changes == null || historyItem.Changes.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    foreach (var change in historyItem.Changes)
+                    {
+                        if (change == null || !ShouldResolveAssigneeField(change.FieldName))
+                        {
+                            continue;
+                        }
+
+                        if (TryReplaceGuidTokensWithNames(change.OldValue, userNames, out var nextOldValue))
+                        {
+                            change.OldValue = nextOldValue;
+                            changed = true;
+                        }
+
+                        if (TryReplaceGuidTokensWithNames(change.NewValue, userNames, out var nextNewValue))
+                        {
+                            change.NewValue = nextNewValue;
+                            changed = true;
+                        }
+                    }
+                }
+
+                return changed
+                    ? JsonSerializer.Serialize(payload, JsonOptions)
+                    : responseBody;
+            }
+            catch (Exception ex)
+            {
+                trace?.Trace($"SvtGetAuditLogs transform skipped due to error: {ex}");
+                return responseBody;
+            }
+        }
+
+        private static HashSet<Guid> CollectAssigneeIds(AuditLogsPayload payload)
+        {
+            var ids = new HashSet<Guid>();
+            if (payload?.AuditHistory == null)
+            {
+                return ids;
+            }
+
+            foreach (var historyItem in payload.AuditHistory)
+            {
+                if (historyItem?.Changes == null || historyItem.Changes.Count == 0)
+                {
+                    continue;
+                }
+
+                foreach (var change in historyItem.Changes)
+                {
+                    if (change == null || !ShouldResolveAssigneeField(change.FieldName))
+                    {
+                        continue;
+                    }
+
+                    AddGuidTokens(GetJsonStringValue(change.OldValue), ids);
+                    AddGuidTokens(GetJsonStringValue(change.NewValue), ids);
+                }
+            }
+
+            return ids;
+        }
+
+        private static void AddGuidTokens(string value, ISet<Guid> ids)
+        {
+            if (string.IsNullOrWhiteSpace(value) || ids == null)
+            {
+                return;
+            }
+
+            foreach (Match match in GuidTokenRegex.Matches(value))
+            {
+                var token = match.Value.Trim('{', '}');
+                if (Guid.TryParse(token, out var id) && id != Guid.Empty)
+                {
+                    ids.Add(id);
+                }
+            }
+        }
+
+        private static bool ShouldResolveAssigneeField(string fieldName)
+        {
+            var normalized = NormalizeFieldName(fieldName);
+            return normalized == "assignedto"
+                || normalized == "qcassignedto"
+                || normalized.EndsWith("assignedto", StringComparison.Ordinal);
+        }
+
+        private static string NormalizeFieldName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var buffer = new char[value.Length];
+            var count = 0;
+
+            foreach (var ch in value)
+            {
+                if (!char.IsLetterOrDigit(ch))
+                {
+                    continue;
+                }
+
+                buffer[count++] = char.ToLowerInvariant(ch);
+            }
+
+            return new string(buffer, 0, count);
+        }
+
+        private static Dictionary<Guid, string> ResolveUserNames(
+            IOrganizationService service,
+            IEnumerable<Guid> userIds,
+            ITracingService trace)
+        {
+            var ids = userIds?
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToArray() ?? Array.Empty<Guid>();
+
+            var users = new Dictionary<Guid, string>();
+            if (service == null || ids.Length == 0)
+            {
+                return users;
+            }
+
+            const int batchSize = 200;
+            for (var i = 0; i < ids.Length; i += batchSize)
+            {
+                var batch = ids
+                    .Skip(i)
+                    .Take(batchSize)
+                    .Cast<object>()
+                    .ToArray();
+
+                var query = new QueryExpression("systemuser")
+                {
+                    ColumnSet = new ColumnSet("systemuserid", "fullname", "firstname", "lastname"),
+                    NoLock = true
+                };
+                query.Criteria.AddCondition("systemuserid", ConditionOperator.In, batch);
+
+                var result = service.RetrieveMultiple(query);
+                if (result?.Entities == null || result.Entities.Count == 0)
+                {
+                    continue;
+                }
+
+                foreach (var entity in result.Entities)
+                {
+                    var userId = entity.Id != Guid.Empty
+                        ? entity.Id
+                        : entity.GetAttributeValue<Guid>("systemuserid");
+
+                    if (userId == Guid.Empty)
+                    {
+                        continue;
+                    }
+
+                    var displayName = entity.GetAttributeValue<string>("fullname");
+                    if (string.IsNullOrWhiteSpace(displayName))
+                    {
+                        var firstName = entity.GetAttributeValue<string>("firstname") ?? string.Empty;
+                        var lastName = entity.GetAttributeValue<string>("lastname") ?? string.Empty;
+                        displayName = $"{firstName} {lastName}".Trim();
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(displayName))
+                    {
+                        users[userId] = displayName;
+                    }
+                }
+            }
+
+            trace?.Trace($"SvtGetAuditLogs resolved {users.Count} user names for {ids.Length} assignee ids.");
+            return users;
+        }
+
+        private static string ReplaceGuidTokensWithNames(string value, IReadOnlyDictionary<Guid, string> userNames)
+        {
+            if (string.IsNullOrWhiteSpace(value) || userNames == null || userNames.Count == 0)
+            {
+                return value;
+            }
+
+            return GuidTokenRegex.Replace(value, match =>
+            {
+                var token = match.Value.Trim('{', '}');
+                if (Guid.TryParse(token, out var id)
+                    && userNames.TryGetValue(id, out var displayName)
+                    && !string.IsNullOrWhiteSpace(displayName))
+                {
+                    return displayName;
+                }
+
+                return match.Value;
+            });
+        }
+
+        private static bool TryReplaceGuidTokensWithNames(
+            JsonElement value,
+            IReadOnlyDictionary<Guid, string> userNames,
+            out JsonElement updatedValue)
+        {
+            updatedValue = value;
+
+            var rawValue = GetJsonStringValue(value);
+            if (string.IsNullOrWhiteSpace(rawValue))
+            {
+                return false;
+            }
+
+            var replacedValue = ReplaceGuidTokensWithNames(rawValue, userNames);
+            if (string.Equals(rawValue, replacedValue, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            updatedValue = CreateJsonStringElement(replacedValue);
+            return true;
+        }
+
+        private static string GetJsonStringValue(JsonElement value)
+        {
+            return value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+        }
+
+        private static JsonElement CreateJsonStringElement(string value)
+        {
+            var json = JsonSerializer.Serialize(value ?? string.Empty);
+            using (var document = JsonDocument.Parse(json))
+            {
+                return document.RootElement.Clone();
+            }
+        }
+
         private static string Truncate(string s, int maxLen)
             => string.IsNullOrEmpty(s) ? s : (s.Length > maxLen ? s.Substring(0, maxLen) : s);
 
@@ -206,5 +501,6 @@ namespace VOA.SVT.Plugins.CustomAPI
 
             return JsonSerializer.Serialize(payload);
         }
+
     }
 }

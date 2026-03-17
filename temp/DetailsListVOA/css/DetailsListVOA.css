@@ -186,7 +186,7 @@
   width: auto;
   height: auto;
   overflow: visible;
-  outline: 2px solid #ffbf47;
+  outline: 2px solid #1d70b8;
   outline-offset: 2px;
 }
 
@@ -293,8 +293,8 @@
   scrollbar-gutter: stable both-edges;
   scrollbar-width: thin;
   scrollbar-color: #8f99a5 #f3f2f1;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 1 0 160px;
+  min-height: 160px;
   width: 100%;
   max-width: 100%;
   overflow: auto;
@@ -406,6 +406,76 @@
 .voa-grid-toolbar .ms-Button-label {
   font-weight: 600;
   white-space: nowrap;
+}
+
+.voa-grid-shell--compact .voa-command-bar,
+.voa-grid-shell--compact .voa-grid-toolbar,
+.voa-grid-shell--compact .voa-grid-pagination {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.voa-grid-shell--compact .voa-command-bar {
+  gap: 6px 10px;
+}
+
+.voa-grid-shell--compact .voa-command-bar__left {
+  width: auto;
+  flex: 1 1 0;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.voa-grid-shell--compact .voa-command-bar__title-group {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.voa-grid-shell--compact .voa-command-bar__title {
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.voa-grid-shell--compact .voa-command-bar__actions,
+.voa-grid-shell--compact .voa-grid-toolbar__right {
+  justify-content: flex-start;
+  margin-left: 0;
+}
+
+.voa-grid-shell--compact .voa-command-bar__actions {
+  width: auto;
+  padding-right: 0;
+}
+
+.voa-grid-shell--compact .voa-command-bar .ms-Button {
+  height: 28px;
+}
+
+.voa-grid-shell--compact .voa-command-bar .voa-back-button {
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+}
+
+.voa-grid-shell--compact .voa-prefilter-toggle {
+  min-width: 28px;
+  padding: 0 6px;
+}
+
+.voa-grid-shell--compact .voa-compact-actions-toggle {
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+}
+
+.voa-grid-shell--compact .voa-grid-toolbar {
+  gap: 8px;
+}
+
+.voa-grid-shell--compact .voa-grid-toolbar__left,
+.voa-grid-shell--compact .voa-grid-toolbar__right {
+  width: 100%;
 }
 
 .voa-selection-controls {
@@ -551,11 +621,10 @@
 }
 
 .voa-command-bar .voa-back-button {
-  width: 32px;
   height: 32px;
   min-width: 32px;
-  padding: 0;
-  border-radius: 50%;
+  padding: 0 10px;
+  border-radius: 4px;
 }
 
 .voa-command-bar .ms-Button-label {
@@ -590,10 +659,10 @@
 }
 
 .voa-back-button {
-  width: 32px;
   height: 32px;
-  border-radius: 50%;
-  border: 1px solid #b1b4b6;
+  min-width: 32px;
+  border-radius: 4px;
+  border: 1px solid #737b84;
   background: #ffffff;
 }
 
@@ -603,13 +672,58 @@
 }
 
 .voa-back-button:focus {
-  outline: 2px solid #ffbf47;
+  outline: 2px solid #1d70b8;
   outline-offset: 2px;
 }
 
 .voa-back-button .ms-Button-icon {
   color: #0b0c0c;
   font-size: 14px;
+}
+
+.voa-compact-actions-toggle {
+  min-width: 32px;
+}
+
+.voa-cell-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.voa-cell-action-button__label {
+  line-height: 1.2;
+}
+
+.voa-expand-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid #737b84;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #0b0c0c;
+  cursor: pointer;
+  font: inherit;
+}
+
+.voa-expand-button:hover {
+  background: #f3f2f1;
+}
+
+.voa-expand-button:focus {
+  outline: 2px solid #1d70b8;
+  outline-offset: 2px;
+}
+
+.voa-expand-button__icon {
+  font-size: 12px;
+}
+
+.voa-expand-button__label {
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .voa-page-header__center {
@@ -654,7 +768,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 560px) {
   .voa-command-bar {
     align-items: stretch;
     padding: 8px 10px;
@@ -745,10 +859,6 @@
 }
 
 @media (max-width: 480px) {
-  .voa-command-bar__left {
-    flex-direction: column;
-  }
-
   .voa-command-bar__title {
     line-height: 1.15;
   }
@@ -1005,7 +1115,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 8px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .voa-grid-pagination__summary {
@@ -1047,12 +1157,23 @@
 }
 
 .voa-mda-link:focus {
-  outline: 2px solid #ffbf47;
+  outline: 2px solid #1d70b8;
   outline-offset: 2px;
 }
 
 .voa-mda-link:visited {
   color: #3B5B7E;
+}
+
+.voa-mda-link-button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .voa-assign-overlay {
@@ -1385,7 +1506,7 @@
 
 .voa-search-unavailable-note {
   margin: 0;
-  border-left: 4px solid #f47738;
+  border-left: 4px solid #bc5f2c;
   background: #fff4ef;
   color: #6b2e10;
 }
@@ -1655,6 +1776,11 @@
 }
 
 @media (max-height: 780px) {
+  .voa-grid-results {
+    flex-basis: 120px;
+    min-height: 120px;
+  }
+
   .voa-command-bar {
     padding: 4px 10px;
   }
@@ -1799,8 +1925,8 @@
 .voa-command-bar__actions .ms-Button--primary.is-disabled:hover,
 .voa-command-bar__actions .ms-Button--primary:disabled {
   background: #f3f2f1;
-  border-color: #c8c8c8;
-  color: #a6a6a6;
+  border-color: #737b84;
+  color: #5d656e;
 }
 
 .voa-prefilter-actions .ms-Button--primary.is-disabled .ms-Button-icon,
@@ -1821,14 +1947,14 @@
 .voa-command-bar__actions .ms-Button--primary.is-disabled:hover .ms-Button-label,
 .voa-command-bar__actions .ms-Button--primary:disabled .ms-Button-icon,
 .voa-command-bar__actions .ms-Button--primary:disabled .ms-Button-label {
-  color: #a6a6a6;
+  color: #5d656e;
 }
 
 .voa-focusable-disabled-button,
 .voa-focusable-disabled-button:hover {
   background: #f3f2f1;
-  border-color: #c8c8c8;
-  color: #a6a6a6;
+  border-color: #737b84;
+  color: #5d656e;
   cursor: not-allowed;
 }
 
@@ -1838,7 +1964,7 @@
 .voa-focusable-disabled-button .ms-Button-icon,
 .voa-focusable-disabled-button:hover .ms-Button-label,
 .voa-focusable-disabled-button:hover .ms-Button-icon {
-  color: #a6a6a6;
+  color: #5d656e;
   cursor: not-allowed;
 }
 
@@ -1846,14 +1972,14 @@
 .voa-focusable-disabled-field.ms-SearchBox,
 .voa-focusable-disabled-field.ms-SearchBox:hover {
   background: #f3f2f1;
-  border-color: #c8c8c8;
+  border-color: #737b84;
 }
 
 .voa-focusable-disabled-field .ms-TextField-field,
 .voa-focusable-disabled-field .ms-TextField-fieldGroup input,
 .voa-focusable-disabled-field .ms-SearchBox-field,
 .voa-focusable-disabled-field .ms-SearchBox-icon {
-  color: #6f777b;
+  color: #5d656e;
   cursor: not-allowed;
 }
 

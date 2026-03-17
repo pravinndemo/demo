@@ -25,4 +25,13 @@ describe('screen text', () => {
   test('sales search accessibility text includes the required field key', () => {
     expect(SCREEN_TEXT.salesSearch.accessibility.requiredFieldKey).toBe('Fields marked with * are required');
   });
+
+  test('common button text includes visible labels for close and overflow actions', () => {
+    expect(SCREEN_TEXT.common.buttons.close).toBe('Close');
+    expect(SCREEN_TEXT.common.buttons.moreActions).toBe('More actions');
+  });
+
+  test('common link text includes the visible new-tab cue', () => {
+    expect(SCREEN_TEXT.common.links.opensInNewTab).toBe('(opens in new tab)');
+  });
 });

@@ -39,7 +39,6 @@ import {
   DatePicker,
   DayOfWeek,
   FocusTrapZone,
-  IconButton,
   IDatePickerStrings,
   IButtonStyles,
   TooltipHost,
@@ -335,10 +334,10 @@ const FocusableActionButton = ({
         </span>
       )}
       <ButtonComponent
+        disabled={unavailable}
         text={text}
         iconProps={iconProps}
         onClick={handleClick}
-        aria-disabled={unavailable || undefined}
         aria-describedby={describedBy}
         ariaLabel={ariaLabel}
         aria-current={ariaCurrent}
@@ -806,10 +805,10 @@ export const Grid = React.memo((props: GridProps) => {
         minWidth: 32,
         padding: '0 10px',
         borderRadius: 6,
-        borderColor: theme.palette.neutralQuaternary,
+        borderColor: theme.semanticColors.inputBorder,
       },
     }),
-    [theme.palette.neutralQuaternary],
+    [theme.semanticColors.inputBorder],
   );
   const activePaginationButtonStyles = React.useMemo(
     () => ({
@@ -868,6 +867,7 @@ export const Grid = React.memo((props: GridProps) => {
   const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState>(MANAGER_PREFILTER_DEFAULT);
   const [prefilterExpanded, setPrefilterExpanded] = React.useState(true);
   const [prefilterContainerWidth, setPrefilterContainerWidth] = React.useState<number | null>(null);
+  const [viewportMetrics, setViewportMetrics] = React.useState({ width: 0, height: 0 });
   const [searchPanelExpanded, setSearchPanelExpanded] = React.useState(true);
   const [comboEditing, setComboEditing] = React.useState<Record<string, boolean>>({});
   const comboIgnoreNextInputRef = React.useRef<Record<string, boolean>>({});
@@ -1482,19 +1482,28 @@ export const Grid = React.memo((props: GridProps) => {
   }, [isPrefilterDefault, prefilterApplied, prefilterStorageKey, prefilters, useAssignmentLayout]);
 
   React.useEffect(() => {
-    if (!useAssignmentLayout) return;
     const element = topRef.current;
     if (!element) return;
-    const updateWidth = (width: number) => {
-      if (!Number.isFinite(width)) return;
-      setPrefilterContainerWidth(Math.round(width));
+    const updateMetrics = (width: number, height: number) => {
+      if (!Number.isFinite(width) || !Number.isFinite(height)) return;
+      const nextWidth = Math.round(width);
+      const nextHeight = Math.round(height);
+      setViewportMetrics((prev) => (
+        prev.width === nextWidth && prev.height === nextHeight
+          ? prev
+          : { width: nextWidth, height: nextHeight }
+      ));
+      if (useAssignmentLayout) {
+        setPrefilterContainerWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+      }
     };
-    const updateFromElement = () => updateWidth(element.clientWidth);
+    const updateFromElement = () => updateMetrics(element.clientWidth, element.clientHeight);
     updateFromElement();
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver((entries) => {
         if (!entries || entries.length === 0) return;
-        updateWidth(entries[0].contentRect.width);
+        const { width, height } = entries[0].contentRect;
+        updateMetrics(width, height);
       });
       observer.observe(element);
       return () => observer.disconnect();
@@ -4204,7 +4213,7 @@ export const Grid = React.memo((props: GridProps) => {
                 type="radio"
                 name="assign-user"
                 aria-label={`Select ${item.firstName} ${item.lastName}`}
-                aria-disabled={assignLoading || undefined}
+                disabled={assignLoading}
                 checked={assignSelectedUserId === item.id}
                 title={assignLoading ? assignLoadingText : undefined}
                 onChange={() => {
@@ -4465,17 +4474,105 @@ export const Grid = React.memo((props: GridProps) => {
     townError,
   ]);
   const salesSearchShowsRequiredFields = React.useMemo(
-    () => isSalesSearch && filters.searchBy === 'billingAuthority',
+    () => isSalesSearch && ['billingAuthority', 'saleId', 'taskId', 'uprn'].includes(filters.searchBy),
     [filters.searchBy, isSalesSearch],
   );
   const showSalesSearchUnavailableNote = isSalesSearch && isSearchDisabled && !!searchUnavailableReason;
+  const compactViewport = viewportMetrics.width > 0
+    && (viewportMetrics.width <= 980 || viewportMetrics.height <= 700);
+  const ultraCompactViewport = viewportMetrics.width > 0
+    && (viewportMetrics.width <= 640 || viewportMetrics.height <= 520);
+  const microViewport = viewportMetrics.width > 0
+    && (viewportMetrics.width <= 420 || viewportMetrics.height <= 360);
+  const showBulkSelectionControls = showSelectionControls && !compactViewport;
+  const showCompactClearSelection = showSelectionControls && compactViewport && !microViewport && selectedCount > 0;
+  const showClearFiltersButton = hasColumnFilters && !microViewport;
+  const showViewSalesRecordButton = !microViewport
+    && showResults
+    && showViewSalesRecord
+    && (!compactViewport || (!viewSaleNavigationPending && !disableViewSalesRecordAction && selectedCount === 1));
+  const showAssignButton = !microViewport && Boolean(showAssign
+    && (!compactViewport || !assignButtonState.disabled));
+  const showMarkPassedQcButton = !microViewport && Boolean(showMarkPassedQc
+    && (!compactViewport || (!markPassedQcButtonState.disabled && !markPassedQcLoading)));
+  const compactActionMenuItems = React.useMemo<IContextualMenuItem[]>(() => {
+    if (!microViewport) return [];
+    const items: IContextualMenuItem[] = [];
+    if (selectedCount > 0) {
+      items.push({
+        key: 'clearSelection',
+        text: clearSelectionText,
+        iconProps: { iconName: 'Clear' },
+        onClick: clearPageSelection,
+      });
+    }
+    if (hasColumnFilters) {
+      items.push({
+        key: 'clearFilters',
+        text: commonText.buttons.clearFilters,
+        iconProps: { iconName: 'ClearFilter' },
+        onClick: () => clearAllColumnFilters(),
+      });
+    }
+    if (showResults && showViewSalesRecord && !viewSaleNavigationPending && !disableViewSalesRecordAction && selectedCount === 1) {
+      items.push({
+        key: 'viewSalesRecord',
+        text: commonText.tableActions.viewSalesRecord,
+        iconProps: { iconName: 'View' },
+        onClick: onViewSelected,
+      });
+    }
+    if (showAssign && !assignButtonState.disabled) {
+      items.push({
+        key: 'assignTasks',
+        text: assignActionText,
+        iconProps: { iconName: 'AddFriend' },
+        onClick: openAssignPanel,
+      });
+    }
+    if (showMarkPassedQc && !markPassedQcButtonState.disabled && !markPassedQcLoading) {
+      items.push({
+        key: 'markPassedQc',
+        text: markPassedQcText.buttonText,
+        iconProps: { iconName: 'CompletedSolid' },
+        onClick: () => { void handleMarkPassedQcClick(); },
+      });
+    }
+    return items;
+  }, [
+    assignActionText,
+    assignButtonState.disabled,
+    clearPageSelection,
+    clearSelectionText,
+    clearAllColumnFilters,
+    commonText.buttons.clearFilters,
+    commonText.tableActions.viewSalesRecord,
+    disableViewSalesRecordAction,
+    handleMarkPassedQcClick,
+    hasColumnFilters,
+    markPassedQcButtonState.disabled,
+    markPassedQcLoading,
+    markPassedQcText.buttonText,
+    microViewport,
+    onViewSelected,
+    openAssignPanel,
+    selectedCount,
+    showAssign,
+    showMarkPassedQc,
+    showResults,
+    showViewSalesRecord,
+    viewSaleNavigationPending,
+  ]);
+  const showCompactActionMenu = microViewport && compactActionMenuItems.length > 0;
   const showGridToolbar = !!showResults
-    && (showSelectionControls
-      || hasColumnFilters
-      || (useAssignmentLayout && showPrefilterToggle)
-      || showViewSalesRecord
-      || showAssign
-      || showMarkPassedQc);
+    && [
+      showBulkSelectionControls,
+      showCompactClearSelection,
+      showClearFiltersButton,
+      showViewSalesRecordButton,
+      showAssignButton,
+      showMarkPassedQcButton,
+    ].some(Boolean);
 
   const renderPrefilterLabel = React.useCallback((
     text: string,
@@ -4760,8 +4857,8 @@ export const Grid = React.memo((props: GridProps) => {
                     if (String(opt.key) !== String(exactMatchKey)) return opt;
                     const highlight = {
                       backgroundColor: theme.semanticColors.menuItemBackgroundHovered,
-                      outline: `1px solid ${highlightBorder}`,
-                      outlineOffset: '-1px',
+                      outline: `2px solid ${highlightBorder}`,
+                      outlineOffset: '-2px',
                     };
                     return {
                       ...opt,
@@ -5032,6 +5129,7 @@ export const Grid = React.memo((props: GridProps) => {
           'voa-grid-shell',
           useAssignmentLayout && 'voa-grid-shell--assignment',
           hasSelectionColumn && 'voa-grid-shell--selection',
+          compactViewport && 'voa-grid-shell--compact',
         )}
         style={{ height, display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}
         ref={topRef}
@@ -5088,8 +5186,9 @@ export const Grid = React.memo((props: GridProps) => {
             <div className="voa-command-bar">
               <div className="voa-command-bar__left">
                 {onBackRequested && (
-                  <IconButton
+                  <DefaultButton
                     className="voa-back-button"
+                    text={commonText.buttons.back}
                     iconProps={{ iconName: 'Back' }}
                     ariaLabel={commonText.aria.back}
                     title={commonText.buttons.back}
@@ -5097,12 +5196,14 @@ export const Grid = React.memo((props: GridProps) => {
                   />
                 )}
                 <div className="voa-command-bar__title-group">
-                  <Text as="h2" variant="large" className="voa-command-bar__title">
+                  <Text as="h1" variant={ultraCompactViewport ? 'mediumPlus' : 'large'} className="voa-command-bar__title">
                     {pageHeaderText}
                   </Text>
-                  <Text variant="small" className="voa-command-bar__meta" role="status" aria-live="polite">
-                    {selectionSummaryText}
-                  </Text>
+                  {!compactViewport && (
+                    <Text variant="small" className="voa-command-bar__meta" role="status" aria-live="polite">
+                      {selectionSummaryText}
+                    </Text>
+                  )}
                 </div>
               </div>
               <div className="voa-command-bar__actions">
@@ -5127,6 +5228,19 @@ export const Grid = React.memo((props: GridProps) => {
                     aria-expanded={prefilterExpanded}
                     aria-controls="voa-prefilter-panel"
                     onClick={togglePrefilters}
+                  />
+                )}
+                {showCompactActionMenu && (
+                  <DefaultButton
+                    className="voa-compact-actions-toggle"
+                    text={commonText.buttons.moreActions}
+                    iconProps={{ iconName: 'More' }}
+                    ariaLabel={commonText.buttons.moreActions}
+                    title={commonText.buttons.moreActions}
+                    menuProps={{
+                      items: compactActionMenuItems,
+                      directionalHint: DirectionalHint.bottomRightEdge,
+                    }}
                   />
                 )}
               </div>
@@ -5289,7 +5403,10 @@ export const Grid = React.memo((props: GridProps) => {
                       <ComboBox
                         id="prefilter-billing"
                         ariaLabel={formatRequiredAriaLabel(managerText.prefilter.labels.billingAuthority, true)}
-                        aria-describedby={buildAriaDescribedBy(prefilterBillingHint ? 'prefilter-billing-hint' : undefined)}
+                        aria-describedby={buildAriaDescribedBy(
+                          prefilterBillingHint ? 'prefilter-billing-hint' : undefined,
+                          billingAuthorityOptionsError ? 'prefilter-billing-error' : undefined,
+                        )}
                         placeholder={managerText.prefilter.placeholders.billingAuthority}
                         title={prefilterBillingTitle}
                         multiSelect
@@ -5340,6 +5457,17 @@ export const Grid = React.memo((props: GridProps) => {
                       {prefilterBillingHint && (
                         <Text id="prefilter-billing-hint" variant="small" styles={{ root: { marginTop: 4 } }}>
                           {prefilterBillingHint}
+                        </Text>
+                      )}
+                      {billingAuthorityOptionsError && (
+                        <Text
+                          id="prefilter-billing-error"
+                          variant="small"
+                          role="alert"
+                          aria-live="assertive"
+                          styles={{ root: { color: theme.palette.redDark, marginTop: 2 } }}
+                        >
+                          {billingAuthorityOptionsError}
                         </Text>
                       )}
                       {prefilterBillingSelectionSummary && (
@@ -5433,7 +5561,13 @@ export const Grid = React.memo((props: GridProps) => {
                         </TooltipHost>
                       )}
                       {prefilterUserOptionsError && (
-                        <Text id="prefilter-user-error" variant="small" styles={{ root: { color: theme.palette.redDark, marginTop: 2 } }}>
+                        <Text
+                          id="prefilter-user-error"
+                          variant="small"
+                          role="alert"
+                          aria-live="assertive"
+                          styles={{ root: { color: theme.palette.redDark, marginTop: 2 } }}
+                        >
                           {prefilterUserOptionsError}
                         </Text>
                       )}
@@ -5608,7 +5742,12 @@ export const Grid = React.memo((props: GridProps) => {
                       title={prefilterFromTitle}
                     />
                     {prefilterFromDateError && (
-                      <Text variant="small" styles={{ root: { color: theme.palette.redDark, marginTop: -2 } }}>
+                      <Text
+                        variant="small"
+                        role="alert"
+                        aria-live="assertive"
+                        styles={{ root: { color: theme.palette.redDark, marginTop: -2 } }}
+                      >
                         {prefilterFromDateError}
                       </Text>
                     )}
@@ -5617,8 +5756,7 @@ export const Grid = React.memo((props: GridProps) => {
                     </span>
                     <TextField
                       value={formatDisplayDate(parseISODate(prefilters.completedTo))}
-                      readOnly
-                      aria-disabled={true}
+                      disabled
                       aria-describedby="voa-prefilter-to-date-note"
                       className="voa-focusable-disabled-field"
                       styles={{ root: { width: 180 } }}
@@ -5808,7 +5946,7 @@ export const Grid = React.memo((props: GridProps) => {
           {showGridToolbar && (
             <div className="voa-grid-toolbar" role="toolbar" aria-label={selectionToolbarLabel}>
               <div className="voa-grid-toolbar__left">
-                {showSelectionControls && (
+                {showBulkSelectionControls && (
                   <div className="voa-selection-controls" role="group" aria-label={selectionGroupLabel}>
                     <div className="voa-selection-controls__field">
                       <Label htmlFor="voa-select-first" className="voa-selection-controls__label">
@@ -5827,8 +5965,7 @@ export const Grid = React.memo((props: GridProps) => {
                         min={1}
                         max={pageItemCount}
                         inputMode="numeric"
-                        readOnly={selectionControlsDisabled}
-                        aria-disabled={selectionControlsDisabled || undefined}
+                        disabled={selectionControlsDisabled}
                         className={selectionControlsDisabled ? 'voa-focusable-disabled-field' : undefined}
                         title={selectionControlsUnavailableReason}
                         onChange={(_, value) => {
@@ -5880,7 +6017,18 @@ export const Grid = React.memo((props: GridProps) => {
                     />
                   </div>
                 )}
-                {hasColumnFilters && (
+                {showCompactClearSelection && (
+                  <FocusableActionButton
+                    text={clearSelectionText}
+                    iconProps={{ iconName: 'Clear' }}
+                    onClick={clearPageSelection}
+                    unavailable={selectedCount === 0}
+                    unavailableReason={clearSelectionUnavailableReason}
+                    unavailableReasonId="voa-clear-selection-unavailable"
+                    ariaLabel={clearSelectionText}
+                  />
+                )}
+                {showClearFiltersButton && (
                   <DefaultButton
                     text={commonText.buttons.clearFilters}
                     iconProps={{ iconName: 'ClearFilter' }}
@@ -5890,7 +6038,7 @@ export const Grid = React.memo((props: GridProps) => {
                 )}
               </div>
               <div className="voa-grid-toolbar__right">
-                {showResults && showViewSalesRecord && (
+                {showViewSalesRecordButton && (
                   <FocusableActionButton
                     text={commonText.tableActions.viewSalesRecord}
                     iconProps={{ iconName: 'View' }}
@@ -5901,7 +6049,7 @@ export const Grid = React.memo((props: GridProps) => {
                     ariaLabel={commonText.aria.viewSelectedSalesRecord}
                   />
                 )}
-                {showAssign && (
+                {showAssignButton && (
                   <TooltipHost content={assignButtonState.tooltip}>
                     <FocusableActionButton
                       text={assignActionText}
@@ -5914,7 +6062,7 @@ export const Grid = React.memo((props: GridProps) => {
                     />
                   </TooltipHost>
                 )}
-                {showMarkPassedQc && (
+                {showMarkPassedQcButton && (
                   <TooltipHost content={markPassedQcButtonState.tooltip}>
                     <FocusableActionButton
                       text={markPassedQcText.buttonText}
@@ -5985,7 +6133,7 @@ export const Grid = React.memo((props: GridProps) => {
                     onColumnHeaderContextMenu={onColumnHeaderContextMenu}
                     onItemInvoked={rowInvokeEnabled ? onItemInvoked : undefined}
                     columnReorderOptions={props.allowColumnReorder ? columnReorderOptions : undefined}
-                    compact={compact}
+                    compact={compact === true || compactViewport}
                     isHeaderVisible={isHeaderVisible}
                   />
                 </div>
@@ -6016,7 +6164,7 @@ export const Grid = React.memo((props: GridProps) => {
             calloutProps={{ setInitialFocus: true }}
           />
         )}
-        {showResults && (
+        {showResults && (!compactViewport || totalPages > 1) && (
           <Stack
             id="voa-grid-pagination"
             horizontal
@@ -6029,73 +6177,81 @@ export const Grid = React.memo((props: GridProps) => {
             aria-label={commonText.aria.pagination}
             tabIndex={-1}
           >
-            <Text variant="small" className="voa-grid-pagination__summary">
-              {resultsSummaryText}
-            </Text>
-            <FocusableActionButton
-              text={commonText.buttons.previous}
-              iconProps={{ iconName: 'ChevronLeft' }}
-              onClick={onPrevPage}
-              unavailable={!canPrev}
-              unavailableReason={previousPageUnavailableReason}
-              unavailableReasonId="voa-pagination-previous-unavailable"
-              ariaLabel={commonText.aria.previousPage}
-              styles={paginationButtonStyles}
-            />
-            {(() => {
-              const pageItems: (number | 'ellipsis')[] = [];
-              if (totalPages <= 11) {
-                pageItems.push(...Array.from({ length: totalPages }, (_, i) => i));
-              } else if (currentPage <= 4) {
-                pageItems.push(0, 1, 2, 3, 4, 5, 6, 'ellipsis', totalPages - 1);
-              } else if (currentPage >= totalPages - 5) {
-                pageItems.push(0, 'ellipsis', totalPages - 6, totalPages - 5, totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1);
-              } else {
-                pageItems.push(0, 'ellipsis', currentPage - 3, currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2, currentPage + 3, 'ellipsis', totalPages - 1);
-              }
+            {!compactViewport && (
+              <Text variant="small" className="voa-grid-pagination__summary">
+                {resultsSummaryText}
+              </Text>
+            )}
+            {totalPages > 1 && (
+              <>
+                <FocusableActionButton
+                  text={commonText.buttons.previous}
+                  iconProps={{ iconName: 'ChevronLeft' }}
+                  onClick={onPrevPage}
+                  unavailable={!canPrev}
+                  unavailableReason={previousPageUnavailableReason}
+                  unavailableReasonId="voa-pagination-previous-unavailable"
+                  ariaLabel={commonText.aria.previousPage}
+                  styles={paginationButtonStyles}
+                />
+                {(() => {
+                  const pageItems: (number | 'ellipsis')[] = [];
+                  if (totalPages <= 11) {
+                    pageItems.push(...Array.from({ length: totalPages }, (_, i) => i));
+                  } else if (currentPage <= 4) {
+                    pageItems.push(0, 1, 2, 3, 4, 5, 6, 'ellipsis', totalPages - 1);
+                  } else if (currentPage >= totalPages - 5) {
+                    pageItems.push(0, 'ellipsis', totalPages - 6, totalPages - 5, totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1);
+                  } else {
+                    pageItems.push(0, 'ellipsis', currentPage - 3, currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2, currentPage + 3, 'ellipsis', totalPages - 1);
+                  }
 
-              return pageItems.map((item, index) => {
-                if (item === 'ellipsis') {
-                  return (
-                    <Text key={`page-ellipsis-${index}`} style={{ fontSize: 14, padding: '0 6px' }} aria-hidden="true">
-                      ...
-                    </Text>
-                  );
-                }
+                  return pageItems.map((item, index) => {
+                    if (item === 'ellipsis') {
+                      return (
+                        <Text key={`page-ellipsis-${index}`} style={{ fontSize: 14, padding: '0 6px' }} aria-hidden="true">
+                          ...
+                        </Text>
+                      );
+                    }
 
-                const isCurrent = item === currentPage;
-                return (
-                  <DefaultButton
-                    key={`page-${item}`}
-                    aria-label={`Page ${item + 1}`}
-                    aria-current={isCurrent ? 'page' : undefined}
-                    styles={isCurrent ? activePaginationButtonStyles : paginationButtonStyles}
-                    onClick={() => onSetPage(item)}
-                  >
-                    {item + 1}
-                  </DefaultButton>
-                );
-              });
-            })()}
-            <FocusableActionButton
-              text={commonText.buttons.next}
-              iconProps={{ iconName: 'ChevronRight' }}
-              onClick={onNextPage}
-              unavailable={!canNext}
-              unavailableReason={nextPageUnavailableReason}
-              unavailableReasonId="voa-pagination-next-unavailable"
-              ariaLabel={commonText.aria.nextPage}
-              styles={paginationButtonStyles}
-            />
-            <Stack.Item styles={{ root: { marginLeft: 'auto' } }}>
-              <DefaultButton
-                text={commonText.buttons.top}
-                iconProps={{ iconName: 'ChevronUp' }}
-                aria-label={commonText.aria.goToTop}
-                onClick={onGoToTop}
-                styles={paginationButtonStyles}
-              />
-            </Stack.Item>
+                    const isCurrent = item === currentPage;
+                    return (
+                      <DefaultButton
+                        key={`page-${item}`}
+                        aria-label={`Page ${item + 1}`}
+                        aria-current={isCurrent ? 'page' : undefined}
+                        styles={isCurrent ? activePaginationButtonStyles : paginationButtonStyles}
+                        onClick={() => onSetPage(item)}
+                      >
+                        {item + 1}
+                      </DefaultButton>
+                    );
+                  });
+                })()}
+                <FocusableActionButton
+                  text={commonText.buttons.next}
+                  iconProps={{ iconName: 'ChevronRight' }}
+                  onClick={onNextPage}
+                  unavailable={!canNext}
+                  unavailableReason={nextPageUnavailableReason}
+                  unavailableReasonId="voa-pagination-next-unavailable"
+                  ariaLabel={commonText.aria.nextPage}
+                  styles={paginationButtonStyles}
+                />
+              </>
+            )}
+            {!compactViewport && (
+              <Stack.Item styles={{ root: { marginLeft: 'auto' } }}>
+                <DefaultButton
+                  text={commonText.buttons.top}
+                  iconProps={{ iconName: 'ChevronUp' }}
+                  aria-label={commonText.aria.goToTop}
+                  onClick={onGoToTop}
+                  styles={paginationButtonStyles}
+                />
+              </Stack.Item>
+            )}
           </Stack>
         )}
         {assignPanelOpen && (
@@ -6109,11 +6265,12 @@ export const Grid = React.memo((props: GridProps) => {
                     onClick={closeAssignPanel}
                     ariaLabel={assignTasksText.aria.backToManager}
                   />
-                  <Text as="h2" id="assign-screen-title" variant="xLarge" styles={{ root: { marginLeft: 12, fontWeight: 600 } }}>
+                  <Text as="h1" id="assign-screen-title" variant="xLarge" styles={{ root: { marginLeft: 12, fontWeight: 600 } }}>
                     {assignHeaderText}
                   </Text>
                   <Stack.Item styles={{ root: { marginLeft: 'auto' } }}>
-                    <IconButton
+                    <DefaultButton
+                      text={commonText.buttons.close}
                       iconProps={{ iconName: 'Cancel' }}
                       ariaLabel={assignTasksText.aria.closeAssign}
                       onClick={closeAssignPanel}
@@ -6126,7 +6283,7 @@ export const Grid = React.memo((props: GridProps) => {
                   aria-describedby={buildAriaDescribedBy(
                     assignSearchUnavailableReason ? 'voa-assign-search-unavailable' : undefined,
                   )}
-                  aria-disabled={assignSearchUnavailableReason ? true : undefined}
+                  disabled={!!assignSearchUnavailableReason}
                   value={assignSearch}
                   onChange={(_, v) => {
                     if (assignLoading || assignUsersLoading) return;
@@ -6165,7 +6322,7 @@ export const Grid = React.memo((props: GridProps) => {
                     {assignUsersError}
                   </MessageBar>
                 )}
-                <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+                <Text as="h2" variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
                   {assignUserListTitle}
                 </Text>
                 <DetailsList

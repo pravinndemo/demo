@@ -61,6 +61,16 @@ describe('grid usability contract', () => {
     expect(gridSource).not.toContain("trimmedLower === String(selectedKey).trim().toLowerCase()");
   });
 
+  test('keeps command-bar actions visibly labelled so compact layouts do not fall back to icon-only buttons', () => {
+    expect(gridSource).toContain('text={commonText.buttons.back}');
+    expect(gridSource).toContain('text={searchPanelToggleText}');
+    expect(gridSource).toContain('text={prefilterToggleText}');
+    expect(gridSource).toContain('text={commonText.buttons.moreActions}');
+    expect(gridSource).toContain('text={commonText.buttons.close}');
+    expect(gridSource).not.toContain('text={ultraCompactViewport ? undefined : searchPanelToggleText}');
+    expect(gridSource).not.toContain('text={ultraCompactViewport ? undefined : prefilterToggleText}');
+  });
+
   test('keeps the search actions visually grouped with the active field instead of detaching them to the far edge', () => {
     expect(gridSource).toContain('className="voa-search-panel__actions"');
     expect(cssSource).toContain('.voa-search-panel {');
@@ -80,7 +90,7 @@ describe('grid usability contract', () => {
     expect(gridSource).toContain('const [salesSearchAttempted, setSalesSearchAttempted]');
     expect(gridSource).toContain('const handleSalesSearchUnavailableAttempt = React.useCallback(');
     expect(gridSource).toContain('onUnavailableClick={isSalesSearch ? handleSalesSearchUnavailableAttempt : undefined}');
-    expect(gridSource).toContain("filters.searchBy === 'billingAuthority'");
+    expect(gridSource).toContain("['billingAuthority', 'saleId', 'taskId', 'uprn'].includes(filters.searchBy)");
     expect(gridSource).toContain("markSalesSearchFieldTouched('billingAuthority')");
     expect(gridSource).toContain("markSalesSearchFieldTouched('bacode')");
     expect(gridSource).toContain("markSalesSearchFieldTouched('saleId')");
@@ -145,6 +155,23 @@ describe('grid usability contract', () => {
     expect(semanticUtilSource).toContain('getStableFallbackColors');
     expect(cssSource).toContain('.voa-task-status-chip');
     expect(cssSource).toContain('.voa-summary-flag-chip');
+  });
+
+  test('uses visible button labels for inline grid actions instead of icon-only or clickable text links without button semantics', () => {
+    expect(cellSource).toContain('className="voa-expand-button"');
+    expect(cellSource).toContain('className="voa-expand-button__label"');
+    expect(cellSource).toContain("'voa-mda-link', 'voa-mda-link-button', linkClassName");
+    expect(cellSource).toContain('className="voa-cell-action-button"');
+    expect(cellSource).toContain('className="voa-cell-action-button__label"');
+    expect(cssSource).toContain('.voa-expand-button {');
+    expect(cssSource).toContain('.voa-mda-link-button {');
+  });
+
+  test('shows a visible new-tab cue on Dataverse record links that open in a new tab', () => {
+    expect(cellSource).toContain('const newTabText = SCREEN_TEXT.common.links.opensInNewTab;');
+    expect(cellSource).toContain('{cellText} {newTabText}');
+    expect(cellSource).toContain('target="_blank"');
+    expect(cellSource).toContain('aria-label={label}');
   });
 
   test('gives tag cells visible overflow and a small vertical buffer so pill borders do not clip at the row edge', () => {

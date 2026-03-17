@@ -286,7 +286,7 @@ export const StatutorySpatialUnitBrowser: React.FC = () => {
 
   return (
     <Stack tokens={stackTokens} styles={{ root: { marginTop: 24 } }}>
-      <Text variant="xLarge">Statutory Spatial Unit Lookup</Text>
+      <Text as="h1" variant="xLarge">Statutory Spatial Unit Lookup</Text>
       <Stack horizontal wrap tokens={rowStackTokens}>
         <TextField
           label="Postcode"

@@ -1630,7 +1630,7 @@ export const Grid = React.memo((props: GridProps) => {
                     onClick={() => setAssignPanelOpen(false)}
                     ariaLabel="Back to manager assignment"
                   />
-                  <Text id="assign-screen-title" variant="xLarge" styles={{ root: { marginLeft: 12, fontWeight: 600 } }}>
+                  <Text as="h1" id="assign-screen-title" variant="xLarge" styles={{ root: { marginLeft: 12, fontWeight: 600 } }}>
                     {assignHeaderText}
                   </Text>
                   <Stack.Item styles={{ root: { marginLeft: 'auto' } }}>
@@ -1675,7 +1675,7 @@ export const Grid = React.memo((props: GridProps) => {
               />
             </Stack>
             {assignLoading && <Spinner size={SpinnerSize.small} ariaLabel="Assigning tasks" />}
-                <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+                <Text as="h2" variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
                   {assignUserListTitle}
                 </Text>
                 <DetailsList

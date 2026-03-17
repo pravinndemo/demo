@@ -1,9 +1,10 @@
-import { DefaultButton, FontIcon, IColumn, IconButton, Image, IRawStyle, Link, mergeStyles } from '@fluentui/react';
+import { DefaultButton, FontIcon, IColumn, Image, IRawStyle, Link, mergeStyles } from '@fluentui/react';
 import * as React from 'react';
 import { IGridColumn } from '../Component.types';
 import { DatasetArray } from '../utils/DatasetArrayItem';
 import { ClassNames, FontStyles } from './Grid.styles';
 import { CellTypes } from '../config/ManifestConstants';
+import { SCREEN_TEXT } from '../constants/ScreenText';
 import { getFlaggedForReviewTagMeta, getSummaryFlagTagMeta, getTaskStatusTagMeta } from '../utils/TagSemanticUtils';
 
 const CSS_IMPORTANT = ' !important';
@@ -293,14 +294,20 @@ function getIconCell(
         const ariaText = typeof rawAriaText === 'string' ? rawAriaText.trim() : String(rawAriaText ?? '').trim();
         const columnLabel = String(column.name ?? column.fieldName ?? '').trim();
         const cellLabel = ariaText || columnLabel;
-        const actionLabel = cellLabel || 'Open';
+        const actionLabel = cellLabel || (columnLabel ? `Open ${columnLabel}` : 'Open details');
         isBlank = !imageData || imageData === '';
         if (imageData) {
             const iconColor = column.tagColor?.startsWith('#')
                 ? column.tagColor
                 : getCellValue<string>(column.tagColor, item)[0];
             const actionDisabled = getCellValue<string>(column.cellActionDisabledColumn, item)[0];
-            const buttonContent: JSX.Element | null = getImageTag(imageData, column, iconColor, cellLabel);
+            const buttonContent: JSX.Element | null = getImageTag(
+                imageData,
+                column,
+                iconColor,
+                cellLabel,
+                column.cellType?.toLowerCase() === CellTypes.ClickableImage,
+            );
             const padding = column.imagePadding;
             if (column.cellType?.toLowerCase() === CellTypes.ClickableImage) {
                 const containerClass = `${ClassNames.imageButton} ${mergeStyles({ padding: padding })}`;
@@ -313,7 +320,10 @@ function getIconCell(
                         ariaLabel={actionLabel}
                         ariaDescription={ariaText && ariaText !== actionLabel ? ariaText : undefined}
                     >
-                        {buttonContent}
+                        <span className="voa-cell-action-button">
+                            {buttonContent}
+                            <span className="voa-cell-action-button__label">{actionLabel}</span>
+                        </span>
                     </DefaultButton>
                 );
             } else {
@@ -323,9 +333,9 @@ function getIconCell(
                     display: 'flex',
                 });
                 cellContents = (
-                    <div className={containerClass} title={cellLabel}>
+                    <div className={containerClass} title={actionLabel}>
                         {buttonContent}
-                        {cellLabel ? <span className="voa-sr-only">{cellLabel}</span> : null}
+                        {actionLabel ? <span className="voa-sr-only">{actionLabel}</span> : null}
                     </div>
                 );
             }
@@ -338,7 +348,13 @@ function getIconCell(
     return { isBlank, cellContents };
 }
 
-function getImageTag(imageData: string, column: IGridColumn, iconColor: string, ariaText?: string) {
+function getImageTag(
+    imageData: string,
+    column: IGridColumn,
+    iconColor: string,
+    ariaText?: string,
+    decorative = false,
+) {
     let buttonContent: JSX.Element | null = null;
     const iconName = imageData.substring('icon:'.length);
 
@@ -356,7 +372,7 @@ function getImageTag(imageData: string, column: IGridColumn, iconColor: string, 
         buttonContent = <FontIcon iconName={iconName} className={iconColorClass} aria-hidden="true" />;
     } else if (imageData.startsWith('data:') || imageData.startsWith('https:')) {
         const imageSize = validWidth ?? 32;
-        buttonContent = <Image src={imageData} width={imageSize} alt={ariaText ?? ''} />;
+        buttonContent = <Image src={imageData} width={imageSize} alt={decorative ? '' : ariaText ?? ''} />;
     }
     return buttonContent;
 }
@@ -370,14 +386,22 @@ function getExpandIconCell(
         const expanded =
             (item as ComponentFramework.PropertyHelper.DataSetApi.EntityRecord).getValue(column.fieldName) === true;
         const icon = expanded ? 'ChevronUp' : 'ChevronDown';
+        const actionText = expanded ? 'Collapse' : 'Expand';
         return (
-            <IconButton
-                className={ClassNames.expandIcon}
-                ariaLabel={expanded ? 'Collapse' : 'Expand'}
+            <button
+                type="button"
+                className="voa-expand-button"
+                aria-label={actionText}
                 data-is-focusable={true}
-                iconProps={{ iconName: icon }}
-                onClick={cellNavigation}
-            />
+                onClick={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    cellNavigation();
+                }}
+            >
+                <FontIcon iconName={icon} className="voa-expand-button__icon" aria-hidden="true" />
+                <span className="voa-expand-button__label">{actionText}</span>
+            </button>
         );
     }
     return <></>;
@@ -399,10 +423,11 @@ function getLinkCell(
         ev?.stopPropagation();
         cellNavigation();
     };
+    const buttonClassName = ['voa-mda-link', 'voa-mda-link-button', linkClassName].filter(Boolean).join(' ');
     const cellContents = !isBlank ? (
-        <Link onClick={onClick} underline aria-label={label} className={linkClassName}>
+        <button type="button" onClick={onClick} aria-label={label} className={buttonClassName}>
             {cellText}
-        </Link>
+        </button>
     ) : (
         <></>
     );
@@ -416,7 +441,8 @@ function getAddressLinkCell(
 ) {
     const cellText = getCellValue<string>(column.fieldName, item)[0];
     const isBlank = !cellText || cellText === '';
-    const label = `${column.name ?? column.fieldName ?? 'Address'} ${cellText} (opens in new tab)`.trim();
+    const newTabText = SCREEN_TEXT.common.links.opensInNewTab;
+    const label = `${column.name ?? column.fieldName ?? 'Address'} ${cellText} ${newTabText}`.trim();
     const cellContents = !isBlank ? (
         <Link
             href={addressUrl}
@@ -429,7 +455,7 @@ function getAddressLinkCell(
                 ev.stopPropagation();
             }}
         >
-            {cellText}
+            {cellText} {newTabText}
         </Link>
     ) : (
         <></>

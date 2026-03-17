@@ -132,10 +132,12 @@ export const SCREEN_TEXT = {
       clearFilters: 'Clear filters',
       apply: 'Apply',
       clear: 'Clear',
+      close: 'Close',
       previous: 'Previous',
       next: 'Next',
       top: 'Top',
       back: 'Back',
+      moreActions: 'More actions',
     },
     toggles: {
       showFilters: 'Show Filters',
@@ -178,6 +180,9 @@ export const SCREEN_TEXT = {
       options: 'Options',
       min: 'Min',
       max: 'Max',
+    },
+    links: {
+      opensInNewTab: '(opens in new tab)',
     },
     filters: {
       numericModes: {
