@@ -10,6 +10,7 @@ import {
   IColumnReorderOptions,
   IContextualMenuItem,
   IDetailsList,
+  IDetailsRowProps,
   IObjectWithKey,
   IRefObject,
   ISelection,
@@ -95,7 +96,11 @@ import {
 import { type ScreenKind } from './utils/ScreenResolution';
 import { SCREEN_TEXT } from '../DetailsListVOA/constants/ScreenText';
 import { CONTROL_CONFIG } from './config/ControlConfig';
-import { resolveAssignmentStatusValidation, type AssignmentConfig } from './utils/AssignmentHelpers';
+import {
+  resolveAssignedUserIdsToDisable,
+  resolveAssignmentStatusValidation,
+  type AssignmentConfig,
+} from './utils/AssignmentHelpers';
 
 type DataSet = ComponentFramework.PropertyHelper.DataSetApi.EntityRecord & IObjectWithKey;
 const ASSIGN_LOADING_ROW_ID = '__loading__';
@@ -4135,6 +4140,21 @@ export const Grid = React.memo((props: GridProps) => {
   }, []);
 
   const assignUsers = React.useMemo(() => assignUsersProp ?? [], [assignUsersProp]);
+  const selectedAssignmentRecords = React.useMemo(
+    () => (selection.getSelection() as Record<string, unknown>[]),
+    [selectedCount, selection],
+  );
+  const disabledAssignUserIds = React.useMemo(
+    () => new Set(resolveAssignedUserIdsToDisable(selectedAssignmentRecords, assignUsers, derivedScreenKind)),
+    [assignUsers, derivedScreenKind, selectedAssignmentRecords],
+  );
+  const assignAlreadyAssignedReason = isQcAssign
+    ? 'User is already QC assigned to at least one selected task.'
+    : 'User is already assigned to at least one selected task.';
+  const isAssignUserDisabled = React.useCallback(
+    (userId: string): boolean => disabledAssignUserIds.has(userId),
+    [disabledAssignUserIds],
+  );
   const assignFilteredUsers = React.useMemo(() => {
     const term = assignSearch.trim().toLowerCase();
     return assignUsers.filter((u) => {
@@ -4165,13 +4185,19 @@ export const Grid = React.memo((props: GridProps) => {
     [assignSelectedUserId, assignUsers],
   );
 
+  React.useEffect(() => {
+    if (!assignSelectedUserId) return;
+    if (!isAssignUserDisabled(assignSelectedUserId)) return;
+    setAssignSelectedUserId(undefined);
+  }, [assignSelectedUserId, isAssignUserDisabled]);
+
   const handleAssignUserSelect = React.useCallback((userId: string) => {
-    if (assignLoading) return;
+    if (assignLoading || isAssignUserDisabled(userId)) return;
     setAssignSelectedUserId(userId);
-  }, [assignLoading]);
+  }, [assignLoading, isAssignUserDisabled]);
 
   const handleAssignClick = React.useCallback(async (user: AssignUser) => {
-    if (!onAssignTasks || assignLoading) return;
+    if (!onAssignTasks || assignLoading || isAssignUserDisabled(user.id)) return;
     setAssignSelectedUserId(user.id);
     setAssignLoading(true);
     try {
@@ -4184,7 +4210,7 @@ export const Grid = React.memo((props: GridProps) => {
     } finally {
       setAssignLoading(false);
     }
-  }, [assignLoading, closeAssignPanel, onAssignTasks]);
+  }, [assignLoading, closeAssignPanel, isAssignUserDisabled, onAssignTasks]);
 
   const handleMarkPassedQcClick = React.useCallback(async () => {
     if (!onMarkPassedQc || markPassedQcLoading) return;
@@ -4207,28 +4233,59 @@ export const Grid = React.memo((props: GridProps) => {
         onRender: (item: AssignUser) => (
           item.id === ASSIGN_LOADING_ROW_ID
             ? null
-            : (
+            : (() => {
+              const disabled = assignLoading || isAssignUserDisabled(item.id);
+              const disabledReason = assignLoading ? assignLoadingText : assignAlreadyAssignedReason;
+              const fullName = `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim();
+              const selectLabel = disabled
+                ? `Select ${fullName}. Unavailable. ${disabledReason}`
+                : `Select ${fullName}`;
+              return (
               <input
-                className={joinClassNames('voa-assign-radio', assignLoading ? 'voa-focusable-disabled-radio' : undefined)}
+                className={joinClassNames('voa-assign-radio', disabled ? 'voa-focusable-disabled-radio' : undefined)}
                 type="radio"
                 name="assign-user"
-                aria-label={`Select ${item.firstName} ${item.lastName}`}
-                disabled={assignLoading}
+                aria-label={selectLabel}
+                disabled={disabled}
                 checked={assignSelectedUserId === item.id}
-                title={assignLoading ? assignLoadingText : undefined}
+                title={disabled ? disabledReason : undefined}
                 onChange={() => {
-                  if (assignLoading) return;
+                  if (disabled) return;
                   handleAssignUserSelect(item.id);
                 }}
               />
-            )
+              );
+            })()
         ),
       },
       { key: 'firstName', name: 'First Name', fieldName: 'firstName', minWidth: 140, isResizable: true },
       { key: 'lastName', name: 'Last Name', fieldName: 'lastName', minWidth: 140, isResizable: true },
       { key: 'email', name: 'Email', fieldName: 'email', minWidth: 240, isResizable: true },
     ],
-    [assignLoading, assignSelectedUserId, handleAssignUserSelect],
+    [assignAlreadyAssignedReason, assignLoading, assignSelectedUserId, handleAssignUserSelect, isAssignUserDisabled],
+  );
+  const onRenderAssignUserRow = React.useCallback(
+    (
+      rowProps?: IDetailsRowProps,
+      defaultRender?: (props?: IDetailsRowProps) => JSX.Element | null,
+    ): JSX.Element | null => {
+      if (!rowProps || !defaultRender) return null;
+      const record = rowProps.item as AssignUser | undefined;
+      const isLoadingRow = record?.id === ASSIGN_LOADING_ROW_ID;
+      const isDisabled = !!record && !isLoadingRow && isAssignUserDisabled(record.id);
+      const nextProps = {
+        ...rowProps,
+        className: joinClassNames(
+          rowProps.className,
+          isDisabled ? 'voa-assign-row-disabled' : undefined,
+        ),
+      } as IDetailsRowProps & { 'aria-disabled'?: boolean };
+      if (isDisabled) {
+        nextProps['aria-disabled'] = true;
+      }
+      return defaultRender(nextProps);
+    },
+    [isAssignUserDisabled],
   );
 
   const prefilterWorkThatOptions = React.useMemo(() => {
@@ -6263,6 +6320,7 @@ export const Grid = React.memo((props: GridProps) => {
                     text={commonText.buttons.back}
                     iconProps={{ iconName: 'Back' }}
                     onClick={closeAssignPanel}
+                    disabled={assignLoading}
                     ariaLabel={assignTasksText.aria.backToManager}
                   />
                   <Text as="h1" id="assign-screen-title" variant="xLarge" styles={{ root: { marginLeft: 12, fontWeight: 600 } }}>
@@ -6272,6 +6330,7 @@ export const Grid = React.memo((props: GridProps) => {
                     <DefaultButton
                       text={commonText.buttons.close}
                       iconProps={{ iconName: 'Cancel' }}
+                      disabled={assignLoading}
                       ariaLabel={assignTasksText.aria.closeAssign}
                       onClick={closeAssignPanel}
                     />
@@ -6325,14 +6384,21 @@ export const Grid = React.memo((props: GridProps) => {
                 <Text as="h2" variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
                   {assignUserListTitle}
                 </Text>
+                {disabledAssignUserIds.size > 0 && (
+                  <Text variant="small" className="voa-assign-disabled-note">
+                    {assignAlreadyAssignedReason}
+                  </Text>
+                )}
                 <DetailsList
                   items={assignListItems}
                   columns={assignColumns}
                   selectionMode={SelectionMode.none}
                   isHeaderVisible
+                  onRenderRow={onRenderAssignUserRow}
                   onItemInvoked={(item) => {
                     const record = item as AssignUser | undefined;
                     if (!record || record.id === ASSIGN_LOADING_ROW_ID) return;
+                    if (assignLoading || isAssignUserDisabled(record.id)) return;
                     handleAssignUserSelect(record.id);
                   }}
                 />

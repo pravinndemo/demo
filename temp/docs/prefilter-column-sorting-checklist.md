@@ -31,9 +31,9 @@
 - [ ] PF-MA-01 "Search by" options are Billing Authority and Caseworker.
 - [ ] PF-MA-02 Billing Authority search shows Billing Authority selector with All; Caseworker field is hidden.
 - [ ] PF-MA-03 Caseworker search shows Caseworker selector with All; Billing Authority field is hidden.
-- [ ] PF-MA-04 Work That options for Billing Authority search: Is ready to allocate; Is currently assigned; Has been complete; Is awaiting or undergoing QC.
+- [ ] PF-MA-04 Work That options for Billing Authority search: Is ready to allocate; Is currently assigned; Has been completed; Is awaiting or undergoing QC.
 - [ ] PF-MA-05 Work That options for Caseworker search: Is assigned to the selected user(s); Has been completed by the selected user(s); Is assigned to the selected user(s) but is awaiting or undergoing QC.
-- [ ] PF-MA-06 Completed date range is required only for "Has been complete" and "Has been completed by the selected user(s)".
+- [ ] PF-MA-06 Completed date range is required only for "Has been completed" and "Has been completed by the selected user(s)".
 
 ## Prefilter: Caseworker View
 - [ ] PF-CW-01 Default "Search by" is Caseworker; Work That defaults to "Is assigned to me".
@@ -45,8 +45,8 @@
 - [ ] PF-QA-02 Task search hides the owner selector and still allows Search.
 - [ ] PF-QA-03 QC User uses QC user options; Caseworker uses caseworker options; both support All.
 - [ ] PF-QA-04 Work That options for QC User search: Is assigned to the selected user(s); Has been completed by the selected user(s); Is assigned to the selected user(s) but is being progressed by the caseworker.
-- [ ] PF-QA-05 Work That options for Caseworker search: Has been complete by the selected caseworker where QC has been requested; Has been complete by the selected caseworker.
-- [ ] PF-QA-06 Work That options for Task search: Has been complete by a caseworker where QC has been requested; Has been complete by a caseworker.
+- [ ] PF-QA-05 Work That options for Caseworker search: Has been completed by the selected caseworker where QC has been requested; Has been completed by the selected caseworker.
+- [ ] PF-QA-06 Work That options for Task search: Has been completed by a caseworker where QC has been requested; Has been completed by a caseworker.
 - [ ] PF-QA-07 Completed date range is required only for completed options (QC Completed, Caseworker Completed, Task Completed).
 
 ## Prefilter: QC View

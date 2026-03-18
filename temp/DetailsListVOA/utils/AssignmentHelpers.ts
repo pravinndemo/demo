@@ -35,6 +35,111 @@ export interface AssignableUsersMessages {
   assignableUsersLoadFailed: string;
 }
 
+const normalizeIdentityToken = (value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') return '';
+  const collapsed = String(value).trim().replace(/\s+/g, ' ');
+  if (!collapsed) return '';
+  return collapsed.replace(/^\{+|\}+$/g, '').toLowerCase();
+};
+
+const addToken = (set: Set<string>, value: unknown): void => {
+  const token = normalizeIdentityToken(value);
+  if (token) set.add(token);
+};
+
+const collectValueTokens = (value: unknown, out: Set<string>): void => {
+  if (value === null || value === undefined) return;
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectValueTokens(entry, out));
+    return;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+
+    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (parsed !== value) {
+          collectValueTokens(parsed, out);
+        }
+      } catch {
+        // Fall back to raw text tokenization.
+      }
+    }
+
+    addToken(out, trimmed);
+    trimmed
+      .split(/[|;,]/)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry !== '')
+      .forEach((entry) => addToken(out, entry));
+    return;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    addToken(out, value);
+    return;
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    ['id', 'name', 'displayName', 'email', 'firstName', 'lastName'].forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(record, key)) {
+        collectValueTokens(record[key], out);
+      }
+    });
+  }
+};
+
+const buildUserMatchTokens = (user: AssignUser): Set<string> => {
+  const tokens = new Set<string>();
+  const firstName = (user.firstName ?? '').trim();
+  const lastName = (user.lastName ?? '').trim();
+  const fullName = [firstName, lastName].filter((entry) => entry !== '').join(' ');
+
+  addToken(tokens, user.id);
+  addToken(tokens, user.email);
+  addToken(tokens, firstName);
+  addToken(tokens, lastName);
+  addToken(tokens, fullName);
+
+  return tokens;
+};
+
+export const resolveAssignedUserIdsToDisable = (
+  records: Record<string, unknown>[],
+  users: AssignUser[],
+  screenKind: ScreenKind,
+): string[] => {
+  if (screenKind !== 'managerAssign' && screenKind !== 'qcAssign') return [];
+  if (!Array.isArray(records) || records.length === 0 || !Array.isArray(users) || users.length === 0) return [];
+
+  const fields = screenKind === 'qcAssign'
+    ? ['qcassignedto', 'qcAssignedTo']
+    : ['assignedto', 'assignedTo'];
+
+  const selectedTokens = new Set<string>();
+  records.forEach((record) => {
+    fields.forEach((field) => collectValueTokens(record[field], selectedTokens));
+  });
+  if (selectedTokens.size === 0) return [];
+
+  const disabledIds: string[] = [];
+  const seen = new Set<string>();
+  users.forEach((user) => {
+    const userId = (user.id ?? '').trim();
+    if (!userId) return;
+    const normalizedUserId = normalizeIdentityToken(userId);
+    if (!normalizedUserId || seen.has(normalizedUserId)) return;
+    const userTokens = buildUserMatchTokens(user);
+    const isAssigned = Array.from(userTokens).some((token) => selectedTokens.has(token));
+    if (!isAssigned) return;
+    seen.add(normalizedUserId);
+    disabledIds.push(userId);
+  });
+  return disabledIds;
+};
+
 export const resolveAssignmentStatusValidation = (
   records: Record<string, unknown>[],
   screenKind: ScreenKind,

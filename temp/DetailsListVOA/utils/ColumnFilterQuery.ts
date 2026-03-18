@@ -6,7 +6,7 @@ export type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFil
 
 const COLUMN_FILTER_FIELD_MAP: Record<string, string> = {
   saleid: 'saleId',
-  taskid: 'taskId',
+  taskid: 'taskName',
   uprn: 'uprn',
   address: 'address',
   postcode: 'postCode',

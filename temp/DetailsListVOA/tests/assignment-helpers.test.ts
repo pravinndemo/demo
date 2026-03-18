@@ -1,5 +1,6 @@
 import {
   parseAssignableUsersResponse,
+  resolveAssignedUserIdsToDisable,
   resolveAssignmentStatusValidation,
   type AssignmentConfig,
 } from '../utils/AssignmentHelpers';
@@ -106,5 +107,32 @@ describe('assignment helpers', () => {
     expect(parsed.users[0].id).toBe('1');
     expect(parsed.users[0].roles).toEqual(['r', 'r2']);
     expect(parsed.users[1].role).toBe('r3');
+  });
+
+  test('resolveAssignedUserIdsToDisable matches manager assigned user by name', () => {
+    const users = [
+      { id: 'u1', firstName: 'Praveen', lastName: 'K', email: 'praveen@example.com', team: '', role: '' },
+      { id: 'u2', firstName: 'Alex', lastName: 'J', email: 'alex@example.com', team: '', role: '' },
+    ];
+    const selectedRows = [{ assignedto: 'Praveen K' }];
+    const disabled = resolveAssignedUserIdsToDisable(selectedRows, users, 'managerAssign');
+    expect(disabled).toEqual(['u1']);
+  });
+
+  test('resolveAssignedUserIdsToDisable matches qc assigned user by id and delimiters', () => {
+    const users = [
+      { id: '123', firstName: 'Praveen', lastName: 'K', email: 'praveen@example.com', team: '', role: '' },
+      { id: '456', firstName: 'Alex', lastName: 'J', email: 'alex@example.com', team: '', role: '' },
+    ];
+    const selectedRows = [{ qcAssignedTo: '123;789' }];
+    const disabled = resolveAssignedUserIdsToDisable(selectedRows, users, 'qcAssign');
+    expect(disabled).toEqual(['123']);
+  });
+
+  test('resolveAssignedUserIdsToDisable ignores non-assignment screens', () => {
+    const users = [{ id: 'u1', firstName: 'Praveen', lastName: 'K', email: 'praveen@example.com', team: '', role: '' }];
+    const selectedRows = [{ assignedto: 'Praveen K' }];
+    const disabled = resolveAssignedUserIdsToDisable(selectedRows, users, 'salesSearch');
+    expect(disabled).toEqual([]);
   });
 });

@@ -26,8 +26,8 @@
 - [ ] PF-QA-04 When Search by = Caseworker, Caseworker selector is shown (includes All) and QC User selector is hidden.
 - [ ] PF-QA-05 When Search by = Task, owner selector is hidden and Search can still be run.
 - [ ] PF-QA-06 Work That options for QC User: Is assigned to the selected user(s); Has been completed by the selected user(s); Is assigned to the selected user(s) but is being progressed by the caseworker.
-- [ ] PF-QA-07 Work That options for Caseworker: Has been complete by the selected caseworker where QC has been requested; Has been complete by the selected caseworker.
-- [ ] PF-QA-08 Work That options for Task: Has been complete by a caseworker where QC has been requested; Has been complete by a caseworker.
+- [ ] PF-QA-07 Work That options for Caseworker: Has been completed by the selected caseworker where QC has been requested; Has been completed by the selected caseworker.
+- [ ] PF-QA-08 Work That options for Task: Has been completed by a caseworker where QC has been requested; Has been completed by a caseworker.
 - [ ] PF-QA-09 Completed date range is required only for completed options (QC Completed, Caseworker Completed, Task Completed).
 - [ ] PF-QA-10 "From date" cannot be in the future; error shown if it is.
 - [ ] PF-QA-11 "From date" auto-sets "To date" to min(from + 14 days, today).

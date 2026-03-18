@@ -3,7 +3,8 @@ import path from 'path';
 import { COLUMN_PROFILES, getProfileConfigs } from '../config/ColumnProfiles';
 import { ColumnConfig } from '../Component.types';
 
-const IDENTIFIER_COLUMNS_LEFT = ['saleid', 'taskid', 'uprn'];
+const IDENTIFIER_COLUMNS_LEFT = ['saleid'];
+const IDENTIFIER_COLUMNS_CENTER = ['taskid', 'uprn'];
 const NUMERIC_COLUMNS = ['saleprice', 'ratio', 'outlierratio'];
 const TAG_COLUMNS_CENTER = ['flaggedforreview'];
 const TAG_COLUMNS_LEFT = ['reviewflags', 'overallflag', 'summaryflags', 'taskstatus'];
@@ -47,6 +48,14 @@ describe('SALES_COLUMNS alignment', () => {
     IDENTIFIER_COLUMNS_LEFT.forEach((name) => {
       it(`${name} -> ColHorizontalAlign = left`, () => {
         expect(getCol(cols, name).ColHorizontalAlign).toBe('left');
+      });
+    });
+  });
+
+  describe('identifier columns (center horizontal)', () => {
+    IDENTIFIER_COLUMNS_CENTER.forEach((name) => {
+      it(`${name} -> ColHorizontalAlign = center`, () => {
+        expect(getCol(cols, name).ColHorizontalAlign).toBe('center');
       });
     });
   });

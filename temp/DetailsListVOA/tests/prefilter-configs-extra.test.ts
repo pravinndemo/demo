@@ -83,8 +83,8 @@ describe('prefilter configs extra', () => {
       text: opt.text,
     }));
     expect(options).toEqual([
-      { key: 'caseworkerCompletedQcRequested', text: 'Has been complete by the selected caseworker where QC has been requested' },
-      { key: 'caseworkerCompleted', text: 'Has been complete by the selected caseworker' },
+      { key: 'caseworkerCompletedQcRequested', text: 'Has been completed by the selected caseworker where QC has been requested' },
+      { key: 'caseworkerCompleted', text: 'Has been completed by the selected caseworker' },
     ]);
   });
 
@@ -94,8 +94,8 @@ describe('prefilter configs extra', () => {
       text: opt.text,
     }));
     expect(options).toEqual([
-      { key: 'taskCompletedQcRequested', text: 'Has been complete by a caseworker where QC has been requested' },
-      { key: 'taskCompleted', text: 'Has been complete by a caseworker' },
+      { key: 'taskCompletedQcRequested', text: 'Has been completed by a caseworker where QC has been requested' },
+      { key: 'taskCompleted', text: 'Has been completed by a caseworker' },
     ]);
   });
 

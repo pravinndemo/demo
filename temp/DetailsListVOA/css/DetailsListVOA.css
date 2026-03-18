@@ -1196,6 +1196,24 @@
   opacity: 0.6;
 }
 
+.voa-assign-disabled-note {
+  color: #505a5f;
+}
+
+.voa-assign-row-disabled,
+.voa-assign-row-disabled .ms-DetailsRow-fields {
+  background: #f3f2f1 !important;
+}
+
+.voa-assign-row-disabled .ms-DetailsRow-cell {
+  color: #505a5f;
+}
+
+.voa-assign-row-disabled:hover:not(.is-selected),
+.voa-assign-row-disabled:hover:not(.is-selected) .ms-DetailsRow-fields {
+  background: #f3f2f1 !important;
+}
+
 .voa-prefilter-bar {
   margin-bottom: 8px;
   padding: 0;

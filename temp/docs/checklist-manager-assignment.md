@@ -24,9 +24,9 @@
 - [ ] PF-MA-02 "Search by" options are Billing Authority and Caseworker.
 - [ ] PF-MA-03 When Search by = Billing Authority, Billing Authority selector is shown (includes All) and Caseworker selector is hidden.
 - [ ] PF-MA-04 When Search by = Caseworker, Caseworker selector is shown (includes All) and Billing Authority selector is hidden.
-- [ ] PF-MA-05 Work That options for Billing Authority: Is ready to allocate; Is currently assigned; Has been complete; Is awaiting or undergoing QC.
+- [ ] PF-MA-05 Work That options for Billing Authority: Is ready to allocate; Is currently assigned; Has been completed; Is awaiting or undergoing QC.
 - [ ] PF-MA-06 Work That options for Caseworker: Is assigned to the selected user(s); Has been completed by the selected user(s); Is assigned to the selected user(s) but is awaiting or undergoing QC.
-- [ ] PF-MA-07 Completed date range is required only for "Has been complete" and "Has been completed by the selected user(s)".
+- [ ] PF-MA-07 Completed date range is required only for "Has been completed" and "Has been completed by the selected user(s)".
 - [ ] PF-MA-08 "From date" cannot be in the future; error shown if it is.
 - [ ] PF-MA-09 "From date" auto-sets "To date" to min(from + 14 days, today).
 - [ ] PF-MA-10 Search is disabled until required fields are set (owner, work that, and from date when required).

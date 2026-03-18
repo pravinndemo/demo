@@ -8,7 +8,7 @@ export const MANAGER_SEARCH_BY_OPTIONS: IDropdownOption[] = [
 export const MANAGER_WORKTHAT_BILLING: IDropdownOption[] = [
   { key: 'readyToAllocate', text: 'Is ready to allocate' },
   { key: 'currentlyAssigned', text: 'Is currently assigned' },
-  { key: 'hasBeenComplete', text: 'Has been complete' },
+  { key: 'hasBeenComplete', text: 'Has been completed' },
   { key: 'awaitingQc', text: 'Is awaiting or undergoing QC' },
 ];
 
@@ -43,13 +43,13 @@ export const QC_WORKTHAT_SELF_OPTIONS: IDropdownOption[] = [
 ];
 
 export const QC_WORKTHAT_CASEWORKER_OPTIONS: IDropdownOption[] = [
-  { key: 'caseworkerCompletedQcRequested', text: 'Has been complete by the selected caseworker where QC has been requested' },
-  { key: 'caseworkerCompleted', text: 'Has been complete by the selected caseworker' },
+  { key: 'caseworkerCompletedQcRequested', text: 'Has been completed by the selected caseworker where QC has been requested' },
+  { key: 'caseworkerCompleted', text: 'Has been completed by the selected caseworker' },
 ];
 
 export const QC_WORKTHAT_TASK_OPTIONS: IDropdownOption[] = [
-  { key: 'taskCompletedQcRequested', text: 'Has been complete by a caseworker where QC has been requested' },
-  { key: 'taskCompleted', text: 'Has been complete by a caseworker' },
+  { key: 'taskCompletedQcRequested', text: 'Has been completed by a caseworker where QC has been requested' },
+  { key: 'taskCompleted', text: 'Has been completed by a caseworker' },
 ];
 
 export const MANAGER_BILLING_AUTHORITY_OPTIONS: IDropdownOption[] = [

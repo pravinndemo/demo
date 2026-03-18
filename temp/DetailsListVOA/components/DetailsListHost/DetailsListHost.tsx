@@ -69,6 +69,14 @@ const isAssignableUserInGroup = (user: AssignUser, teamNames: Set<string>, roleN
 const buildAssignableUsersCacheKey = (apiName: string, customApiType: number, screenName: string): string =>
   `${apiName}|${customApiType}|${screenName.trim().toLowerCase()}`;
 
+const normalizeAssignableUserId = (value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+    return '';
+  }
+  return normalizeUserId(String(value)).toLowerCase();
+};
+
 const resolveAssignedByUserId = (context: ComponentFramework.Context<IInputs>): string => {
   const fromContext = (context.userSettings as { userId?: string } | undefined)?.userId;
   if (fromContext) return normalizeUserId(fromContext);
@@ -520,7 +528,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const caseworkerNameToIdMap = React.useMemo(() => {
     const map: Record<string, string> = {};
     assignableUsersCache.forEach((user) => {
-      const id = String(user?.id ?? '').trim();
+      const id = normalizeUserId(String(user?.id ?? ''));
       if (!id) return;
       const name = getUserDisplayName(user).trim();
       if (!name) return;
@@ -629,12 +637,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const mergeAssignableUsers = React.useCallback((prev: AssignUser[], next: AssignUser[]): AssignUser[] => {
     const map = new Map<string, AssignUser>();
     prev.forEach((u) => {
-      const id = String(u.id ?? '').trim().toLowerCase();
-      if (id) map.set(id, u);
+      const id = normalizeAssignableUserId(u.id);
+      if (id) map.set(id, { ...u, id });
     });
     next.forEach((u) => {
-      const id = String(u.id ?? '').trim().toLowerCase();
-      if (id) map.set(id, u);
+      const id = normalizeAssignableUserId(u.id);
+      if (id) map.set(id, { ...u, id });
     });
     return Array.from(map.values());
   }, []);
@@ -642,7 +650,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const userDisplayNameMap = React.useMemo(() => {
     const map: Record<string, string> = {};
     assignableUsersCache.forEach((user) => {
-      const id = String(user.id ?? '').trim().toLowerCase();
+      const id = normalizeAssignableUserId(user.id);
       if (!id) return;
       const name = getUserDisplayName(user);
       if (name) map[id] = name;
@@ -865,7 +873,11 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           ? value.split(',').map((v) => v.trim()).filter((v) => v !== '')
           : [];
         if (ids.length === 0) return undefined;
-        return ids.map((id) => userDisplayNameMap[id.toLowerCase()] ?? id);
+        return ids.map((id) => {
+          const normalizedId = normalizeAssignableUserId(id);
+          if (!normalizedId) return id;
+          return userDisplayNameMap[normalizedId] ?? id;
+        });
       };
       apimItems.forEach((item, index) => {
         const base: Record<string, unknown> = {};
