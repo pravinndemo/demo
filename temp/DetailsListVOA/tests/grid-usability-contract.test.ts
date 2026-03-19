@@ -71,6 +71,12 @@ describe('grid usability contract', () => {
     expect(gridSource).not.toContain('text={ultraCompactViewport ? undefined : prefilterToggleText}');
   });
 
+  test('enters compact mode only when browser zoom is above 120 percent', () => {
+    expect(gridSource).toContain('const COMPACT_MODE_ZOOM_THRESHOLD_PERCENT = 120;');
+    expect(gridSource).toContain('const compactViewport = viewportMetrics.width > 0');
+    expect(gridSource).toContain('&& viewportMetrics.zoomPercent > COMPACT_MODE_ZOOM_THRESHOLD_PERCENT;');
+  });
+
   test('keeps the search actions visually grouped with the active field instead of detaching them to the far edge', () => {
     expect(gridSource).toContain('className="voa-search-panel__actions"');
     expect(cssSource).toContain('.voa-search-panel {');

@@ -21,6 +21,7 @@ export const CONTROL_CONFIG = {
     ],
     allowedStatusesQc: [
       'QC requested',
+      'Complete',
       'Assigned QC failed',
       'Assigned To QC',
       'Reassigned To QC',

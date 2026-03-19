@@ -27,7 +27,7 @@ const SALES_COLUMNS: ColumnConfig[] = [
    { ColName: 'overallflag',      ColDisplayName: 'Overall Flag',       ColWidth: 220, ColCellType: 'tag', ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
    { ColName: 'summaryflags',     ColDisplayName: 'Summary Flag',       ColWidth: 170, ColCellType: 'tag', ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
   { ColName: 'taskstatus',       ColDisplayName: 'Task Status',        ColWidth: 190, ColCellType: 'tag', ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
-  { ColName: 'assignedto',       ColDisplayName: 'Assigned To',        ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
+  { ColName: 'assignedto',       ColDisplayName: 'Caseworker Assigned To', ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },
    { ColName: 'assigneddate',     ColDisplayName: 'Assigned Date',      ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center', ColFormat: 'date' },
   { ColName: 'taskcompleteddate',ColDisplayName: 'Task Completed Date',ColWidth: 160, ColHorizontalAlign: 'left', ColVerticalAlign: 'center', ColFormat: 'date' },
   { ColName: 'qcassignedto',     ColDisplayName: 'QC Assigned To',     ColWidth: 170, ColHorizontalAlign: 'left', ColVerticalAlign: 'center' },

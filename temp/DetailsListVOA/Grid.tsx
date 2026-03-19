@@ -243,10 +243,18 @@ interface PrefilterTooltips {
   toDate?: string;
 }
 
+interface ViewportMetrics {
+  width: number;
+  height: number;
+  zoomPercent: number;
+}
+
 const SALES_SEARCH_OPTIONS: SearchByOption[] = ['address', 'saleId', 'taskId', 'uprn', 'billingAuthority'];
 const BILLING_AUTHORITY_ALL_KEY = '__all__';
 const CASEWORKER_ALL_KEY = '__all__';
 const SELECT_ALL_KEY = '__select_all__';
+const DEFAULT_ZOOM_PERCENT = 100;
+const COMPACT_MODE_ZOOM_THRESHOLD_PERCENT = 120;
 
 type StoredPrefilterState = Partial<ManagerPrefilterState> & { applied?: boolean };
 
@@ -872,7 +880,11 @@ export const Grid = React.memo((props: GridProps) => {
   const [prefilters, setPrefilters] = React.useState<ManagerPrefilterState>(MANAGER_PREFILTER_DEFAULT);
   const [prefilterExpanded, setPrefilterExpanded] = React.useState(true);
   const [prefilterContainerWidth, setPrefilterContainerWidth] = React.useState<number | null>(null);
-  const [viewportMetrics, setViewportMetrics] = React.useState({ width: 0, height: 0 });
+  const [viewportMetrics, setViewportMetrics] = React.useState<ViewportMetrics>({
+    width: 0,
+    height: 0,
+    zoomPercent: DEFAULT_ZOOM_PERCENT,
+  });
   const [searchPanelExpanded, setSearchPanelExpanded] = React.useState(true);
   const [comboEditing, setComboEditing] = React.useState<Record<string, boolean>>({});
   const comboIgnoreNextInputRef = React.useRef<Record<string, boolean>>({});
@@ -1489,14 +1501,39 @@ export const Grid = React.memo((props: GridProps) => {
   React.useEffect(() => {
     const element = topRef.current;
     if (!element) return;
+    const readZoomPercent = (): number => {
+      const scale = window.visualViewport?.scale;
+      if (typeof scale === 'number' && Number.isFinite(scale) && scale > 0) {
+        const zoomFromScale = Math.round(scale * 100);
+        if (Math.abs(zoomFromScale - DEFAULT_ZOOM_PERCENT) > 1) {
+          return zoomFromScale;
+        }
+      }
+      const outerWidth = window.outerWidth;
+      const innerWidth = window.innerWidth;
+      if (Number.isFinite(outerWidth) && Number.isFinite(innerWidth) && innerWidth > 0) {
+        const ratio = outerWidth / innerWidth;
+        if (Number.isFinite(ratio) && ratio > 0.5 && ratio < 4) {
+          return Math.round(ratio * 100);
+        }
+      }
+      return DEFAULT_ZOOM_PERCENT;
+    };
     const updateMetrics = (width: number, height: number) => {
       if (!Number.isFinite(width) || !Number.isFinite(height)) return;
       const nextWidth = Math.round(width);
       const nextHeight = Math.round(height);
+      const nextZoomPercent = readZoomPercent();
       setViewportMetrics((prev) => (
-        prev.width === nextWidth && prev.height === nextHeight
+        prev.width === nextWidth
+        && prev.height === nextHeight
+        && prev.zoomPercent === nextZoomPercent
           ? prev
-          : { width: nextWidth, height: nextHeight }
+          : {
+            width: nextWidth,
+            height: nextHeight,
+            zoomPercent: nextZoomPercent,
+          }
       ));
       if (useAssignmentLayout) {
         setPrefilterContainerWidth((prev) => (prev === nextWidth ? prev : nextWidth));
@@ -1504,18 +1541,26 @@ export const Grid = React.memo((props: GridProps) => {
     };
     const updateFromElement = () => updateMetrics(element.clientWidth, element.clientHeight);
     updateFromElement();
+    let observer: ResizeObserver | undefined;
     if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver((entries) => {
+      observer = new ResizeObserver((entries) => {
         if (!entries || entries.length === 0) return;
         const { width, height } = entries[0].contentRect;
         updateMetrics(width, height);
       });
       observer.observe(element);
-      return () => observer.disconnect();
+    } else {
+      window.addEventListener('resize', updateFromElement);
     }
-    const handleResize = () => updateFromElement();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const visualViewport = window.visualViewport;
+    visualViewport?.addEventListener('resize', updateFromElement);
+    return () => {
+      observer?.disconnect();
+      if (typeof ResizeObserver === 'undefined') {
+        window.removeEventListener('resize', updateFromElement);
+      }
+      visualViewport?.removeEventListener('resize', updateFromElement);
+    };
   }, [useAssignmentLayout]);
 
   const updateHorizontalOverflowState = React.useCallback(() => {
@@ -4536,7 +4581,7 @@ export const Grid = React.memo((props: GridProps) => {
   );
   const showSalesSearchUnavailableNote = isSalesSearch && isSearchDisabled && !!searchUnavailableReason;
   const compactViewport = viewportMetrics.width > 0
-    && (viewportMetrics.width <= 980 || viewportMetrics.height <= 700);
+    && viewportMetrics.zoomPercent > COMPACT_MODE_ZOOM_THRESHOLD_PERCENT;
   const ultraCompactViewport = viewportMetrics.width > 0
     && (viewportMetrics.width <= 640 || viewportMetrics.height <= 520);
   const microViewport = viewportMetrics.width > 0
@@ -4666,6 +4711,7 @@ export const Grid = React.memo((props: GridProps) => {
     const normalizedField = fieldName.replace(/[^a-z0-9]/gi, '').toLowerCase();
     const isPostcodeField = normalizedField === 'postcode';
     const isTaskIdField = normalizedField === 'taskid';
+    const isSummaryFlagField = normalizedField === 'summaryflags' || normalizedField === 'summaryflag';
     const existingFilter = columnFiltersState[fieldName];
     const hasExistingFilter = (() => {
       if (existingFilter === undefined || existingFilter === null) return false;
@@ -4774,6 +4820,11 @@ export const Grid = React.memo((props: GridProps) => {
                 {isTaskIdField && (
                   <Text variant="small" styles={{ root: { marginTop: 4 } }}>
                     Use A- or M- prefix (e.g. A-1000001) or numbers only.
+                  </Text>
+                )}
+                {isSummaryFlagField && (
+                  <Text variant="small" styles={{ root: { marginTop: 4 } }}>
+                    Type the full summary flag text to filter results.
                   </Text>
                 )}
               </>

@@ -23,6 +23,7 @@ import { loadGridData } from '../../services/GridDataController';
 import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from '../../services/CustomApi';
 import { IInputs } from '../../generated/ManifestTypes';
 import { logPerf } from '../../utils/Perf';
+import { abbreviateSummaryFlagLabel } from '../../utils/TagSemanticUtils';
 
 export type { ScreenKind } from '../../utils/ScreenResolution';
 
@@ -560,10 +561,62 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     const mapped = caseworkerNameToIdMap[raw.toLowerCase()];
     return mapped ?? '';
   }, [caseworkerNameToIdMap]);
+  const summaryFlagOptions = React.useMemo(() => {
+    const values = apiFilterOptions.summaryflags ?? apiFilterOptions.summaryflag ?? [];
+    if (values.length === 0) return [];
+    return Array.from(new Set(
+      values
+        .map((value) => String(value ?? '').trim())
+        .filter((value) => value !== ''),
+    ));
+  }, [apiFilterOptions]);
+  const resolveSummaryFlagFilterValue = React.useCallback((rawValue: string): string => {
+    const trimmed = String(rawValue ?? '').trim();
+    if (!trimmed) return '';
+    if (summaryFlagOptions.length === 0) return trimmed;
+    const lower = trimmed.toLowerCase();
+    const exactLabel = summaryFlagOptions.find((option) => option.toLowerCase() === lower);
+    if (exactLabel) return exactLabel;
+    const exactAbbreviationMatches = summaryFlagOptions.filter(
+      (option) => abbreviateSummaryFlagLabel(option).toLowerCase() === lower,
+    );
+    if (exactAbbreviationMatches.length === 1) return exactAbbreviationMatches[0];
+    if (lower.length >= 2) {
+      const abbreviationPrefixMatches = summaryFlagOptions.filter(
+        (option) => abbreviateSummaryFlagLabel(option).toLowerCase().startsWith(lower),
+      );
+      if (abbreviationPrefixMatches.length === 1) return abbreviationPrefixMatches[0];
+    }
+    return trimmed;
+  }, [summaryFlagOptions]);
+  const normalizeSummaryFlagColumnFilters = React.useCallback(
+    (filters: Record<string, ColumnFilterValue>): Record<string, ColumnFilterValue> => {
+      const normalized: Record<string, ColumnFilterValue> = { ...filters };
+      Object.keys(normalized).forEach((field) => {
+        const key = normalizeFilterKey(field);
+        if (key !== 'summaryflags' && key !== 'summaryflag') return;
+        const current = normalized[field];
+        if (typeof current !== 'string') return;
+        const resolved = resolveSummaryFlagFilterValue(current);
+        if (!resolved) {
+          delete normalized[field];
+          return;
+        }
+        normalized[field] = resolved;
+      });
+      return normalized;
+    },
+    [resolveSummaryFlagFilterValue],
+  );
 
   const mapColumnFiltersForApi = React.useCallback(
-    (filters: Record<string, ColumnFilterValue>): Record<string, ColumnFilterValue> => {
-      const mapped: Record<string, ColumnFilterValue> = { ...filters };
+    (
+      filters: Record<string, ColumnFilterValue>,
+      options?: { normalizeSummaryFlags?: boolean },
+    ): Record<string, ColumnFilterValue> => {
+      const mapped: Record<string, ColumnFilterValue> = options?.normalizeSummaryFlags === false
+        ? { ...filters }
+        : normalizeSummaryFlagColumnFilters(filters);
       (['assignedto', 'qcassignedto'] as const).forEach((field) => {
         const current = mapped[field];
         if (!current) return;
@@ -589,7 +642,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       });
       return mapped;
     },
-    [mapUserValueToId],
+    [mapUserValueToId, normalizeSummaryFlagColumnFilters],
   );
 
   const mapSearchFiltersForApi = React.useCallback(
@@ -607,16 +660,17 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     [mapUserValueToId],
   );
 
-  const apiHeaderFilters = React.useMemo(
-    () => mapColumnFiltersForApi(headerFilters),
-    [headerFilters, mapColumnFiltersForApi],
-  );
   const hasFullResultSet = totalCount > 0 && apimItems.length >= totalCount;
   const clientSideThreshold = Math.max(1, pageSize);
   const clientSideEligible = hasLoadedApim
     && !serverDriven
     && hasFullResultSet
     && totalCount <= clientSideThreshold;
+  const shouldNormalizeSummaryFlagFilters = clientSideEligible;
+  const apiHeaderFilters = React.useMemo(
+    () => mapColumnFiltersForApi(headerFilters, { normalizeSummaryFlags: shouldNormalizeSummaryFlagFilters }),
+    [headerFilters, mapColumnFiltersForApi, shouldNormalizeSummaryFlagFilters],
+  );
   const activeClientSort = userSortActive ? clientSort : undefined;
   const serverClientSort = clientSideEligible ? undefined : activeClientSort;
   const columnFilterQuery = React.useMemo(
@@ -751,7 +805,15 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         const normalized = deserializeColumnFiltersFromStorage(String(tableKey), rawLocalFilters) as Record<string, ColumnFilterValue>;
         lastAppliedFiltersRef.current = normalized;
         setHeaderFilters(normalized);
-        try { onColumnFiltersApply?.(toApiHeaderFilters(mapColumnFiltersForApi(normalized))); } catch { /* ignore */ }
+        try {
+          onColumnFiltersApply?.(
+            toApiHeaderFilters(
+              mapColumnFiltersForApi(normalized, { normalizeSummaryFlags: shouldNormalizeSummaryFlagFilters }),
+            ),
+          );
+        } catch {
+          /* ignore */
+        }
       } else {
         lastAppliedFiltersRef.current = {};
         setHeaderFilters({});
@@ -801,6 +863,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     storageKeyPageNC,
     tableKey,
     toApiHeaderFilters,
+    shouldNormalizeSummaryFlagFilters,
   ]);
   // Persist to localStorage whenever filters/page/sort change
   React.useEffect(() => {
@@ -2121,8 +2184,11 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       return Promise.resolve(options.filter((opt) => opt.toLowerCase().includes(q)));
     },
     onColumnFiltersChange: (f) => {
-      const normalized: Record<string, ColumnFilterValue> = {};
-      Object.entries(f).forEach(([k, v]) => (normalized[k.toLowerCase()] = v as ColumnFilterValue));
+      const normalizedBase: Record<string, ColumnFilterValue> = {};
+      Object.entries(f).forEach(([k, v]) => (normalizedBase[k.toLowerCase()] = v as ColumnFilterValue));
+      const normalized = shouldNormalizeSummaryFlagFilters
+        ? normalizeSummaryFlagColumnFilters(normalizedBase)
+        : normalizedBase;
       // No-op if unchanged to avoid duplicate apply calls
       const prev = lastAppliedFiltersRef.current;
       const same = areFiltersEqual(prev, normalized);
@@ -2143,7 +2209,13 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
           // ignore storage failures
         }
         setCurrentPage(0);
-        try { onColumnFiltersApply?.(toApiHeaderFilters(mapColumnFiltersForApi(normalized))); } catch { void 0; }
+        try {
+          onColumnFiltersApply?.(
+            toApiHeaderFilters(
+              mapColumnFiltersForApi(normalized, { normalizeSummaryFlags: shouldNormalizeSummaryFlagFilters }),
+            ),
+          );
+        } catch { void 0; }
       }
     },
     columnFilters: headerFilters,

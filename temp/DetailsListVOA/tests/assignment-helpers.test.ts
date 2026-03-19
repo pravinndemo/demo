@@ -46,6 +46,22 @@ describe('assignment helpers', () => {
     expect(result.error).toBe('invalid');
   });
 
+  test('qc assignment allows complete status when configured and treats it as reassignment', () => {
+    const cfg: AssignmentConfig = {
+      allowedStatusesManager: [],
+      allowedStatusesQc: ['QC requested', 'Complete'],
+      allowedStatuses: [],
+    };
+    const result = resolveAssignmentStatusValidation(
+      [{ taskstatus: 'Complete' }],
+      'qcAssign',
+      cfg,
+      'invalid',
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.assignmentTaskStatus).toBe('NULL');
+  });
+
   test('enforces allowed statuses for non-assignment screens', () => {
     const cfg: AssignmentConfig = {
       allowedStatusesManager: [],
