@@ -414,6 +414,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const assignableUsersCacheLoadKeyRef = React.useRef<string>('');
   const assignableUsersCacheContextsRef = React.useRef<Set<string>>(new Set());
   const metadataLoadKeyRef = React.useRef<string>('');
+  const prefilterSkipLogKeyRef = React.useRef<string>('');
   const handleAssignPanelToggle = React.useCallback((isOpen: boolean): boolean => {
     if (!isOpen) {
       setAssignPanelOpen(false);
@@ -444,6 +445,15 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   }, [assignmentConfig, assignTasksText.messages.invalidStatus, screenKind]);
   // Defer persistence until after initial hydration to avoid add/remove flicker in localStorage
   const [hydrated, setHydrated] = React.useState(false);
+  const resetHostResultsState = React.useCallback(() => {
+    setApimLoading((prev) => (prev ? false : prev));
+    setHasLoadedApim((prev) => (prev ? false : prev));
+    setApimItems((prev) => (prev.length > 0 ? [] : prev));
+    setTotalCount((prev) => (prev !== 0 ? 0 : prev));
+    setServerDriven((prev) => (prev ? false : prev));
+    setApiFilterOptions((prev) => (Object.keys(prev).length > 0 ? {} : prev));
+    setLoadErrorMessage((prev) => (prev !== undefined ? undefined : prev));
+  }, []);
   const allowColumnReorder = (context.parameters as unknown as Record<string, { raw?: string | boolean }>).allowColumnReorder?.raw === true ||
     String((context.parameters as unknown as Record<string, { raw?: string | boolean }>).allowColumnReorder?.raw ?? '').toLowerCase() === 'true';
   const isManagerAssign = screenKind === 'managerAssign';
@@ -1137,35 +1147,30 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       return;
     }
     if (isSalesSearch && !salesSearchApplied) {
-      setApimLoading(false);
-      setHasLoadedApim(false);
-      setApimItems([]);
-      setTotalCount(0);
-      setServerDriven(false);
-      setApiFilterOptions({});
-      setLoadErrorMessage(undefined);
+      prefilterSkipLogKeyRef.current = '';
+      resetHostResultsState();
       return;
     }
     const pendingScreenKindChange = lastScreenKindRef.current !== undefined && lastScreenKindRef.current !== screenKind;
     if (pendingScreenKindChange) {
+      prefilterSkipLogKeyRef.current = '';
       setApimLoading(false);
       return;
     }
     if (isPrefilterScreen && !prefilterApplied) {
-      console.debug('[Prefilter] host load skip', {
-        screen: screenKind,
-        prefilterApplied,
-        prefilters,
-      });
-      setApimLoading(false);
-      setHasLoadedApim(false);
-      setApimItems([]);
-      setTotalCount(0);
-      setServerDriven(false);
-      setApiFilterOptions({});
-      setLoadErrorMessage(undefined);
+      const skipKey = `${screenKind}|${prefilterApplied ? '1' : '0'}|${JSON.stringify(prefilters ?? null)}`;
+      if (prefilterSkipLogKeyRef.current !== skipKey) {
+        prefilterSkipLogKeyRef.current = skipKey;
+        console.debug('[Prefilter] host load skip', {
+          screen: screenKind,
+          prefilterApplied,
+          prefilters,
+        });
+      }
+      resetHostResultsState();
       return;
     }
+    prefilterSkipLogKeyRef.current = '';
     const trigger = String((context.parameters as unknown as Record<string, { raw?: string | number }>).searchTrigger?.raw ?? '');
     const sortKey = serverClientSort ? `${serverClientSort.name}:${serverClientSort.sortDirection}` : '';
     const nextSortKey = clientSideEligible ? lastRef.current.sort : sortKey;
@@ -1225,7 +1230,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       }
       setApiFilterOptions(normalizeFilterOptions(tableKey, res.filters));
     })();
-  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, userSortActive, clientSideEligible, searchNonce, hasLoadedApim, apimLoading, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi]);
+  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, userSortActive, clientSideEligible, searchNonce, hasLoadedApim, apimLoading, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi, resetHostResultsState]);
 
   React.useEffect(() => {
     if (!assignPanelOpen || !assignmentContextKey) {
