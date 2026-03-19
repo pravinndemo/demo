@@ -259,6 +259,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     : undefined;
   const canvasScreenName = (context.parameters as unknown as Record<string, { raw?: string }>).canvasScreenName?.raw ?? '';
   const tableKeyRaw = (context.parameters as unknown as Record<string, { raw?: string }>).tableKey?.raw ?? '';
+  const columnDisplayNamesRaw = (context.parameters as unknown as Record<string, { raw?: string }>).columnDisplayNames?.raw?.trim() ?? '{}';
+  const columnConfigRaw = (context.parameters as unknown as Record<string, { raw?: string }>).columnConfig?.raw?.trim() ?? '[]';
   const screenName = canvasScreenName.toLowerCase();
   const fallbackTableKey = React.useMemo(
     () => normalizeTableKey((CONTROL_CONFIG.tableKey || 'sales').trim().toLowerCase()),
@@ -312,22 +314,20 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const [columnConfigs, setColumnConfigs] = React.useState<Record<string, ColumnConfig>>({});
 
   React.useEffect(() => {
-    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).columnDisplayNames?.raw?.trim() ?? '{}';
     try {
-      const parsed = JSON.parse(raw) as Record<string, string>;
+      const parsed = JSON.parse(columnDisplayNamesRaw) as Record<string, string>;
       const map: Record<string, string> = {};
       Object.keys(parsed).forEach((k) => (map[k.toLowerCase()] = parsed[k]));
       setColumnDisplayNames(map);
     } catch {
       setColumnDisplayNames({});
     }
-  }, [context]);
+  }, [columnDisplayNamesRaw]);
 
   React.useEffect(() => {
-    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).columnConfig?.raw?.trim() ?? '[]';
     try {
       const fromProfile = getProfileConfigs(profileKey);
-      const fromJson = JSON.parse(raw) as ColumnConfig[];
+      const fromJson = JSON.parse(columnConfigRaw) as ColumnConfig[];
       const merged = [...fromProfile, ...fromJson];
       const map: Record<string, ColumnConfig> = {};
       merged.forEach((c) => {
@@ -352,7 +352,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     } catch {
       setColumnConfigs({});
     }
-  }, [context, profileKey]);
+  }, [columnConfigRaw, profileKey]);
 
   // State
   const [currentPage, setCurrentPage] = React.useState(0);
@@ -413,6 +413,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   const caseworkerOptionsLoadKeyRef = React.useRef<string>('');
   const assignableUsersCacheLoadKeyRef = React.useRef<string>('');
   const assignableUsersCacheContextsRef = React.useRef<Set<string>>(new Set());
+  const metadataLoadKeyRef = React.useRef<string>('');
   const handleAssignPanelToggle = React.useCallback((isOpen: boolean): boolean => {
     if (!isOpen) {
       setAssignPanelOpen(false);
@@ -1176,7 +1177,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       || lastRef.current.sort !== nextSortKey
       || lastRef.current.nonce !== searchNonce
       || lastRef.current.columnFilters !== nextColumnFilters
-      || !hasLoadedApim;
+      || (!hasLoadedApim && !apimLoading);
     if (!changed) return;
     lastRef.current = {
       table: tableKey,
@@ -1224,7 +1225,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       }
       setApiFilterOptions(normalizeFilterOptions(tableKey, res.filters));
     })();
-  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, userSortActive, clientSideEligible, searchNonce, hasLoadedApim, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi]);
+  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, userSortActive, clientSideEligible, searchNonce, hasLoadedApim, apimLoading, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi]);
 
   React.useEffect(() => {
     if (!assignPanelOpen || !assignmentContextKey) {
@@ -1696,6 +1697,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   React.useEffect(() => {
     const shouldLoad = isManagerAssign || isSalesSearch;
     if (!shouldLoad) {
+      metadataLoadKeyRef.current = '';
       setBillingAuthorityOptions([]);
       setBillingAuthorityOptionsError(undefined);
       setBillingAuthorityOptionsLoading(false);
@@ -1703,6 +1705,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     }
 
     if (!metadataApiName) {
+      metadataLoadKeyRef.current = '';
       if (fallbackBillingAuthorityOptions.length > 0) {
         setBillingAuthorityOptions(fallbackBillingAuthorityOptions);
         setBillingAuthorityOptionsError(undefined);
@@ -1713,6 +1716,12 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       setBillingAuthorityOptionsLoading(false);
       return;
     }
+
+    const metadataLoadKey = `${screenKind}|${metadataApiName}|${metadataApiType}`;
+    if (metadataLoadKeyRef.current === metadataLoadKey) {
+      return;
+    }
+    metadataLoadKeyRef.current = metadataLoadKey;
 
     let active = true;
     setBillingAuthorityOptionsLoading(true);
