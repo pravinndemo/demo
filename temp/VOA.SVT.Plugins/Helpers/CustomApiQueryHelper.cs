@@ -37,6 +37,8 @@ namespace VOA.SVT.Plugins.Helpers
                 SearchBy = GetString(inputParameters, "searchBy"),
                 PreFilter = GetString(inputParameters, "preFilter"),
                 RequestedBy = GetString(inputParameters, "RequestedBy") ?? GetString(inputParameters, "requestedBy"),
+                Country = GetString(inputParameters, "country") ?? GetString(inputParameters, "Country"),
+                ListYear = GetString(inputParameters, "listYear") ?? GetString(inputParameters, "ListYear") ?? GetString(inputParameters, "listyear"),
                 FromDate = GetString(inputParameters, "fromDate"),
                 ToDate = GetString(inputParameters, "toDate"),
                 SaleId = GetString(inputParameters, "saleId"),
@@ -96,3 +98,5 @@ namespace VOA.SVT.Plugins.Helpers
         }
     }
 }
+
+

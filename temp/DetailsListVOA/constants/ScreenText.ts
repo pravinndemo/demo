@@ -1,4 +1,5 @@
 import { IDropdownOption } from '@fluentui/react';
+import { HOME_JOURNEY_SCREEN_LABELS } from './HomeJourney';
 
 export const MANAGER_SEARCH_BY_OPTIONS: IDropdownOption[] = [
   { key: 'billingAuthority', text: 'Billing Authority' },
@@ -219,7 +220,7 @@ export const SCREEN_TEXT = {
     },
   },
   managerAssignment: {
-    title: 'Manager Assignment',
+    title: HOME_JOURNEY_SCREEN_LABELS.managerAssign.tableTitle,
     assignActionText: 'Assign Tasks',
     assignUserListTitle: 'SVT Users',
     apiParams: PREFILTER_API_PARAMS.managerAssignment,
@@ -270,7 +271,7 @@ export const SCREEN_TEXT = {
     },
   },
   qcAssignment: {
-    title: 'QC Assignment',
+    title: HOME_JOURNEY_SCREEN_LABELS.qcAssign.tableTitle,
     assignActionText: 'Assign QC Tasks',
     assignUserListTitle: 'QC Users',
     apiParams: PREFILTER_API_PARAMS.qcAssignment,
@@ -324,7 +325,7 @@ export const SCREEN_TEXT = {
     },
   },
   caseworkerView: {
-    title: 'My Allocated Sales',
+    title: HOME_JOURNEY_SCREEN_LABELS.caseworkerView.tableTitle,
     apiParams: PREFILTER_API_PARAMS.caseworkerView,
     emptyState: {
       title: 'No results found',
@@ -332,7 +333,7 @@ export const SCREEN_TEXT = {
     },
   },
   qcView: {
-    title: 'Quality Control View',
+    title: HOME_JOURNEY_SCREEN_LABELS.qcView.tableTitle,
     apiParams: PREFILTER_API_PARAMS.qcView,
     emptyState: {
       title: 'No results found',
@@ -391,7 +392,7 @@ export const SCREEN_TEXT = {
     },
   },
   salesSearch: {
-    title: 'Sales Record Search',
+    title: HOME_JOURNEY_SCREEN_LABELS.salesSearch.tableTitle,
     searchPanel: {
       searchByLabel: 'Search by',
     },

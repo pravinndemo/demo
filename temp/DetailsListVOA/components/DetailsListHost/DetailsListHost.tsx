@@ -17,6 +17,7 @@ import { filterItemsByColumnFilters } from '../../utils/GridColumnFilters';
 import { toSortableDateKey } from '../../utils/DateSortUtils';
 import { deserializeColumnFiltersFromStorage, parseStoredSortState, serializeColumnFiltersForStorage, shouldPersistSortState } from '../../utils/GridStatePersistence';
 import { isGuidValue, normalizeSuid, normalizeUserId } from '../../utils/IdentifierUtils';
+import { buildHereditamentUrl } from '../../utils/HereditamentUrl';
 import { buildGridSessionKey, buildPrefilterStorageKey, isSalesSearchDefaultFilters, resolveAssignmentScreenName, shouldShowResults } from '../../utils/ScreenBehavior';
 import { resolveScreenConfig, toKnownTableKey, normalizeTableKey, type ScreenKind } from '../../utils/ScreenResolution';
 import { loadGridData } from '../../services/GridDataController';
@@ -29,7 +30,7 @@ export type { ScreenKind } from '../../utils/ScreenResolution';
 
 export interface DetailsListHostProps {
   context: ComponentFramework.Context<IInputs>;
-  onRowInvoke?: (args: { taskId?: string; saleId?: string }) => void | Promise<void>;
+  onRowInvoke?: (args: { taskId?: string; saleId?: string; screenKind?: string; tableKey?: string }) => void | Promise<void>;
   // Emit IDs on selection (single or multi); arrays support multi-select
   onSelectionChange?: (args: { taskId?: string; saleId?: string; selectedTaskIds?: string[]; selectedSaleIds?: string[] }) => void;
   // Emit count of selected rows (even if IDs are missing)
@@ -40,11 +41,16 @@ export interface DetailsListHostProps {
   externalItems?: unknown[];
   // Bubble header filter Apply back to parent (used by external item scenarios to call API with extra params)
   onColumnFiltersApply?: (filters: Record<string, string | string[]>) => void;
+  // Optional journey/home overrides for screen routing.
+  screenNameOverride?: string;
+  tableKeyOverride?: string;
+  // Optional global request context overrides.
+  countryOverride?: string;
+  listYearOverride?: string;
 }
 
 type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFilter;
 type FilterOptionsMap = Record<string, string[]>;
-const SSU_APP_ID = 'cdb5343c-51c1-ec11-983e-002248438fff';
 
 const QC_TEAM_NAMES = new Set(['svt qa team']);
 const QC_ROLE_NAMES = new Set(['voa - svt qa']);
@@ -93,10 +99,6 @@ const SALES_SEARCH_DEFAULT_FILTERS: GridFilterState = {
   searchBy: 'address',
 };
 
-const buildSsuUrl = (clientUrl: string, suid: string): string => {
-  const baseUrl = clientUrl.replace(/\/$/, '');
-  return `${baseUrl}/main.aspx?appid=${SSU_APP_ID}&newwindow=true&pagetype=entityrecord&etn=voa_ssu&id=${encodeURIComponent(suid)}`;
-};
 
 const resolveClientUrl = (ctx: ComponentFramework.Context<IInputs>): string => {
   const contextWithPage = ctx as unknown as { page?: { getClientUrl?: () => string } };
@@ -113,6 +115,20 @@ const resolveClientUrl = (ctx: ComponentFramework.Context<IInputs>): string => {
   }
   return '';
 };
+
+const normalizeContextValue = (value: unknown): string => {
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).trim();
+  return '';
+};
+
+const normalizeStorageContextPart = (value: string): string => {
+  if (!value) return 'na';
+  const normalized = value.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  return normalized || 'na';
+};
+
+const buildContextScopeKey = (country: string, listYear: string): string => `${normalizeStorageContextPart(country)}:${normalizeStorageContextPart(listYear)}`;
 
 const toFilterValueString = (val: ColumnFilterValue | undefined): string => {
   if (val === undefined || val === null) return '';
@@ -251,14 +267,26 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   onBackRequested,
   externalItems,
   onColumnFiltersApply,
+  screenNameOverride,
+  tableKeyOverride,
+  countryOverride,
+  listYearOverride,
 }) => {
   // Parse basic params
   const pageSize = (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 500;
   const allocatedHeight = typeof context.mode?.allocatedHeight === 'number' && context.mode.allocatedHeight > 0
     ? context.mode.allocatedHeight
     : undefined;
-  const canvasScreenName = (context.parameters as unknown as Record<string, { raw?: string }>).canvasScreenName?.raw ?? '';
-  const tableKeyRaw = (context.parameters as unknown as Record<string, { raw?: string }>).tableKey?.raw ?? '';
+  const canvasScreenNameRaw = (context.parameters as unknown as Record<string, { raw?: string }>).canvasScreenName?.raw ?? '';
+  const tableKeyInputRaw = (context.parameters as unknown as Record<string, { raw?: string }>).tableKey?.raw ?? '';
+  const countryFromInput = (context.parameters as unknown as Record<string, { raw?: string }>).country?.raw;
+  const listYearFromInput = (context.parameters as unknown as Record<string, { raw?: string }>).listYear?.raw;
+  const canvasScreenName = (screenNameOverride ?? canvasScreenNameRaw ?? '').trim();
+  const tableKeyRaw = (tableKeyOverride ?? tableKeyInputRaw ?? '').trim();
+  const country = normalizeContextValue(countryOverride ?? countryFromInput);
+  const listYear = normalizeContextValue(listYearOverride ?? listYearFromInput);
+  const includeCountryListYearApiParams = CONTROL_CONFIG.enableCountryListYearApiParams === true;
+  const contextScopeKey = React.useMemo(() => buildContextScopeKey(country, listYear), [country, listYear]);
   const columnDisplayNamesRaw = (context.parameters as unknown as Record<string, { raw?: string }>).columnDisplayNames?.raw?.trim() ?? '{}';
   const columnConfigRaw = (context.parameters as unknown as Record<string, { raw?: string }>).columnConfig?.raw?.trim() ?? '[]';
   const screenName = canvasScreenName.toLowerCase();
@@ -748,18 +776,18 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   }, [apiFilterOptions, hasUserDisplayNameMap, mapUserIdToDisplay]);
 
   // Persist header filters per table for consistent UX across reloads
-  const storageKey = React.useMemo(() => `voa-grid-filters:${tableKey}`, [tableKey]);
-  const storageKeySort = React.useMemo(() => `voa-grid-sort:${tableKey}`, [tableKey]);
-  const storageKeyPage = React.useMemo(() => `voa-grid-page:${tableKey}`, [tableKey]);
-  const prefilterStorageKey = React.useMemo(() => buildPrefilterStorageKey(tableKey, screenKind), [screenKind, tableKey]);
+  const storageKey = React.useMemo(() => `voa-grid-filters:${tableKey}:${contextScopeKey}`, [contextScopeKey, tableKey]);
+  const storageKeySort = React.useMemo(() => `voa-grid-sort:${tableKey}:${contextScopeKey}`, [contextScopeKey, tableKey]);
+  const storageKeyPage = React.useMemo(() => `voa-grid-page:${tableKey}:${contextScopeKey}`, [contextScopeKey, tableKey]);
+  const prefilterStorageKey = React.useMemo(() => buildPrefilterStorageKey(tableKey, screenKind, contextScopeKey), [contextScopeKey, screenKind, tableKey]);
   const legacyPrefilterStorageKey = React.useMemo(
-    () => `voa-prefilters:${tableKey}:${screenName || 'default'}`,
-    [screenName, tableKey],
+    () => `voa-prefilters:${tableKey}:${screenName || 'default'}:${contextScopeKey}`,
+    [contextScopeKey, screenName, tableKey],
   );
-  const screenInstanceKey = React.useMemo(() => buildGridSessionKey(tableKey, screenKind), [screenKind, tableKey]);
+  const screenInstanceKey = React.useMemo(() => buildGridSessionKey(tableKey, screenKind, contextScopeKey), [contextScopeKey, screenKind, tableKey]);
   const salesSearchStorageKey = React.useMemo(
-    () => `voa-sales-search:${tableKey}:${screenName || 'default'}`,
-    [screenName, tableKey],
+    () => `voa-sales-search:${tableKey}:${screenName || 'default'}:${contextScopeKey}`,
+    [contextScopeKey, screenName, tableKey],
   );
   const salesSearchHydratedRef = React.useRef<string>('');
   // Some environments show keys without ':' in DevTools; support both forms for compatibility
@@ -987,7 +1015,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         // some handy aliases
         r.saleid = r.saleid ?? (r as Record<string, unknown> & { saleId?: unknown }).saleId;
         const suid = normalizeSuid(r.suid);
-        r.addressurl = suid && clientUrl ? buildSsuUrl(clientUrl, suid) : '';
+        r.addressurl = suid && clientUrl ? buildHereditamentUrl(clientUrl, suid) : '';
         all.push(id);
         recs[id] = r;
       });
@@ -1099,6 +1127,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     sort?: string;
     nonce?: number;
     columnFilters?: string;
+    contextScope?: string;
   }>({});
   React.useEffect(() => {
     const prevKind = lastScreenKindRef.current;
@@ -1182,6 +1211,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       || lastRef.current.sort !== nextSortKey
       || lastRef.current.nonce !== searchNonce
       || lastRef.current.columnFilters !== nextColumnFilters
+      || lastRef.current.contextScope !== contextScopeKey
       || (!hasLoadedApim && !apimLoading);
     if (!changed) return;
     lastRef.current = {
@@ -1192,6 +1222,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       sort: nextSortKey,
       nonce: searchNonce,
       columnFilters: nextColumnFilters,
+      contextScope: contextScopeKey,
     };
     setLoadErrorMessage(undefined);
     setApimLoading(true);
@@ -1216,6 +1247,8 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         clientSort: serverClientSort,
         prefilters,
         searchQuery: columnFilterQuery,
+        country: includeCountryListYearApiParams ? country : undefined,
+        listYear: includeCountryListYearApiParams ? listYear : undefined,
       });
       setApimItems(res.items);
       setTotalCount(res.totalCount);
@@ -1230,7 +1263,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       }
       setApiFilterOptions(normalizeFilterOptions(tableKey, res.filters));
     })();
-  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, userSortActive, clientSideEligible, searchNonce, hasLoadedApim, apimLoading, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi, resetHostResultsState]);
+  }, [context, tableKey, sourceCode, searchFilters, currentPage, pageSize, clientSort, userSortActive, clientSideEligible, searchNonce, hasLoadedApim, apimLoading, prefilters, prefilterApplied, isCaseworkerView, currentUserId, isPrefilterScreen, isSalesSearch, salesSearchApplied, prefilterStorageKey, screenKind, columnFilterQuery, mapSearchFiltersForApi, resetHostResultsState, country, listYear, contextScopeKey]);
 
   React.useEffect(() => {
     if (!assignPanelOpen || !assignmentContextKey) {
@@ -1631,7 +1664,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     const taskId = rec.taskid ?? rec.taskId;
     const saleId = rec.saleid ?? rec.saleId;
     // Emit only. Navigation is handled in Canvas via PCF OnChange.
-    return onRowInvoke?.({ taskId, saleId });
+    return onRowInvoke?.({ taskId, saleId, screenKind, tableKey });
   };
 
   const onSort = (name: string, desc: boolean): void => {
@@ -1722,7 +1755,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       return;
     }
 
-    const metadataLoadKey = `${screenKind}|${metadataApiName}|${metadataApiType}`;
+    const metadataLoadKey = `${screenKind}|${metadataApiName}|${metadataApiType}|${contextScopeKey}`;
     if (metadataLoadKeyRef.current === metadataLoadKey) {
       return;
     }
@@ -1734,10 +1767,15 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 
     void (async () => {
       try {
+        const metadataParams: Record<string, string> = {};
+        if (includeCountryListYearApiParams) {
+          if (country) metadataParams.country = country;
+          if (listYear) metadataParams.listYear = listYear;
+        }
         const rawPayload = await executeUnboundCustomApi<unknown>(
           context,
           metadataApiName,
-          {},
+          metadataParams,
           { operationType: metadataApiType },
         );
 
@@ -1809,6 +1847,9 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     isSalesSearch,
     metadataApiName,
     metadataApiType,
+    country,
+    listYear,
+    contextScopeKey,
   ]);
 
   const assignTasksToUser = async (user: { id: string; firstName: string; lastName: string }): Promise<boolean> => {
@@ -1932,6 +1973,10 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       if (assignmentTaskStatus) {
         assignmentParams.taskStatus = assignmentTaskStatus;
       }
+      if (includeCountryListYearApiParams) {
+        if (country) assignmentParams.country = country;
+        if (listYear) assignmentParams.listYear = listYear;
+      }
       const response = await executeUnboundCustomApi<Record<string, unknown>>(
         context,
         apiName,
@@ -2026,15 +2071,20 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
       }
       const reviewedBy = resolveAssignedByUserId(context);
       const customApiType = resolveCustomApiOperationType('action');
+      const qcParams: Record<string, string> = {
+        taskId: JSON.stringify(uniqueTaskIds),
+        qcOutcome: markPassedQcText.qcOutcome,
+        qcRemark: markPassedQcText.qcRemark,
+        qcReviewedBy: reviewedBy,
+      };
+      if (includeCountryListYearApiParams) {
+        if (country) qcParams.country = country;
+        if (listYear) qcParams.listYear = listYear;
+      }
       await executeUnboundCustomApi<Record<string, unknown>>(
         context,
         apiName,
-        {
-          taskId: JSON.stringify(uniqueTaskIds),
-          qcOutcome: markPassedQcText.qcOutcome,
-          qcRemark: markPassedQcText.qcRemark,
-          qcReviewedBy: reviewedBy,
-        },
+        qcParams,
         { operationType: customApiType },
       );
       const successText = uniqueTaskIds.length === 1
@@ -2273,3 +2323,4 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 };
 
 DetailsListHost.displayName = 'DetailsListHost';
+

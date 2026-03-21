@@ -230,22 +230,26 @@ namespace VOA.SVT.Plugins.CustomAPI
                     return responseBody;
                 }
 
-                var assigneeIds = CollectAssigneeIds(payload);
-                if (assigneeIds.Count == 0)
-                {
-                    return responseBody;
-                }
-
-                var userNames = ResolveUserNames(service, assigneeIds, trace);
-                if (userNames.Count == 0)
-                {
-                    return responseBody;
-                }
+                var userIds = CollectUserIds(payload);
+                var userNames = userIds.Count > 0
+                    ? ResolveUserNames(service, userIds, trace)
+                    : new Dictionary<Guid, string>();
 
                 var changed = false;
                 foreach (var historyItem in payload.AuditHistory)
                 {
-                    if (historyItem?.Changes == null || historyItem.Changes.Count == 0)
+                    if (historyItem == null)
+                    {
+                        continue;
+                    }
+
+                    if (TryReplaceChangedByWithDisplayName(historyItem.ChangedBy, userNames, out var nextChangedBy))
+                    {
+                        historyItem.ChangedBy = nextChangedBy;
+                        changed = true;
+                    }
+
+                    if (historyItem.Changes == null || historyItem.Changes.Count == 0)
                     {
                         continue;
                     }
@@ -282,7 +286,7 @@ namespace VOA.SVT.Plugins.CustomAPI
             }
         }
 
-        private static HashSet<Guid> CollectAssigneeIds(AuditLogsPayload payload)
+        private static HashSet<Guid> CollectUserIds(AuditLogsPayload payload)
         {
             var ids = new HashSet<Guid>();
             if (payload?.AuditHistory == null)
@@ -292,7 +296,17 @@ namespace VOA.SVT.Plugins.CustomAPI
 
             foreach (var historyItem in payload.AuditHistory)
             {
-                if (historyItem?.Changes == null || historyItem.Changes.Count == 0)
+                if (historyItem == null)
+                {
+                    continue;
+                }
+
+                if (TryParseGuidToken(historyItem.ChangedBy, out var changedById))
+                {
+                    ids.Add(changedById);
+                }
+
+                if (historyItem.Changes == null || historyItem.Changes.Count == 0)
                 {
                     continue;
                 }
@@ -424,10 +438,53 @@ namespace VOA.SVT.Plugins.CustomAPI
                 }
             }
 
-            trace?.Trace($"SvtGetAuditLogs resolved {users.Count} user names for {ids.Length} assignee ids.");
+            trace?.Trace($"SvtGetAuditLogs resolved {users.Count} user names for {ids.Length} user ids.");
             return users;
         }
 
+        private static bool TryReplaceChangedByWithDisplayName(
+            string value,
+            IReadOnlyDictionary<Guid, string> userNames,
+            out string updatedValue)
+        {
+            updatedValue = value;
+
+            if (string.IsNullOrWhiteSpace(value) || userNames == null || userNames.Count == 0)
+            {
+                return false;
+            }
+
+            if (!TryParseGuidToken(value, out var userId))
+            {
+                return false;
+            }
+
+            if (!userNames.TryGetValue(userId, out var displayName) || string.IsNullOrWhiteSpace(displayName))
+            {
+                return false;
+            }
+
+            updatedValue = displayName;
+            return !string.Equals(value, updatedValue, StringComparison.Ordinal);
+        }
+
+        private static bool TryParseGuidToken(string value, out Guid parsedId)
+        {
+            parsedId = Guid.Empty;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var match = GuidTokenRegex.Match(value);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            var token = match.Value.Trim('{', '}');
+            return Guid.TryParse(token, out parsedId) && parsedId != Guid.Empty;
+        }
         private static string ReplaceGuidTokensWithNames(string value, IReadOnlyDictionary<Guid, string> userNames)
         {
             if (string.IsNullOrWhiteSpace(value) || userNames == null || userNames.Count == 0)
@@ -504,3 +561,5 @@ namespace VOA.SVT.Plugins.CustomAPI
 
     }
 }
+
+

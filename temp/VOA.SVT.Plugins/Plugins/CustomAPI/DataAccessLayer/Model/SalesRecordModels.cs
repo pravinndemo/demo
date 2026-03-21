@@ -12,6 +12,8 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
         public string SearchBy { get; set; }
         public string PreFilter { get; set; }
         public string RequestedBy { get; set; }
+        public string Country { get; set; }
+        public string ListYear { get; set; }
         public string FromDate { get; set; }
         public string ToDate { get; set; }
         public string SaleId { get; set; }
@@ -64,6 +66,8 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
                 ["searchBy"] = searchBy,
                 ["preFilter"] = preFilter,
                 ["RequestedBy"] = requestedBy,
+                ["country"] = Country,
+                ["listYear"] = ListYear,
                 ["fromDate"] = FromDate,
                 ["toDate"] = ToDate,
                 ["saleId"] = SaleId,
@@ -194,3 +198,4 @@ namespace VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model
         public IDictionary<string, object> Filters { get; set; }
     }
 }
+

@@ -82,20 +82,20 @@ The plugin resolves assignment context from the screen name (manager vs QA), the
 - Mixed `New` + non-`New` selections are blocked by the client with the invalid-status message.
 
 ## PCF configuration (inputs + outputs)
-### Inputs (app maker/config)
-The PCF control exposes inputs for:
-- `canvasScreenName` (used to detect manager assignment screens).【F:DetailsListVOA/ControlManifest.Input.xml†L17-L18】【F:DetailsListVOA/components/DetailsListHost/DetailsListHost.tsx†L279-L309】
-- `customApiName` / `customApiType` (search API configuration).【F:DetailsListVOA/ControlManifest.Input.xml†L19-L38】
-- `taskAssignmentApiName` (assignment API used when assigning tasks).【F:DetailsListVOA/ControlManifest.Input.xml†L39-L45】
-- `viewSaleRecordApiName` (view record API).【F:DetailsListVOA/ControlManifest.Input.xml†L46-L52】
-- `pageSize`, `serverDrivenThreshold` (paging).【F:DetailsListVOA/ControlManifest.Input.xml†L54-L64】
-- `columnDisplayNames` (JSON mapping of logical name → display name).【F:DetailsListVOA/ControlManifest.Input.xml†L66-L72】
-- `columnConfig` (JSON array of column configuration overrides).【F:DetailsListVOA/ControlManifest.Input.xml†L73-L79】
-- `searchTrigger` (changes trigger a refresh).【F:DetailsListVOA/ControlManifest.Input.xml†L80-L86】
-- `allowColumnReorder` and `perfLogsEnabled`.【F:DetailsListVOA/ControlManifest.Input.xml†L87-L98】
+For the full and current manifest parameter inventory, use:
+- `docs/pcf-input-output-parameters.md`
 
-### Outputs (canvas app wiring)
-The PCF control outputs the selected IDs, selection counts, action info, and serialized sale details. These are emitted whenever selection or actions change.【F:DetailsListVOA/ControlManifest.Input.xml†L99-L112】【F:DetailsListVOA/index.ts†L67-L123】
+Manager Assignment typically sets or relies on:
+- `canvasScreenName`, `tableKey`
+- `country`, `listYear`
+- `customApiName`, `customApiType`
+- `taskAssignmentApiName`
+- `viewSaleRecordApiName`
+- `pageSize`, `serverDrivenThreshold`
+- `columnDisplayNames`, `columnConfig`
+- `searchTrigger`
+
+It emits selection/action outputs and `saleDetails` as documented in the central I/O parameter document.
 
 ## How to update configuration
 ### Update column names or labels
@@ -114,3 +114,4 @@ The PCF control outputs the selected IDs, selection counts, action info, and ser
 ### Update API names or types
 1. Adjust the input values in the app maker (`customApiName`, `customApiType`, `taskAssignmentApiName`, `viewSaleRecordApiName`) if the Dataverse Custom API or APIM proxy names change.【F:DetailsListVOA/ControlManifest.Input.xml†L19-L52】
 2. Default values live in `CONTROL_CONFIG` (used when inputs are empty).【F:DetailsListVOA/config/ControlConfig.ts†L1-L12】
+

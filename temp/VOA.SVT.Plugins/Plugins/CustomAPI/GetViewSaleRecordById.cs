@@ -3,6 +3,7 @@ using Microsoft.Xrm.Sdk.Extensions;
 using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Web;
 using VOA.Common;
 using VOA.SVT.Plugins.CustomAPI.DataAccessLayer.Model;
 using VOA.SVT.Plugins.Helpers;
@@ -32,6 +33,12 @@ namespace VOA.SVT.Plugins.CustomAPI
             var context = localPluginContext.PluginExecutionContext;
             var saleId = context.InputParameters.Contains("saleId")
                 ? context.InputParameters["saleId"]?.ToString()
+                : null;
+            var country = context.InputParameters.Contains("country")
+                ? context.InputParameters["country"]?.ToString()
+                : null;
+            var listYear = context.InputParameters.Contains("listYear")
+                ? context.InputParameters["listYear"]?.ToString()
                 : null;
 
             if (string.IsNullOrWhiteSpace(saleId))
@@ -72,7 +79,7 @@ namespace VOA.SVT.Plugins.CustomAPI
             var authResult = auth.GenerateAuthentication();
 
             // 3) Build full URL (base Address + path from Custom API inputs)
-            var fullUrl = BuildUrl(apiConfig.Address, saleId);
+            var fullUrl = BuildUrl(apiConfig.Address, saleId, country, listYear);
 
             localPluginContext.TracingService.Trace($"Calling APIM URL: {Truncate(fullUrl, 300)}");
 
@@ -143,7 +150,7 @@ namespace VOA.SVT.Plugins.CustomAPI
             }
         }
 
-        private static string BuildUrl(string baseAddress, string saleId)
+        private static string BuildUrl(string baseAddress, string saleId, string country, string listYear)
         {
             if (string.IsNullOrWhiteSpace(baseAddress))
             {
@@ -151,23 +158,44 @@ namespace VOA.SVT.Plugins.CustomAPI
             }
 
             var trimmed = baseAddress.TrimEnd('/');
+            string url;
 
             if (trimmed.Contains("{saleId}", StringComparison.Ordinal))
             {
-                return trimmed.Replace("{saleId}", saleId);
+                url = trimmed.Replace("{saleId}", saleId);
             }
-
-            if (trimmed.Contains("{id}", StringComparison.Ordinal))
+            else if (trimmed.Contains("{id}", StringComparison.Ordinal))
             {
-                return trimmed.Replace("{id}", saleId);
+                url = trimmed.Replace("{id}", saleId);
             }
-
-            if (trimmed.EndsWith("/sales", StringComparison.OrdinalIgnoreCase))
+            else if (trimmed.EndsWith("/sales", StringComparison.OrdinalIgnoreCase))
             {
-                return $"{trimmed}/{saleId}";
+                url = $"{trimmed}/{saleId}";
+            }
+            else
+            {
+                url = $"{trimmed}/sales/{saleId}";
             }
 
-            return $"{trimmed}/sales/{saleId}";
+            var countryValue = country?.Trim();
+            var listYearValue = listYear?.Trim();
+            if (string.IsNullOrWhiteSpace(countryValue) && string.IsNullOrWhiteSpace(listYearValue))
+            {
+                return url;
+            }
+
+            var separator = url.Contains("?", StringComparison.Ordinal) ? "&" : "?";
+            if (!string.IsNullOrWhiteSpace(countryValue))
+            {
+                url = $"{url}{separator}country={HttpUtility.UrlEncode(countryValue)}";
+                separator = "&";
+            }
+            if (!string.IsNullOrWhiteSpace(listYearValue))
+            {
+                url = $"{url}{separator}listYear={HttpUtility.UrlEncode(listYearValue)}";
+            }
+
+            return url;
         }
 
         private static string Truncate(string s, int maxLen)
@@ -315,3 +343,6 @@ namespace VOA.SVT.Plugins.CustomAPI
         }
     }
 }
+
+
+

@@ -1,36 +1,18 @@
 import './initFluentIcons';
 import { IInputs, IOutputs } from './generated/ManifestTypes';
 import * as React from 'react';
-import { PCFContext } from './components/context/PCFContext';
-import { DetailsListHost } from './components/DetailsListHost/DetailsListHost';
-import { StatutorySpatialUnitBrowser } from './components/SpatialUnitBrowser/StatutorySpatialUnitBrowser';
-import { CONTROL_CONFIG } from './config/ControlConfig';
-import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from './services/CustomApi';
+import { DetailsListControlShell } from './components/ControlShell/DetailsListControlShell';
+import { DetailsListRuntimeController } from './services/DetailsListRuntimeController';
 
 export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, IOutputs> {
-  private _notifyOutputChanged!: () => void;
-  private _context!: ComponentFramework.Context<IInputs>;
-  private _saleDetails = '';
-  private selectedTaskId?: string;
-  private selectedSaleId?: string;
-  private selectedTaskIdsJson?: string;
-  private selectedSaleIdsJson?: string;
-  private selectedCount?: number;
-  private backRequestId?: string;
-  private actionType?: string;
-  private actionRequestId?: string;
-  private actionSequence = 0;
-  private viewSalePending?: boolean;
-  private viewSaleRequestSeq = 0;
-  private activeViewSaleRequestId?: number;
+  private readonly runtime = new DetailsListRuntimeController();
 
   public init(
     context: ComponentFramework.Context<IInputs>,
     notifyOutputChanged: () => void,
     state: ComponentFramework.Dictionary,
   ): void {
-    this._context = context;
-    this._notifyOutputChanged = notifyOutputChanged;
+    this.runtime.init(context, notifyOutputChanged);
     try {
       context.mode.trackContainerResize(true);
     } catch {
@@ -39,7 +21,8 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
   }
 
   public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
-    this._context = context;
+    this.runtime.setContext(context);
+
     try {
       const raw = (context.parameters as unknown as Record<string, { raw?: boolean | string }>).perfLogsEnabled?.raw;
       const enabled = raw === true || String(raw ?? '').toLowerCase() === 'true';
@@ -48,181 +31,60 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       // ignore
     }
 
-    return React.createElement(
-      PCFContext.Provider,
-      { value: context },
-      React.createElement(
-        React.Fragment,
-        null,
-        React.createElement(DetailsListHost, {
-          context,
-          onRowInvoke: (args) => {
-            this.selectedTaskId = args?.taskId;
-            this.selectedSaleId = args?.saleId;
-            return this.onTaskClick(args?.taskId, args?.saleId);
-          },
-          onSelectionChange: (args) => {
-            // Selection should only emit IDs and not fetch details
-            this.selectedTaskId = args?.taskId;
-            this.selectedSaleId = args?.saleId;
-            this.selectedTaskIdsJson = JSON.stringify((args?.selectedTaskIds ?? []).filter((v) => !!v));
-            this.selectedSaleIdsJson = JSON.stringify((args?.selectedSaleIds ?? []).filter((v) => !!v));
-            const taskCount = args?.selectedTaskIds?.length ?? 0;
-            const saleCount = args?.selectedSaleIds?.length ?? 0;
-            this.selectedCount = taskCount || saleCount;
-          },
-          onSelectionCountChange: (count) => {
-            if (this.selectedCount !== count) {
-              this.selectedCount = count;
-            }
-          },
-          onBackRequested: () => {
-            this._saleDetails = '';
-            this.viewSalePending = false;
-            this.emitAction('back');
-          },
-        }),
-        //React.createElement(StatutorySpatialUnitBrowser, null)
-      ),
-    );
+    const pcfViewSalesEnabled = this.runtime.isPcfViewSalesDetailsEnabledFlag();
+    this.runtime.syncPcfViewSalesEnabled(pcfViewSalesEnabled);
+
+    const useManagerJourney = this.runtime.isManagerHomeScreen();
+    this.runtime.setManagerJourneyActive(useManagerJourney);
+    const requestContext = this.runtime.getActiveRequestContext();
+    const sharePointCatalogChunks = this.runtime.getSharePointCatalogChunks();
+
+    return React.createElement(DetailsListControlShell, {
+      context,
+      useManagerJourney,
+      pcfViewSalesEnabled,
+      showPcfDetails: pcfViewSalesEnabled && this.runtime.shouldShowPcfSaleDetails,
+      saleDetailsJson: this.runtime.saleDetailsJson,
+      saleDetailsReadOnly: this.runtime.isSaleDetailsReadOnly,
+      saleDetailsReadOnlyReason: this.runtime.saleDetailsReadOnlyReason,
+      saleDetailsCanCreateManualTask: this.runtime.canCreateManualTask,
+      saleDetailsCanModifyTask: this.runtime.canModifySvtTask,
+      saleDetailsCanProgressTask: this.runtime.canProgressSalesVerificationTask,
+      saleDetailsCanSubmitQcOutcome: this.runtime.canSubmitQcOutcome,
+      saleDetailsShowQcSection: this.runtime.shouldShowQcSection,
+      currentUserDisplayName: this.runtime.currentUserDisplayName,
+      loading: this.runtime.isViewSalePending,
+      requestContext,
+      sharePointCatalogChunks,
+      fxEnvironmentUrl: this.runtime.getFxEnvironmentUrl(),
+      vmsBaseUrl: this.runtime.getVmsBaseUrl(),
+      onRowInvoke: (args) => this.runtime.handleRowInvoke(args),
+      onSelectionChange: (args) => this.runtime.handleSelectionChange(args),
+      onSelectionCountChange: (count) => this.runtime.handleSelectionCountChange(count),
+      onBackToCanvas: () => this.runtime.handleBackToCanvas(),
+      onContextChange: (args) => this.runtime.updateManagerJourneyContext(args),
+      onDetailsBack: () => this.runtime.handleDetailsBack(),
+      onDetailsRefresh: () => this.runtime.refreshDetails(),
+      onCreateManualTask: (saleId) => this.runtime.createManualTask(saleId),
+      onModifySvtTask: () => this.runtime.modifySvtTask(),
+      onCompleteSalesVerificationTask: (payload) => this.runtime.handleSalesVerificationTaskAction('completeSalesVerificationTask', payload),
+      onSubmitSalesVerificationTaskForQc: (payload) => this.runtime.handleSalesVerificationTaskAction('submitSalesVerificationTaskForQc', payload),
+      onSubmitQcOutcome: (payload) => this.runtime.submitQcOutcome(payload),
+      onOpenQcLog: () => this.runtime.openQcLog(),
+      onOpenAuditHistory: () => this.runtime.openAuditHistory(),
+    });
   }
 
   public getOutputs(): IOutputs {
-    const outputs = {
-      selectedTaskId: this.selectedTaskId,
-      selectedSaleId: this.selectedSaleId,
-      selectedTaskIdsJson: this.selectedTaskIdsJson,
-      selectedSaleIdsJson: this.selectedSaleIdsJson,
-      selectedCount: this.selectedCount,
-      saleDetails: this._saleDetails,
-      viewSalePending: this.viewSalePending,
-      actionType: this.actionType,
-      actionRequestId: this.actionRequestId,
-      backRequestId: this.backRequestId,
-    } as IOutputs;
-    return outputs;
+    return this.runtime.getOutputs();
   }
 
   public destroy(): void {
     return;
   }
-
-  private async onTaskClick(taskId?: string, saleId?: string): Promise<void> {
-    const requestId = this.beginViewSaleRequest();
-
-    if (!saleId) {
-      // No API call needed — emit navigation immediately with empty details.
-      this.finishViewSaleRequest(requestId, JSON.stringify(this.getEmptySaleRecord()));
-      return;
-    }
-
-    // Await the API response before emitting the navigation action.
-    // The PCF overlay spinner is shown on Page 1 (viewSalePending=true) while
-    // the API runs. Canvas only navigates to Page 2 once saleDetails is ready,
-    // ensuring the data is available as soon as Page 2 opens.
-    let detailsPayload = '';
-    try {
-      const apiName = this.resolveViewSaleRecordApiName();
-      if (!apiName) {
-        throw new Error('View sale record API name is not configured.');
-      }
-
-      const customApiType = this.resolveCustomApiType();
-      const rawPayload = await executeUnboundCustomApi<unknown>(
-        this._context,
-        apiName,
-        { saleId },
-        { operationType: customApiType },
-      );
-      const payload = this.unwrapCustomApiPayload(rawPayload);
-      detailsPayload = typeof payload === 'string'
-        ? payload
-        : JSON.stringify(payload ?? this.getEmptySaleRecord());
-    } catch (error) {
-      console.warn('Failed to fetch SVT sale record.', error);
-      detailsPayload = JSON.stringify(this.getEmptySaleRecord());
-    }
-
-    this.finishViewSaleRequest(requestId, detailsPayload);
-  }
-
-  private beginViewSaleRequest(): number {
-    this.viewSaleRequestSeq += 1;
-    const requestId = this.viewSaleRequestSeq;
-    this.activeViewSaleRequestId = requestId;
-    this.viewSalePending = true;
-    this._saleDetails = '';
-    this._notifyOutputChanged();
-    return requestId;
-  }
-
-  private finishViewSaleRequest(requestId: number, detailsPayload: string): void {
-    if (this.activeViewSaleRequestId !== requestId) {
-      return;
-    }
-    this._saleDetails = detailsPayload;
-    this.viewSalePending = false;
-    // Emit once — saleDetails is populated before Canvas navigates to Page 2.
-    this.emitAction('viewSale');
-  }
-
-  private emitAction(type: 'back' | 'viewSale'): void {
-    if (type === 'back') {
-      // Ensure outputs change even when the last action was also "back".
-      this.selectedTaskId = '';
-      this.selectedSaleId = '';
-      this.selectedTaskIdsJson = '[]';
-      this.selectedSaleIdsJson = '[]';
-      this.selectedCount = 0;
-    }
-    this.actionType = type;
-    this.actionSequence += 1;
-    this.actionRequestId = `${this.actionSequence}-${Date.now()}`;
-    this.backRequestId = this.actionRequestId;
-    this._notifyOutputChanged();
-  }
-
-  private resolveViewSaleRecordApiName(): string {
-    const raw = (this._context.parameters as unknown as Record<string, { raw?: string }>).viewSaleRecordApiName?.raw;
-    const fromContext = normalizeCustomApiName(typeof raw === 'string' ? raw : undefined);
-    const fallback = normalizeCustomApiName(CONTROL_CONFIG.viewSaleRecordApiName);
-    return fromContext || fallback || '';
-  }
-
-  private resolveCustomApiType(): number {
-    const raw = (this._context.parameters as unknown as Record<string, { raw?: string }>).customApiType?.raw;
-    const fromContext = typeof raw === 'string' ? raw : undefined;
-    return resolveCustomApiOperationType(fromContext ?? CONTROL_CONFIG.customApiType);
-  }
-
-  private unwrapCustomApiPayload(payload: unknown): unknown {
-    if (payload && typeof payload === 'object') {
-      const record = payload as Record<string, unknown>;
-      const raw = record.Result ?? record.result;
-      if (typeof raw === 'string') {
-        try {
-          return JSON.parse(raw) as unknown;
-        } catch {
-          return raw;
-        }
-      }
-    }
-    return payload;
-  }
-
-  private getEmptySaleRecord(): Record<string, unknown> {
-    return {
-      taskDetails: {},
-      links: {},
-      bandingInfo: {},
-      propertyAttributes: {},
-      masterSale: {},
-      repeatSaleInfo: {},
-      welshLandTax: {},
-      landRegistryData: {},
-      salesParticularInfo: {},
-      salesVerificationInfo: {},
-    };
-  }
-
 }
+
+
+
+
+

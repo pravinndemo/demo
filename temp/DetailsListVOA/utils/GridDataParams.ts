@@ -1,3 +1,4 @@
+import { CONTROL_CONFIG } from '../config/ControlConfig';
 import { buildApiParamsFor } from '../config/TableConfigs';
 
 export interface ClientSortState {
@@ -15,6 +16,8 @@ export interface BuildGridApiParamsArgs {
   clientSort?: ClientSortState;
   prefilters?: unknown;
   searchQuery?: string;
+  country?: string;
+  listYear?: string;
 }
 
 export const normalizeSortField = (value?: string): string | undefined => {
@@ -36,6 +39,8 @@ export const buildGridApiParams = (args: BuildGridApiParamsArgs): Record<string,
   const filtersWithSource = source ? { ...baseFilters, source } : baseFilters;
   const apiParamsBase = buildApiParamsFor(args.tableKey, filtersWithSource as never, args.currentPage, pageSize, args.prefilters);
   const searchQuery = typeof args.searchQuery === 'string' ? args.searchQuery.trim() : '';
+  const country = typeof args.country === 'string' ? args.country.trim() : '';
+  const listYear = typeof args.listYear === 'string' ? args.listYear.trim() : '';
 
   const sortBy = args.clientSort?.name;
   const sortDirection = args.clientSort?.sortDirection;
@@ -50,5 +55,10 @@ export const buildGridApiParams = (args: BuildGridApiParamsArgs): Record<string,
   if (typeof sortDirection === 'number') p.sortDirection = sortDirection === 1 ? 'desc' : 'asc';
   if (searchQuery) p.SearchQuery = searchQuery;
   if (requestedBy) p.RequestedBy = requestedBy;
+  if (CONTROL_CONFIG.enableCountryListYearApiParams === true) {
+    if (country) p.country = country;
+    if (listYear) p.listYear = listYear;
+  }
   return p;
 };
+

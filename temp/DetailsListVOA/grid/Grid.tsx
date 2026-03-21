@@ -48,6 +48,7 @@ import { ClassNames } from './Grid.styles';
 import { GridFilterState, createDefaultGridFilters, sanitizeFilters, SearchByOption, ManualCheckFilter } from '../Filters';
 import { logPerf } from '../utils/Perf';
 import { getSearchByOptionsFor, isLookupFieldFor } from '../config/TableConfigs';
+import { SCREEN_TEXT } from '../constants/ScreenText';
 
 type DataSet = ComponentFramework.PropertyHelper.DataSetApi.EntityRecord & IObjectWithKey;
 
@@ -1004,9 +1005,11 @@ export const Grid = React.memo((props: GridProps) => {
   const isManagerAssign = isAssignment && screenName.includes('manager');
   const isQcAssign = isAssignment && (screenName.includes('qc') || screenName.includes('quality'));
   const showAssign = isManagerAssign || isQcAssign;
-  const assignActionText = isQcAssign ? 'Assign QC Tasks' : 'Assign Tasks';
-  const assignHeaderText = isQcAssign ? 'QC Assignment' : 'Manager Assignment';
-  const assignUserListTitle = isQcAssign ? 'QC Users' : 'SVT Users';
+  const managerText = SCREEN_TEXT.managerAssignment;
+  const qcText = SCREEN_TEXT.qcAssignment;
+  const assignActionText = isQcAssign ? qcText.assignActionText : managerText.assignActionText;
+  const assignHeaderText = isQcAssign ? qcText.title : managerText.title;
+  const assignUserListTitle = isQcAssign ? qcText.assignUserListTitle : managerText.assignUserListTitle;
 
   const assignUsers = React.useMemo(() => {
     if (isQcAssign) {
@@ -1694,3 +1697,5 @@ export const Grid = React.memo((props: GridProps) => {
 });
 
 Grid.displayName = 'Grid';
+
+

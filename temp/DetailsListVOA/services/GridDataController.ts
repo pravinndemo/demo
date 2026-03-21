@@ -71,6 +71,8 @@ export async function loadGridData(
     clientSort?: ClientSortState;
     prefilters?: unknown;
     searchQuery?: string;
+    country?: string;
+    listYear?: string;
   },
 ): Promise<LoadResult> {
   const pageSize = args.pageSize ?? (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 500;
@@ -138,3 +140,4 @@ export async function loadGridData(
     };
   }
 }
+

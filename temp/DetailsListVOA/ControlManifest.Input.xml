@@ -29,6 +29,69 @@
       default-value=""
     />
     <property
+      name="country"
+      display-name-key="Country"
+      description-key="Global country context passed to SVT APIs (e.g., England, Welsh)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value=""
+    />
+    <property
+      name="listYear"
+      display-name-key="List Year"
+      description-key="Global list year context passed to SVT APIs (e.g., 2026)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value=""
+    />
+    <property
+      name="fxEnvironmentUrl"
+      display-name-key="Fx Environment URL"
+      description-key="Canvas-provided Dataverse environment URL used to build hereditament links in Sale Record details (e.g., https://org.crm11.dynamics.com)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value=""
+    />
+    <property
+      name="vmsBaseUrl"
+      display-name-key="VMS Base URL"
+      description-key="Base VMS URL used to build map hyperlinks in Sale Record details (e.g., https://geo-dev-vms-4x.voa.ns3n.corp.hmrc.gov.uk)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value=""
+    />
+    <property
+      name="sharePointOptionsJson"
+      display-name-key="SharePoint Options JSON"
+      description-key="Chunk 1: Compact JSON object of SharePoint choice options for sales particulars."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="{}"
+    />
+    <property
+      name="sharePointRecordsJson1"
+      display-name-key="SharePoint Records JSON 1"
+      description-key="Chunk 2: First compact JSON array of SharePoint reference records."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="[]"
+    />
+    <property
+      name="sharePointRecordsJson2"
+      display-name-key="SharePoint Records JSON 2"
+      description-key="Chunk 3: Second compact JSON array of SharePoint reference records."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="[]"
+    />
+    <property
       name="customApiName"
       display-name-key="Custom API Name"
       description-key="Name of the Dataverse Custom API used for search (e.g., voa_GetAllSalesRecord)."
@@ -65,6 +128,24 @@
       default-value="function"
     />
     <property
+      name="userContextApiName"
+      display-name-key="User Context API Name"
+      description-key="Name of the Dataverse Custom API used to resolve SVT user persona and access context (e.g., voa_SvtGetUserContext)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_SvtGetUserContext"
+    />
+    <property
+      name="userContextApiType"
+      display-name-key="User Context API Type"
+      description-key="Custom API operation type for user context resolution: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="function"
+    />
+    <property
       name="taskAssignmentApiName"
       display-name-key="Task Assignment API Name"
       description-key="Name of the Dataverse Custom API used to assign tasks (e.g., voa_SvtTaskAssignment)."
@@ -90,6 +171,69 @@
       usage="input"
       required="false"
       default-value="voa_GetViewSaleRecordById"
+    />
+    <property
+      name="auditLogsApiName"
+      display-name-key="Audit Logs API Name"
+      description-key="Name of the Dataverse Custom API used to fetch audit history (e.g., voa_SvtGetAuditLogs)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_SvtGetAuditLogs"
+    />
+    <property
+      name="auditLogsApiType"
+      display-name-key="Audit Logs API Type"
+      description-key="Custom API operation type for audit logs: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="function"
+    />
+    <property
+      name="manualTaskCreationApiName"
+      display-name-key="Manual Task Creation API Name"
+      description-key="Name of the Dataverse Custom API used to create manual SVT tasks (e.g., voa_SvtManualTaskCreation)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_SvtManualTaskCreation"
+    />
+    <property
+      name="manualTaskCreationApiType"
+      display-name-key="Manual Task Creation API Type"
+      description-key="Custom API operation type for manual task creation: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="action"
+    />
+    <property
+      name="modifyTaskApiName"
+      display-name-key="Modify Task API Name"
+      description-key="Name of the Dataverse Custom API used to modify completed SVT tasks back to Assigned (e.g., voa_SvtModifyTask)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_SvtModifyTask"
+    />
+    <property
+      name="modifyTaskApiType"
+      display-name-key="Modify Task API Type"
+      description-key="Custom API operation type for modify task: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="action"
+    />
+    <property
+      name="enablePcfViewSalesDetails"
+      display-name-key="Enable PCF View Sales Details"
+      description-key="When enabled, row open emits actionType=viewSalePcf (for PCF-hosted details) instead of actionType=viewSale (Canvas custom page flow)."
+      of-type="TwoOptions"
+      usage="input"
+      required="false"
+      default-value="false"
     />
     <!-- Number of records shown per page -->
     <property name="pageSize" display-name-key="PageSize" description-key="PageSize description" of-type="Whole.None" usage="input" required="false" default-value="500" />
@@ -155,7 +299,7 @@
     <property name="selectedSaleId" display-name-key="SelectedSaleId" description-key="SelectedSaleId description" of-type="SingleLine.Text" usage="output" required="false" />
     <property name="saleDetails" display-name-key="Sale Details" description-key="Serialized sale details JSON" of-type="SingleLine.Text" usage="output" required="false" />
     <property name="viewSalePending" display-name-key="View Sale Pending" description-key="True while the control fetches sale details for navigation." of-type="TwoOptions" usage="output" required="false" />
-    <property name="actionType" display-name-key="Action Type" description-key="Last action type (back/viewSale)" of-type="SingleLine.Text" usage="output" required="false" />
+    <property name="actionType" display-name-key="Action Type" description-key="Last action type (back/viewSale/viewSalePcf/viewQcLog/viewAuditHistory)" of-type="SingleLine.Text" usage="output" required="false" />
     <property name="actionRequestId" display-name-key="Action Request Id" description-key="Changes on each action to trigger OnChange" of-type="SingleLine.Text" usage="output" required="false" />
     <property name="selectedTaskIdsJson" display-name-key="Selected Task IDs (JSON)" description-key="JSON array of selected Task IDs" of-type="SingleLine.Text" usage="output" required="false" />
     <property name="selectedSaleIdsJson" display-name-key="Selected Sale IDs (JSON)" description-key="JSON array of selected Sale IDs" of-type="SingleLine.Text" usage="output" required="false" />
@@ -168,9 +312,25 @@
       <platform-library name="React" version="16.14.0" />
       <platform-library name="Fluent" version="9.46.2" />
       <css path="css/DetailsListVOA.css" order="1" />
+      <css path="components/SaleDetailsShell/SaleDetailsShell.css" order="2" />
     </resources>
     <feature-usage>
       <uses-feature name="WebAPI" required="true" />
     </feature-usage>
   </control>
 </manifest>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

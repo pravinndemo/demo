@@ -19,11 +19,16 @@ export const shouldResetPrefiltersOnScreenChange = (
   hasStoredPrefilter: boolean,
 ): boolean => prev !== next && isPrefilterScreenKind(next) && !hasStoredPrefilter;
 
-export const buildPrefilterStorageKey = (tableKey: string, kind: ScreenKind): string =>
-  `voa-prefilters:${tableKey}:${kind}`;
+const appendContextScope = (baseKey: string, contextScopeKey?: string): string => {
+  const normalized = (contextScopeKey ?? '').trim();
+  return normalized ? `${baseKey}:${normalized}` : baseKey;
+};
 
-export const buildGridSessionKey = (tableKey: string, kind: ScreenKind): string =>
-  `voa-grid-session:${tableKey}:${kind}`;
+export const buildPrefilterStorageKey = (tableKey: string, kind: ScreenKind, contextScopeKey?: string): string =>
+  appendContextScope(`voa-prefilters:${tableKey}:${kind}`, contextScopeKey);
+
+export const buildGridSessionKey = (tableKey: string, kind: ScreenKind, contextScopeKey?: string): string =>
+  appendContextScope(`voa-grid-session:${tableKey}:${kind}`, contextScopeKey);
 
 export const resolveAssignmentScreenName = (raw: string, kind: ScreenKind): string => {
   switch (kind) {
@@ -52,3 +57,4 @@ export const isSalesSearchDefaultFilters = (fs: GridFilterState): boolean => {
     && billingAuthorityEmpty
     && !fs.bacode;
 };
+

@@ -4,7 +4,17 @@ export const CONTROL_CONFIG = {
   customApiType: 'function',
   metadataApiName: 'voa_SvtGetSalesMetadata',
   metadataApiType: 'function',
+  userContextApiName: 'voa_SvtGetUserContext',
+  userContextApiType: 'function',
   viewSaleRecordApiName: 'voa_GetViewSaleRecordById',
+  auditLogsApiName: 'voa_SvtGetAuditLogs',
+  auditLogsApiType: 'function',
+  manualTaskCreationApiName: 'voa_SvtManualTaskCreation',
+  manualTaskCreationApiType: 'action',
+  modifyTaskApiName: 'voa_SvtModifyTask',
+  modifyTaskApiType: 'action',
+  enableCountryListYearApiParams: false,
+  enablePcfViewSalesDetails: false,
   tableKey: 'sales',
   serverDrivenThreshold: 2000,
   taskAssignmentApiName: 'voa_SvtTaskAssignment',
@@ -30,3 +40,4 @@ export const CONTROL_CONFIG = {
     allowedStatuses: [],
   },
 };
+

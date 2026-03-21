@@ -82,4 +82,12 @@ describe('screen behavior', () => {
     expect(buildGridSessionKey('manager', 'managerAssign')).toBe('voa-grid-session:manager:managerAssign');
     expect(buildGridSessionKey('qaview', 'qcView')).toBe('voa-grid-session:qaview:qcView');
   });
+
+  test('buildPrefilterStorageKey appends context scope when provided', () => {
+    expect(buildPrefilterStorageKey('manager', 'managerAssign', 'england:2026')).toBe('voa-prefilters:manager:managerAssign:england:2026');
+  });
+
+  test('buildGridSessionKey appends context scope when provided', () => {
+    expect(buildGridSessionKey('manager', 'managerAssign', 'england:2026')).toBe('voa-grid-session:manager:managerAssign:england:2026');
+  });
 });

@@ -56,6 +56,8 @@ namespace VOA.SVT.Plugins.CustomAPI
             var taskId = GetInput(context, "taskId");
             var assignedByUserId = GetInput(context, "assignedByUserId");
             var date = GetInput(context, "date");
+            var country = GetInput(context, "country");
+            var listYear = GetInput(context, "listYear");
             var taskIds = ParseTaskIds(taskId);
 
             if (string.IsNullOrWhiteSpace(assignedByUserId))
@@ -113,6 +115,8 @@ namespace VOA.SVT.Plugins.CustomAPI
                 ["saleId"] = saleId ?? string.Empty,
                 ["date"] = date ?? string.Empty
             };
+            if (!string.IsNullOrWhiteSpace(country)) payload["country"] = country.Trim();
+            if (!string.IsNullOrWhiteSpace(listYear)) payload["listYear"] = listYear.Trim();
 
             var jsonBody = JsonSerializer.Serialize(payload);
 
@@ -289,3 +293,4 @@ namespace VOA.SVT.Plugins.CustomAPI
             => string.IsNullOrEmpty(s) ? s : (s.Length > maxLen ? s.Substring(0, maxLen) : s);
     }
 }
+

@@ -50,7 +50,8 @@ namespace VOA.SVT.Plugins.CustomAPI
             var qcOutcome = NormalizeOptionalStringValue(GetInput(context, "qcOutcome"));
             var qcRemark = NormalizeOptionalStringValue(GetInput(context, "qcRemark"));
             var qcReviewedBy = NormalizeOptionalStringValue(GetInput(context, "qcReviewedBy"));
-
+            var country = NormalizeOptionalStringValue(GetInput(context, "country"));
+            var listYear = NormalizeOptionalStringValue(GetInput(context, "listYear"));
             if (taskIds.Count == 0)
             {
                 throw new InvalidPluginExecutionException("taskId is required.");
@@ -109,6 +110,8 @@ namespace VOA.SVT.Plugins.CustomAPI
                 ["qcRemark"] = qcRemark,
                 ["qcReviewedBy"] = qcReviewedBy ?? string.Empty
             };
+            if (!string.IsNullOrWhiteSpace(country)) payload["country"] = country.Trim();
+            if (!string.IsNullOrWhiteSpace(listYear)) payload["listYear"] = listYear.Trim();
             var jsonBody = JsonSerializer.Serialize(payload);
 
             trace?.Trace(
@@ -251,3 +254,5 @@ namespace VOA.SVT.Plugins.CustomAPI
             => string.IsNullOrEmpty(s) ? s : (s.Length > maxLen ? s.Substring(0, maxLen) : s);
     }
 }
+
+
