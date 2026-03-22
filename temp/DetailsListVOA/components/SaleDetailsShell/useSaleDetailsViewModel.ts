@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { SAMPLE_SALE_DETAILS, SAMPLE_USER_LOOKUP } from './sampleData';
+import { SAMPLE_SALE_DETAILS } from './sampleData';
 import {
   AttributeChip,
   AttributeTone,
@@ -54,6 +54,7 @@ const buildPadChip = (
     getValue(padAttributeTooltipMap, attributeKey),
     getValue(padAttributeTooltipMap, attributeKey.toLowerCase()),
     getValue(propertyAndBandingDetails, `${attributeKey}Tooltip`),
+    getValue(propertyAndBandingDetails, `${attributeKey}Description`),
   );
 
   const colorFromMap = firstNonEmpty(
@@ -466,7 +467,7 @@ const resolveUserDisplayFromRecord = (
   idKeys: string[],
   lookup?: Record<string, string>,
 ): string => {
-  const effectiveLookup = lookup && Object.keys(lookup).length > 0 ? lookup : SAMPLE_USER_LOOKUP;
+  const effectiveLookup = lookup ?? {};
   for (const key of nameKeys) {
     const raw = getNormalizedRecordValue(record, [key]);
     if (!raw) {
@@ -903,7 +904,7 @@ const mapAuditHistoryModel = (
   fallbackRecords: SaleDetailsRecord[],
   lookup?: Record<string, string>,
 ): AuditHistoryViewModel => {
-  const effectiveLookup = lookup && Object.keys(lookup).length > 0 ? lookup : SAMPLE_USER_LOOKUP;
+  const effectiveLookup = lookup ?? {};
   const taskId = formatValue(firstNonEmpty(getValue(payload, 'taskId'), fallbackTaskId));
   const errorMessage = toEditableInput(firstNonEmpty(getValue(payload, 'errorMessage'), getValue(payload, 'message')));
 
@@ -998,7 +999,7 @@ export const useSaleDetailsViewModel = (
   );
 
   return React.useMemo(() => {
-    const effectiveLookup = userLookup && Object.keys(userLookup).length > 0 ? userLookup : SAMPLE_USER_LOOKUP;
+    const effectiveLookup = userLookup ?? {};
     const salesVerificationTaskDetails = getRecordFromKeys(details, ['salesVerificationTaskDetails', 'taskDetails']);
     const propertyAndBandingDetails = getRecordFromKeys(details, ['propertyAndBandingDetails', 'bandingInfo']);
     const links = getRecord(details, 'links');
@@ -1169,7 +1170,10 @@ export const useSaleDetailsViewModel = (
     ].map((group) => group.filter((chip) => chip.value.trim().length > 0));
 
     const vscCodes = parseCsvCodes(getValue(propertyAndBandingDetails, 'valueSignificantCodes'));
-    const sourceCodes = parseCsvCodes(getValue(propertyAndBandingDetails, 'sourceCodes'));
+    const sourceCodes = parseCsvCodes(firstNonEmpty(
+      getValue(propertyAndBandingDetails, 'sourceCodes'),
+      getValue(propertyAndBandingDetails, 'sourceCode'),
+    ));
 
     const initialPadConfirmationKey = mapPadConfirmationToKey(getValue(propertyAndBandingDetails, 'padConfirmation'));
 

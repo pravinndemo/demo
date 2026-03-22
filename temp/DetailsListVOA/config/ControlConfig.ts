@@ -9,7 +9,7 @@ export const CONTROL_CONFIG = {
   viewSaleRecordApiName: 'voa_GetViewSaleRecordById',
   viewSaleRecordApiType: 'function',
   auditLogsApiName: 'voa_SvtGetAuditLogs',
-  auditLogsApiType: 'function',
+  auditLogsApiType: 'action',
   manualTaskCreationApiName: 'voa_SvtManualTaskCreation',
   manualTaskCreationApiType: 'action',
   modifyTaskApiName: 'voa_SvtModifyTask',

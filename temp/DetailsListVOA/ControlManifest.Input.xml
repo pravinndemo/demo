@@ -215,7 +215,7 @@
       of-type="SingleLine.Text"
       usage="input"
       required="false"
-      default-value="function"
+      default-value="action"
     />
     <property
       name="manualTaskCreationApiName"
@@ -335,6 +335,15 @@
       name="perfLogsEnabled"
       display-name-key="Enable Performance Logs"
       description-key="When on, control logs API and UI performance timings to the console."
+      of-type="TwoOptions"
+      usage="input"
+      required="false"
+      default-value="false"
+    />
+    <property
+      name="debugConsole"
+      display-name-key="Enable Debug Console"
+      description-key="When on, control logs detailed debug info (API requests/responses, SharePoint catalog, access resolution, validation) to the browser console."
       of-type="TwoOptions"
       usage="input"
       required="false"

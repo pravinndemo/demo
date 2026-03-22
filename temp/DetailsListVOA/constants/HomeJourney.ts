@@ -105,7 +105,7 @@ export const HOME_JOURNEY_TILE_DEFINITIONS: HomeJourneyTileDefinition[] = [
 
 export const HOME_JOURNEY_VISIBLE_TILE_KEYS_BY_PERSONA: Record<HomeJourneyPersona, HomeJourneyTileKey[]> = {
   manager: ['salesSearch', 'managerAssign', 'caseworkerView', 'qcAssign', 'qcView'],
-  qa: ['qcAssign', 'qcView'],
+  qa: ['salesSearch', 'qcAssign', 'qcView'],
   user: ['salesSearch', 'caseworkerView'],
   none: ['salesSearch'],
   unknown: [],

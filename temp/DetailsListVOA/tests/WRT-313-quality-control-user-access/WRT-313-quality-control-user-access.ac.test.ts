@@ -40,6 +40,15 @@ describe('WRT-313 Quality Control User Access to SVT AC', () => {
     expect(managerKeys).toEqual(expect.arrayContaining(requiredKeys));
   });
 
+  test('AC1: QC persona sees Sales Record Search, Quality Control Assignment and Quality Control View tiles', () => {
+    const qaKeys = HOME_JOURNEY_VISIBLE_TILE_KEYS_BY_PERSONA.qa;
+
+    expect(qaKeys).toContain('salesSearch');
+    expect(qaKeys).toContain('qcAssign');
+    expect(qaKeys).toContain('qcView');
+    expect(qaKeys).toHaveLength(3);
+  });
+
   test('AC1: required manager screen labels and home tiles match expected titles', () => {
     const titleByKey = new Map(HOME_JOURNEY_TILE_DEFINITIONS.map((tile) => [tile.key, tile.title]));
     const canvasNameByKey = new Map(HOME_JOURNEY_TILE_DEFINITIONS.map((tile) => [tile.key, tile.canvasScreenName]));

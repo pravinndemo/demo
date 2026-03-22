@@ -1,4 +1,5 @@
 import { IInputs } from '../generated/ManifestTypes';
+import { svtDebug } from '../utils/debug';
 
 interface WebApiExecutor {
   execute?: (req: unknown) => Promise<Response>;
@@ -87,10 +88,17 @@ export const executeUnboundCustomApi = async <T>(
   }
   const operationType = options?.operationType ?? 1;
   const request = buildUnboundCustomApiRequest(operationName, params, operationType);
+  svtDebug.group('API', `${operationName} (${operationType === 0 ? 'action/POST' : 'function/GET'})`);
+  svtDebug.log('API', 'Request params:', params);
   try {
     const result = await executor.execute(request);
-    return (await result.json()) as T;
+    const json = (await result.json()) as T;
+    svtDebug.log('API', 'Response:', json);
+    svtDebug.groupEnd();
+    return json;
   } catch (err) {
+    svtDebug.error('API', `${operationName} failed:`, err);
+    svtDebug.groupEnd();
     let message = '';
     if (err instanceof Error) {
       message = err.message;

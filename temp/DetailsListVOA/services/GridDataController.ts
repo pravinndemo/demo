@@ -6,6 +6,7 @@ import { IInputs } from '../generated/ManifestTypes';
 import { executeUnboundCustomApi, normalizeCustomApiName, resolveCustomApiOperationType } from './CustomApi';
 import { normalizeSearchResponse, SalesApiResponse, unwrapCustomApiPayload } from './DataService';
 import { buildGridApiParams, type ClientSortState } from '../utils/GridDataParams';
+import { svtDebug } from '../utils/debug';
 
 export interface LoadResult {
   items: TaskSearchItem[];
@@ -96,6 +97,7 @@ export async function loadGridData(
   try {
     const firstParams = buildParams(args.currentPage);
     if (!customApiName) {
+      svtDebug.warn('Grid', 'No customApiName configured; returning empty/sample data');
       // When no custom API is configured, show local sample data (from SampleData)
       if (isLocalHost()) {
         return { items: SAMPLE_RECORDS as unknown as TaskSearchItem[], totalCount: SAMPLE_RECORDS.length, serverDriven: false };
@@ -103,6 +105,12 @@ export async function loadGridData(
       return { items: [], totalCount: 0, serverDriven: false };
     }
     const firstPayload = await execCustomApi(firstParams);
+    svtDebug.log('Grid', 'loadGridData response', {
+      totalCount: firstPayload.totalCount,
+      itemCount: firstPayload.items?.length,
+      hasFilters: Boolean(firstPayload.filters),
+      errorMessage: firstPayload.errorMessage,
+    });
     const total = Number(firstPayload.totalCount ?? firstPayload.items?.length ?? 0);
     const threshold = resolveServerDrivenThreshold(context);
     const firstPageCount = firstPayload.items?.length ?? 0;

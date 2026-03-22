@@ -41,6 +41,7 @@ export interface IInputs {
     searchTrigger: ComponentFramework.PropertyTypes.StringProperty;
     allowColumnReorder: ComponentFramework.PropertyTypes.TwoOptionsProperty;
     perfLogsEnabled: ComponentFramework.PropertyTypes.TwoOptionsProperty;
+    debugConsole: ComponentFramework.PropertyTypes.TwoOptionsProperty;
 }
 export interface IOutputs {
     selectedTaskId?: string;

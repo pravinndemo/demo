@@ -33,7 +33,7 @@ describe('WRT-205 Sales Verification Complete/Submit AC', () => {
   });
 
   test('AC3: mandatory validation prompt and required field checks are enforced before complete/submit', () => {
-    expect(sectionSource).toContain('Please ensure all mandatory fields are completed');
+    expect(sectionSource).toContain('Please complete the following mandatory fields');
     expect(sectionSource).toContain("'Select whether the sale is useful or not'");
     expect(sectionSource).toContain("'Enter why the sale is not useful'");
     expect(sectionSource).toContain('const SALES_PARTICULAR_REQUIRED_FIELDS');

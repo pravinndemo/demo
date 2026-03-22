@@ -207,6 +207,7 @@ export const SalesVerificationSection: React.FC<SalesVerificationSectionProps> =
   const [qcOutcomeRemarks, setQcOutcomeRemarks] = React.useState(model.qcRemark);
   const [qcOutcomeSelectionError, setQcOutcomeSelectionError] = React.useState<string | undefined>(undefined);
   const [qcOutcomeRemarksError, setQcOutcomeRemarksError] = React.useState<string | undefined>(undefined);
+  const [actionError, setActionError] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {
     setIsSaleUsefulKey(toUsefulKey(model.isSaleUseful));
@@ -221,8 +222,15 @@ export const SalesVerificationSection: React.FC<SalesVerificationSectionProps> =
     setSubmitForQcRemarksError(undefined);
     setQcOutcomeSelectionError(undefined);
     setQcOutcomeRemarksError(undefined);
+    setActionError(undefined);
     setShowSubmitForQcDialog(false);
   }, [model]);
+
+  // Also clear mandatory errors when cross-section props change (fixes stale
+  // "select the value" errors after Submit for QC → OK → refresh → resubmit).
+  React.useEffect(() => {
+    setMandatoryErrorMessages([]);
+  }, [salesParticularModel, padConfirmationKey]);
 
   const isNotUseful = isSaleUsefulKey === 'no';
   const maxNotesLength = 2000;
@@ -356,9 +364,15 @@ export const SalesVerificationSection: React.FC<SalesVerificationSectionProps> =
       return;
     }
 
+    setActionError(undefined);
     setBusyAction('complete');
     try {
       await Promise.resolve(onCompleteTask(payload));
+      setMandatoryErrorMessages([]);
+      setIsSaleUsefulError(undefined);
+      setWhyNotUsefulError(undefined);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to complete sales verification task.');
     } finally {
       setBusyAction(undefined);
     }
@@ -396,6 +410,7 @@ export const SalesVerificationSection: React.FC<SalesVerificationSectionProps> =
       return;
     }
 
+    setActionError(undefined);
     setBusyAction('submit');
     try {
       await Promise.resolve(onSubmitForQc({
@@ -404,6 +419,11 @@ export const SalesVerificationSection: React.FC<SalesVerificationSectionProps> =
       }));
       setShowSubmitForQcDialog(false);
       setSubmitForQcRemarksError(undefined);
+      setMandatoryErrorMessages([]);
+      setIsSaleUsefulError(undefined);
+      setWhyNotUsefulError(undefined);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to submit sales verification task for QC.');
     } finally {
       setBusyAction(undefined);
     }
@@ -435,6 +455,7 @@ export const SalesVerificationSection: React.FC<SalesVerificationSectionProps> =
 
     setQcOutcomeSelectionError(undefined);
     setQcOutcomeRemarksError(undefined);
+    setActionError(undefined);
     setBusyAction('qcsubmit');
     try {
       await Promise.resolve(onSubmitQcOutcome({
@@ -442,6 +463,8 @@ export const SalesVerificationSection: React.FC<SalesVerificationSectionProps> =
         qcRemark: normalizedRemarks,
         qcReviewedBy: reviewedBy,
       }));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to submit QC outcome.');
     } finally {
       setBusyAction(undefined);
     }
@@ -549,9 +572,27 @@ export const SalesVerificationSection: React.FC<SalesVerificationSectionProps> =
         </div>
       </div>
 
+      {actionError && (
+        <MessageBar
+          messageBarType={MessageBarType.error}
+          className="voa-sales-verification-mandatory"
+          role="alert"
+          onDismiss={() => setActionError(undefined)}
+          dismissButtonAriaLabel="Close"
+        >
+          {actionError}
+        </MessageBar>
+      )}
+
       {mandatoryErrorMessages.length > 0 && (
-        <MessageBar messageBarType={MessageBarType.error} className="voa-sales-verification-mandatory" role="alert">
-          <div>Please ensure all mandatory fields are completed</div>
+        <MessageBar
+          messageBarType={MessageBarType.warning}
+          className="voa-sales-verification-mandatory"
+          role="alert"
+          onDismiss={() => setMandatoryErrorMessages([])}
+          dismissButtonAriaLabel="Close"
+        >
+          <strong>Please complete the following mandatory fields:</strong>
           <ul className="voa-sales-verification-mandatory__list">
             {mandatoryErrorMessages.map((error) => (
               <li key={error}>{error}</li>
@@ -687,13 +728,15 @@ export const SalesVerificationSection: React.FC<SalesVerificationSectionProps> =
           subText: 'Remarks are mandatory before submitting this task for Quality Control.',
         }}
         modalProps={{ isBlocking: true }}
+        minWidth={560}
+        maxWidth={640}
       >
         <TextField
           id="voa-submit-qc-remarks"
           label="Remarks"
           value={qcRemarks}
           multiline
-          rows={4}
+          rows={6}
           required
           errorMessage={submitForQcRemarksError}
           onChange={(_, nextValue) => {

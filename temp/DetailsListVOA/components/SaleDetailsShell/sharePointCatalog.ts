@@ -1,4 +1,5 @@
 import { SalesParticularReferenceImageViewModel, SharePointCatalogChunks } from './types';
+import { svtDebug } from '../../utils/debug';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -171,6 +172,7 @@ export const buildReferenceImagesFromSharePointChunks = (
   chunks?: SharePointCatalogChunks,
 ): SalesParticularReferenceImageViewModel[] => {
   if (!chunks) {
+    svtDebug.log('SharePoint', 'buildReferenceImagesFromSharePointChunks — no chunks provided');
     return [];
   }
 
@@ -182,11 +184,20 @@ export const buildReferenceImagesFromSharePointChunks = (
     ...parseRecordArray(chunks.recordsJson2),
   ];
 
+  svtDebug.log('SharePoint', 'buildReferenceImagesFromSharePointChunks', {
+    optionsJsonLength: chunks.optionsJson?.length ?? 0,
+    records1Length: chunks.recordsJson1?.length ?? 0,
+    records2Length: chunks.recordsJson2?.length ?? 0,
+    parsedRows: rows.length,
+  });
+
   if (rows.length === 0) {
     return [];
   }
 
-  return buildReferencesFromRows(rows);
+  const result = buildReferencesFromRows(rows);
+  svtDebug.log('SharePoint', `Built ${result.length} reference images`);
+  return result;
 };
 
 

@@ -31,6 +31,14 @@ export class DetailsListVOA implements ComponentFramework.ReactControl<IInputs, 
       // ignore
     }
 
+    try {
+      const raw = (context.parameters as unknown as Record<string, { raw?: boolean | string }>).debugConsole?.raw;
+      const enabled = raw === true || String(raw ?? '').toLowerCase() === 'true';
+      (globalThis as unknown as { SVT_DEBUG?: boolean }).SVT_DEBUG = enabled;
+    } catch {
+      // ignore
+    }
+
     const pcfViewSalesEnabled = this.runtime.isPcfViewSalesDetailsEnabledFlag();
     this.runtime.syncPcfViewSalesEnabled(pcfViewSalesEnabled);
 

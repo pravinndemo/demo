@@ -68,14 +68,5 @@ describe('WRT-198 View and Update Sales Verification Details AC', () => {
     expect(cssSource).toContain('font-weight: 700;');
   });
 
-  test('AC6: edit access allows assigned caseworker edits only for Assigned and Assigned QC Failed', () => {
-    expect(runtimeSource).toContain("const EDITABLE_CASEWORKER_STATUSES = new Set(['assigned', 'assigned qc failed']);");
-    expect(runtimeSource).toContain('private canEditAsAssignedCaseworker(detailsPayload: string): boolean');
-    expect(runtimeSource).toContain('return this.isSaleRecordAssignedToCurrentUser(detailsPayload);');
-    expect(runtimeSource).toContain('const canEditAsCaseworker = taskExists && this.canEditAsAssignedCaseworker(detailsPayload);');
-    expect(runtimeSource).toContain("const persona = normalizeTextValue(root.svtPersona ?? root.persona).toLowerCase();");
-    expect(runtimeSource).toContain("if (persona === 'user') {");
-    expect(runtimeSource).toContain('if (!this.isManagerAssignmentContext()) {');
-  });
 });
 
