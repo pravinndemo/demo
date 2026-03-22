@@ -148,6 +148,19 @@ export const resolveCurrentTaskIdFromDetails = (saleDetailsJson: string, selecte
     || normalizeTaskIdValue(selectedTaskId);
 };
 
+export const resolveCurrentSaleIdFromDetails = (saleDetailsJson: string, selectedSaleId?: string): string => {
+  const root = getSaleDetailsRoot(saleDetailsJson);
+  const primaryTaskDetails = toRecord(root.salesVerificationTaskDetails);
+  const legacyTaskDetails = toRecord(root.taskDetails);
+  return normalizeTextValue(primaryTaskDetails?.saleId)
+    || normalizeTextValue(primaryTaskDetails?.saleid)
+    || normalizeTextValue(legacyTaskDetails?.saleId)
+    || normalizeTextValue(legacyTaskDetails?.saleid)
+    || normalizeTextValue(root.saleId)
+    || normalizeTextValue(root.saleid)
+    || normalizeTextValue(selectedSaleId);
+};
+
 export const resolveTaskIdForAuditLogs = (saleDetailsJson: string, selectedTaskId?: string): string => {
   const selected = normalizeTextValue(selectedTaskId);
   if (selected) {

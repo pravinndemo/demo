@@ -34,9 +34,11 @@ describe('WR-212 QC user can view sale record and update QC remarks AC', () => {
     expect(sectionSource).toContain("Character(s) remaining: {qcRemarksRemaining.toLocaleString('en-GB')}");
   });
 
-  test('AC3: submitting QC outcome writes reviewer, outcome, remarks, and timestamp', () => {
+  test('AC3: submitting QC outcome calls submit QC API then writes reviewer, outcome, remarks, and timestamp', () => {
     expect(sectionSource).toContain('onSubmitQcOutcome?: (payload: QcOutcomeActionPayload) => void | Promise<void>;');
-    expect(runtimeSource).toContain('public submitQcOutcome(payload: QcOutcomeActionPayload): void {');
+    expect(runtimeSource).toContain('public async submitQcOutcome(payload: QcOutcomeActionPayload): Promise<void> {');
+    expect(runtimeSource).toContain("'submitQcRemarksApiName'");
+    expect(runtimeSource).toContain("parseApiMutationResult(response, 'Submit QC outcome failed.')");
     expect(runtimeSource).toContain('this._saleDetails = mergeQcOutcomeDetails(this._saleDetails, payload);');
     expect(saleDetailsSource).toContain('export const mergeQcOutcomeDetails = (');
     expect(saleDetailsSource).toContain('qcOutcome,');
@@ -61,3 +63,4 @@ describe('WR-212 QC user can view sale record and update QC remarks AC', () => {
     expect(runtimeSource).toContain('private extractQcAssignedToCandidates(detailsPayload: string): string[] {');
   });
 });
+

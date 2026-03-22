@@ -23,6 +23,11 @@ export interface ModifyTaskResult {
   message: string;
 }
 
+export interface ApiMutationResult {
+  success: boolean;
+  message: string;
+}
+
 export const resolveConfiguredApiName = (
   context: ComponentFramework.Context<IInputs>,
   paramName: string,
@@ -207,6 +212,81 @@ const parseModifyTaskCandidate = (
   }
 
   return undefined;
+};
+
+const SUCCESS_HINTS = ['success', 'succeed', 'succeeded', 'ok', 'completed', 'submitted', 'updated', 'passed'];
+const FAILURE_HINTS = ['fail', 'failed', 'error', 'invalid', 'forbidden', 'denied'];
+
+const parseMutationResultCandidate = (
+  candidate: unknown,
+  depth = 0,
+): ApiMutationResult | undefined => {
+  if (depth > 6 || candidate === null || candidate === undefined) {
+    return undefined;
+  }
+
+  if (typeof candidate === 'string') {
+    const trimmed = candidate.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      return parseMutationResultCandidate(parsed, depth + 1)
+        ?? {
+          success: false,
+          message: trimmed,
+        };
+    } catch {
+      const normalized = trimmed.replace(/^['"]|['"]$/g, '').trim().toLowerCase();
+      if (SUCCESS_HINTS.some((hint) => normalized.includes(hint))) {
+        return { success: true, message: trimmed };
+      }
+
+      if (FAILURE_HINTS.some((hint) => normalized.includes(hint))) {
+        return { success: false, message: trimmed };
+      }
+
+      return { success: false, message: trimmed };
+    }
+  }
+
+  if (typeof candidate === 'object') {
+    const record = candidate as Record<string, unknown>;
+    const nested = record.Result ?? record.result ?? record.payload ?? record.message ?? record.status;
+    if (nested !== undefined) {
+      const parsedNested = parseMutationResultCandidate(nested, depth + 1);
+      if (parsedNested) {
+        return parsedNested;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(record, 'success')) {
+      return {
+        success: record.success === true,
+        message: normalizeTextValue(record.message) || normalizeTextValue(record.payload),
+      };
+    }
+  }
+
+  return undefined;
+};
+
+export const parseApiMutationResult = (response: unknown, fallbackFailureMessage: string): ApiMutationResult => {
+  const parsed = parseMutationResultCandidate(unwrapCustomApiPayload(response))
+    ?? parseMutationResultCandidate(response);
+  if (parsed) {
+    if (!parsed.success && !parsed.message) {
+      return { success: false, message: fallbackFailureMessage };
+    }
+    return parsed;
+  }
+
+  return {
+    success: false,
+    message: fallbackFailureMessage,
+  };
 };
 export const extractTaskIdFromUnknown = (value: unknown): string => {
   if (value === null || value === undefined) {

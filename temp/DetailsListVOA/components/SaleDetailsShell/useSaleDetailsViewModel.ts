@@ -31,6 +31,7 @@ import {
   parseCsvCodes,
   parseSaleDetails,
   resolveUserDisplayName,
+  isGuidLikeValue,
   toReadableLabel,
   toStatusTone,
   toUkCurrency,
@@ -409,6 +410,89 @@ const getNormalizedRecordValue = (record: SaleDetailsRecord, candidates: string[
     if (normalized) {
       return normalized;
     }
+  }
+
+  return '';
+};
+
+const ASSIGNED_TO_NAME_KEYS = [
+  'assignedToName',
+  'assignedToDisplayName',
+  'assignedToUserName',
+  'caseworkerAssignedToName',
+  'caseworkerAssignedToDisplayName',
+  'caseworkerAssignedTo',
+  'assignedTo',
+  'assignedto',
+];
+
+const ASSIGNED_TO_ID_KEYS = [
+  'assignedToUserId',
+  'assignedToId',
+  'caseworkerAssignedToUserId',
+  'caseworkerAssignedToId',
+  'assignedtouserid',
+  'assignedtoid',
+  'caseworkerassignedtouserid',
+  'caseworkerassignedtoid',
+];
+
+const QC_ASSIGNED_TO_NAME_KEYS = [
+  'qcAssignedToName',
+  'qcAssignedToDisplayName',
+  'assignedToQcName',
+  'assignedToQcDisplayName',
+  'assignedToQcUserName',
+  'assignedToQc',
+  'qcAssignedTo',
+  'qcassignedto',
+  'assignedtoqc',
+];
+
+const QC_ASSIGNED_TO_ID_KEYS = [
+  'qcAssignedToUserId',
+  'qcAssignedToId',
+  'assignedToQcUserId',
+  'assignedToQcId',
+  'qcassignedtouserid',
+  'qcassignedtoid',
+  'assignedtoqcuserid',
+  'assignedtoqcid',
+];
+
+const resolveUserDisplayFromRecord = (
+  record: SaleDetailsRecord,
+  nameKeys: string[],
+  idKeys: string[],
+): string => {
+  for (const key of nameKeys) {
+    const raw = getNormalizedRecordValue(record, [key]);
+    if (!raw) {
+      continue;
+    }
+
+    const resolved = resolveUserDisplayName(raw, SAMPLE_USER_LOOKUP).trim();
+    if (!resolved) {
+      continue;
+    }
+
+    if (!isGuidLikeValue(resolved)) {
+      return resolved;
+    }
+  }
+
+  for (const key of idKeys) {
+    const raw = getNormalizedRecordValue(record, [key]);
+    if (!raw) {
+      continue;
+    }
+
+    const resolved = resolveUserDisplayName(raw, SAMPLE_USER_LOOKUP).trim();
+    if (!resolved || isGuidLikeValue(resolved)) {
+      continue;
+    }
+
+    return resolved;
   }
 
   return '';
@@ -913,19 +997,21 @@ export const useSaleDetailsViewModel = (
     const propertyAndBandingDetails = getRecordFromKeys(details, ['propertyAndBandingDetails', 'bandingInfo']);
     const links = getRecord(details, 'links');
 
-    const saleId = formatValue(getValue(salesVerificationTaskDetails, 'saleId'));
-    const taskId = formatValue(getValue(salesVerificationTaskDetails, 'taskId'));
+    const saleId = formatValue(getNormalizedRecordValue(salesVerificationTaskDetails, ['saleId', 'saleid']));
+    const taskId = formatValue(getNormalizedRecordValue(salesVerificationTaskDetails, ['taskId', 'taskid']));
 
-    const statusText = formatValue(getValue(salesVerificationTaskDetails, 'taskStatus'));
+    const statusText = formatValue(getNormalizedRecordValue(salesVerificationTaskDetails, ['taskStatus', 'taskstatus', 'status']));
     const statusTone = toStatusTone(statusText);
 
-    const assignedTo = formatValue(resolveUserDisplayName(getValue(salesVerificationTaskDetails, 'assignedTo'), SAMPLE_USER_LOOKUP));
-    const qcAssignedTo = formatValue(resolveUserDisplayName(
-      firstNonEmpty(
-        getValue(salesVerificationTaskDetails, 'qcAssignedTo'),
-        getValue(salesVerificationTaskDetails, 'assignedToQc'),
-      ),
-      SAMPLE_USER_LOOKUP,
+    const assignedTo = formatValue(resolveUserDisplayFromRecord(
+      salesVerificationTaskDetails,
+      ASSIGNED_TO_NAME_KEYS,
+      ASSIGNED_TO_ID_KEYS,
+    ));
+    const qcAssignedTo = formatValue(resolveUserDisplayFromRecord(
+      salesVerificationTaskDetails,
+      QC_ASSIGNED_TO_NAME_KEYS,
+      QC_ASSIGNED_TO_ID_KEYS,
     ));
     const normalizeLinkValue = (value: string): string => {
       const trimmed = value.trim();

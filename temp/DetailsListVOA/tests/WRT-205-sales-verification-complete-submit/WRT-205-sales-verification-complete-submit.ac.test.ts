@@ -22,9 +22,12 @@ describe('WRT-205 Sales Verification Complete/Submit AC', () => {
     expect(sectionSource).toContain('aria-label="Sales verification actions"');
   });
 
-  test('AC2: complete action uses complete task runtime path and sets complete status merge rule', () => {
+  test('AC2: complete action uses submit API path and sets complete status merge rule', () => {
     expect(runtimeSource).toContain("type: 'completeSalesVerificationTask' | 'submitSalesVerificationTaskForQc'");
-    expect(runtimeSource).toContain('this._saleDetails = mergeSalesVerificationDetails(this._saleDetails, payload, type);');
+    expect(runtimeSource).toContain('const nextSaleDetails = mergeSalesVerificationDetails(this._saleDetails, payload, type);');
+    expect(runtimeSource).toContain('this._saleDetails = nextSaleDetails;');
+    expect(runtimeSource).toContain("'submitSalesVerificationApiName'");
+    expect(runtimeSource).toContain("parseApiMutationResult(response, 'Submit sales verification task failed.')");
     expect(saleDetailsSource).toContain("if (actionType === 'completeSalesVerificationTask') {");
     expect(saleDetailsSource).toContain("return 'Complete';");
   });
@@ -79,3 +82,4 @@ describe('WRT-205 Sales Verification Complete/Submit AC', () => {
     expect(viewModelSource).toContain('.sort((left, right) => right.sortValue - left.sortValue)');
   });
 });
+

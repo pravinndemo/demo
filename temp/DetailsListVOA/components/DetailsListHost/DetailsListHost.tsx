@@ -1696,9 +1696,17 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   };
 
   const resolveCustomApiTypeForAssign = (): number => {
-    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).customApiType?.raw;
+    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).taskAssignmentApiType?.raw;
     const fromContext = typeof raw === 'string' ? raw : undefined;
-    return resolveCustomApiOperationType(fromContext ?? CONTROL_CONFIG.customApiType);
+    const fallback = CONTROL_CONFIG.taskAssignmentApiType ?? CONTROL_CONFIG.customApiType;
+    return resolveCustomApiOperationType(fromContext ?? fallback);
+  };
+
+  const resolveSubmitQcRemarksApiType = (): number => {
+    const raw = (context.parameters as unknown as Record<string, { raw?: string }>).submitQcRemarksApiType?.raw;
+    const fromContext = typeof raw === 'string' ? raw : undefined;
+    const fallback = CONTROL_CONFIG.submitQcRemarksApiType ?? CONTROL_CONFIG.customApiType;
+    return resolveCustomApiOperationType(fromContext ?? fallback);
   };
 
   function resolveAssignableUsersApiName(): string {
@@ -2070,7 +2078,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
         return;
       }
       const reviewedBy = resolveAssignedByUserId(context);
-      const customApiType = resolveCustomApiOperationType('action');
+      const customApiType = resolveSubmitQcRemarksApiType();
       const qcParams: Record<string, string> = {
         taskId: JSON.stringify(uniqueTaskIds),
         qcOutcome: markPassedQcText.qcOutcome,
@@ -2323,4 +2331,5 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
 };
 
 DetailsListHost.displayName = 'DetailsListHost';
+
 

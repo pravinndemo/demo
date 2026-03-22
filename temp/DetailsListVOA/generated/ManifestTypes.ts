@@ -14,14 +14,19 @@ export interface IInputs {
     userContextApiName: ComponentFramework.PropertyTypes.StringProperty;
     userContextApiType: ComponentFramework.PropertyTypes.StringProperty;
     taskAssignmentApiName: ComponentFramework.PropertyTypes.StringProperty;
+    taskAssignmentApiType: ComponentFramework.PropertyTypes.StringProperty;
     submitQcRemarksApiName: ComponentFramework.PropertyTypes.StringProperty;
+    submitQcRemarksApiType: ComponentFramework.PropertyTypes.StringProperty;
     viewSaleRecordApiName: ComponentFramework.PropertyTypes.StringProperty;
+    viewSaleRecordApiType: ComponentFramework.PropertyTypes.StringProperty;
     auditLogsApiName: ComponentFramework.PropertyTypes.StringProperty;
     auditLogsApiType: ComponentFramework.PropertyTypes.StringProperty;
     manualTaskCreationApiName: ComponentFramework.PropertyTypes.StringProperty;
     manualTaskCreationApiType: ComponentFramework.PropertyTypes.StringProperty;
     modifyTaskApiName: ComponentFramework.PropertyTypes.StringProperty;
     modifyTaskApiType: ComponentFramework.PropertyTypes.StringProperty;
+    submitSalesVerificationApiName: ComponentFramework.PropertyTypes.StringProperty;
+    submitSalesVerificationApiType: ComponentFramework.PropertyTypes.StringProperty;
     enablePcfViewSalesDetails: ComponentFramework.PropertyTypes.TwoOptionsProperty;
     pageSize: ComponentFramework.PropertyTypes.WholeNumberProperty;
     serverDrivenThreshold: ComponentFramework.PropertyTypes.WholeNumberProperty;
@@ -44,6 +49,4 @@ export interface IOutputs {
     selectedCount?: number;
     backRequestId?: string;
 }
-
-
 

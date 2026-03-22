@@ -42,9 +42,9 @@ interface DetailsListControlShellProps {
   onDetailsRefresh: () => Promise<void>;
   onCreateManualTask: (saleId: string) => Promise<void>;
   onModifySvtTask: () => Promise<void>;
-  onCompleteSalesVerificationTask: (payload: SalesVerificationActionPayload) => void;
-  onSubmitSalesVerificationTaskForQc: (payload: SalesVerificationActionPayload) => void;
-  onSubmitQcOutcome: (payload: QcOutcomeActionPayload) => void;
+  onCompleteSalesVerificationTask: (payload: SalesVerificationActionPayload) => void | Promise<void>;
+  onSubmitSalesVerificationTaskForQc: (payload: SalesVerificationActionPayload) => void | Promise<void>;
+  onSubmitQcOutcome: (payload: QcOutcomeActionPayload) => void | Promise<void>;
   onOpenQcLog: () => Promise<void>;
   onOpenAuditHistory: () => Promise<void>;
 }
@@ -183,6 +183,7 @@ export const DetailsListControlShell: React.FC<DetailsListControlShellProps> = (
     </PCFContext.Provider>
   );
 };
+
 
 
 

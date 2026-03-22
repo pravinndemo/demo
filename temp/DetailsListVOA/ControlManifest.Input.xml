@@ -155,6 +155,15 @@
       default-value="voa_SvtTaskAssignment"
     />
     <property
+      name="taskAssignmentApiType"
+      display-name-key="Task Assignment API Type"
+      description-key="Custom API operation type for task assignment: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="action"
+    />
+    <property
       name="submitQcRemarksApiName"
       display-name-key="Submit QC Remarks API Name"
       description-key="Name of the Dataverse Custom API used to submit QC remarks and mark tasks as passed QC (e.g., voa_SvtSubmitQcRemarks)."
@@ -164,6 +173,15 @@
       default-value="voa_SvtSubmitQcRemarks"
     />
     <property
+      name="submitQcRemarksApiType"
+      display-name-key="Submit QC Remarks API Type"
+      description-key="Custom API operation type for submit QC remarks: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="action"
+    />
+    <property
       name="viewSaleRecordApiName"
       display-name-key="View Sale Record API Name"
       description-key="Name of the Dataverse Custom API used to fetch sale details by ID (e.g., voa_GetViewSaleRecordById)."
@@ -171,6 +189,15 @@
       usage="input"
       required="false"
       default-value="voa_GetViewSaleRecordById"
+    />
+    <property
+      name="viewSaleRecordApiType"
+      display-name-key="View Sale Record API Type"
+      description-key="Custom API operation type for view sale record: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="function"
     />
     <property
       name="auditLogsApiName"
@@ -221,6 +248,24 @@
       name="modifyTaskApiType"
       display-name-key="Modify Task API Type"
       description-key="Custom API operation type for modify task: function (GET) or action (POST)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="action"
+    />
+    <property
+      name="submitSalesVerificationApiName"
+      display-name-key="Submit Sales Verification API Name"
+      description-key="Name of the Dataverse Custom API used to submit sales verification task updates (e.g., voa_SvtSubmitSalesVerification)."
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false"
+      default-value="voa_SvtSubmitSalesVerification"
+    />
+    <property
+      name="submitSalesVerificationApiType"
+      display-name-key="Submit Sales Verification API Type"
+      description-key="Custom API operation type for submit sales verification: function (GET) or action (POST)."
       of-type="SingleLine.Text"
       usage="input"
       required="false"
@@ -319,18 +364,4 @@
     </feature-usage>
   </control>
 </manifest>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
