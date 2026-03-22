@@ -464,14 +464,16 @@ const resolveUserDisplayFromRecord = (
   record: SaleDetailsRecord,
   nameKeys: string[],
   idKeys: string[],
+  lookup?: Record<string, string>,
 ): string => {
+  const effectiveLookup = lookup && Object.keys(lookup).length > 0 ? lookup : SAMPLE_USER_LOOKUP;
   for (const key of nameKeys) {
     const raw = getNormalizedRecordValue(record, [key]);
     if (!raw) {
       continue;
     }
 
-    const resolved = resolveUserDisplayName(raw, SAMPLE_USER_LOOKUP).trim();
+    const resolved = resolveUserDisplayName(raw, effectiveLookup).trim();
     if (!resolved) {
       continue;
     }
@@ -487,7 +489,7 @@ const resolveUserDisplayFromRecord = (
       continue;
     }
 
-    const resolved = resolveUserDisplayName(raw, SAMPLE_USER_LOOKUP).trim();
+    const resolved = resolveUserDisplayName(raw, effectiveLookup).trim();
     if (!resolved || isGuidLikeValue(resolved)) {
       continue;
     }
@@ -899,7 +901,9 @@ const mapAuditHistoryModel = (
   payload: SaleDetailsRecord,
   fallbackTaskId: string,
   fallbackRecords: SaleDetailsRecord[],
+  lookup?: Record<string, string>,
 ): AuditHistoryViewModel => {
+  const effectiveLookup = lookup && Object.keys(lookup).length > 0 ? lookup : SAMPLE_USER_LOOKUP;
   const taskId = formatValue(firstNonEmpty(getValue(payload, 'taskId'), fallbackTaskId));
   const errorMessage = toEditableInput(firstNonEmpty(getValue(payload, 'errorMessage'), getValue(payload, 'message')));
 
@@ -917,7 +921,7 @@ const mapAuditHistoryModel = (
       const parsedChangedOn = parseAuditDateTime(changedOnRaw);
 
       const changeId = formatValue(firstNonEmpty(getValue(record, 'changeID'), getValue(record, 'changeId'), `${index + 1}`));
-      const changedBy = formatValue(resolveUserDisplayName(getValue(record, 'changedBy'), SAMPLE_USER_LOOKUP));
+      const changedBy = formatValue(resolveUserDisplayName(getValue(record, 'changedBy'), effectiveLookup));
       const changedOn = formatValue(toUkDateTime(changedOnRaw));
       const eventType = formatValue(getValue(record, 'eventType'));
       const changes = mapAuditFieldChanges(record);
@@ -977,6 +981,7 @@ export const useSaleDetailsViewModel = (
   sharePointCatalogChunks?: SharePointCatalogChunks,
   fxEnvironmentUrl?: string,
   vmsBaseUrl?: string,
+  userLookup?: Record<string, string>,
 ): SaleDetailsViewModel => {
   const detailsFromPayload = React.useMemo(() => parseSaleDetails(saleDetailsJson), [saleDetailsJson]);
 
@@ -993,6 +998,7 @@ export const useSaleDetailsViewModel = (
   );
 
   return React.useMemo(() => {
+    const effectiveLookup = userLookup && Object.keys(userLookup).length > 0 ? userLookup : SAMPLE_USER_LOOKUP;
     const salesVerificationTaskDetails = getRecordFromKeys(details, ['salesVerificationTaskDetails', 'taskDetails']);
     const propertyAndBandingDetails = getRecordFromKeys(details, ['propertyAndBandingDetails', 'bandingInfo']);
     const links = getRecord(details, 'links');
@@ -1007,11 +1013,13 @@ export const useSaleDetailsViewModel = (
       salesVerificationTaskDetails,
       ASSIGNED_TO_NAME_KEYS,
       ASSIGNED_TO_ID_KEYS,
+      effectiveLookup,
     ));
     const qcAssignedTo = formatValue(resolveUserDisplayFromRecord(
       salesVerificationTaskDetails,
       QC_ASSIGNED_TO_NAME_KEYS,
       QC_ASSIGNED_TO_ID_KEYS,
+      effectiveLookup,
     ));
     const normalizeLinkValue = (value: string): string => {
       const trimmed = value.trim();
@@ -1511,14 +1519,14 @@ export const useSaleDetailsViewModel = (
       remarks: toEditableInput(getValue(salesVerificationDetails, 'remarks')),
       qcOutcome: toEditableInput(getValue(qualityControlOutcome, 'qcOutcome')),
       qcRemark: toEditableInput(getValue(qualityControlOutcome, 'qcRemark')),
-      qcReviewedBy: formatValue(resolveUserDisplayName(getValue(qualityControlOutcome, 'qcReviewedBy'), SAMPLE_USER_LOOKUP)),
+      qcReviewedBy: formatValue(resolveUserDisplayName(getValue(qualityControlOutcome, 'qcReviewedBy'), effectiveLookup)),
     };
 
     const mainAuditHistorySource = resolveAuditPayload(details, 'main');
     const qcAuditHistorySource = resolveAuditPayload(details, 'qc');
 
-    const mainAuditHistory = mapAuditHistoryModel(mainAuditHistorySource.payload, taskId, mainAuditHistorySource.historyRecords);
-    const qcAuditHistory = mapAuditHistoryModel(qcAuditHistorySource.payload, taskId, qcAuditHistorySource.historyRecords);
+    const mainAuditHistory = mapAuditHistoryModel(mainAuditHistorySource.payload, taskId, mainAuditHistorySource.historyRecords, effectiveLookup);
+    const qcAuditHistory = mapAuditHistoryModel(qcAuditHistorySource.payload, taskId, qcAuditHistorySource.historyRecords, effectiveLookup);
 
     return {
       saleId,
@@ -1553,7 +1561,7 @@ export const useSaleDetailsViewModel = (
       mainAuditHistory,
       qcAuditHistory,
     } as SaleDetailsViewModel;
-  }, [chunkedReferenceImages, details, fxEnvironmentUrl, vmsBaseUrl]);
+  }, [chunkedReferenceImages, details, fxEnvironmentUrl, userLookup, vmsBaseUrl]);
 };
 
 

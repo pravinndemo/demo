@@ -96,6 +96,7 @@ export interface SaleDetailsShellProps {
   showQcSection?: boolean;
   currentUserDisplayName?: string;
   loading?: boolean;
+  userLookup?: Record<string, string>;
   onBack: () => void;
   onRefresh: () => void | Promise<void>;
   onCreateManualTask?: (saleId: string) => void | Promise<void>;

@@ -30,6 +30,7 @@ export const SaleDetailsShell: React.FC<SaleDetailsShellProps> = ({
   showQcSection = true,
   currentUserDisplayName = '',
   loading = false,
+  userLookup,
   onBack,
   onRefresh,
   onCreateManualTask,
@@ -40,7 +41,7 @@ export const SaleDetailsShell: React.FC<SaleDetailsShellProps> = ({
   onOpenQcLog,
   onOpenAuditHistory,
 }) => {
-  const model = useSaleDetailsViewModel(saleDetailsJson, sharePointCatalogChunks, fxEnvironmentUrl, vmsBaseUrl);
+  const model = useSaleDetailsViewModel(saleDetailsJson, sharePointCatalogChunks, fxEnvironmentUrl, vmsBaseUrl, userLookup);
   const refreshActionRule = React.useMemo(() => getRefreshActionRule({ loading }), [loading]);
   const [salesParticularDraft, setSalesParticularDraft] = React.useState<SalesParticularDraftPayload>({
     reviewStatusKey: model.salesParticular.reviewStatusKey,

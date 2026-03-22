@@ -93,6 +93,11 @@ export const DetailsListControlShell: React.FC<DetailsListControlShellProps> = (
     [context, onRowInvoke, onSelectionChange, onSelectionCountChange],
   );
 
+  const [userDisplayNameMap, setUserDisplayNameMap] = React.useState<Record<string, string>>({});
+  const handleUserDisplayNameMapChange = React.useCallback((map: Record<string, string>) => {
+    setUserDisplayNameMap(map);
+  }, []);
+
   const gridElement = React.useMemo(
     () => (
       useManagerJourney
@@ -109,10 +114,11 @@ export const DetailsListControlShell: React.FC<DetailsListControlShellProps> = (
             onBackRequested={onBackToCanvas}
             countryOverride={requestContext.country}
             listYearOverride={requestContext.listYear}
+            onUserDisplayNameMapChange={handleUserDisplayNameMapChange}
           />
         )
     ),
-    [onBackToCanvas, onContextChange, requestContext.country, requestContext.listYear, sharedHostProps, useManagerJourney],
+    [handleUserDisplayNameMapChange, onBackToCanvas, onContextChange, requestContext.country, requestContext.listYear, sharedHostProps, useManagerJourney],
   );
 
   const detailElement = React.useMemo(
@@ -131,6 +137,7 @@ export const DetailsListControlShell: React.FC<DetailsListControlShellProps> = (
         showQcSection={saleDetailsShowQcSection}
         currentUserDisplayName={currentUserDisplayName}
         loading={loading}
+        userLookup={userDisplayNameMap}
         onBack={onDetailsBack}
         onRefresh={onDetailsRefresh}
         onCreateManualTask={onCreateManualTask}
@@ -165,6 +172,7 @@ export const DetailsListControlShell: React.FC<DetailsListControlShellProps> = (
       saleDetailsCanSubmitQcOutcome,
       saleDetailsShowQcSection,
       currentUserDisplayName,
+      userDisplayNameMap,
     ],
   );
 

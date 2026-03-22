@@ -47,6 +47,8 @@ export interface DetailsListHostProps {
   // Optional global request context overrides.
   countryOverride?: string;
   listYearOverride?: string;
+  // Expose the GUID→display-name map so sibling components (e.g. SaleDetailsShell) can resolve user names.
+  onUserDisplayNameMapChange?: (map: Record<string, string>) => void;
 }
 
 type ColumnFilterValue = string | string[] | NumericFilter | DateRangeFilter;
@@ -271,6 +273,7 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
   tableKeyOverride,
   countryOverride,
   listYearOverride,
+  onUserDisplayNameMapChange,
 }) => {
   // Parse basic params
   const pageSize = (context.parameters as unknown as Record<string, { raw?: number }>).pageSize?.raw ?? 500;
@@ -751,6 +754,11 @@ export const DetailsListHost: React.FC<DetailsListHostProps> = ({
     return map;
   }, [assignableUsersCache, getUserDisplayName]);
   const hasUserDisplayNameMap = React.useMemo(() => Object.keys(userDisplayNameMap).length > 0, [userDisplayNameMap]);
+  React.useEffect(() => {
+    if (onUserDisplayNameMapChange && hasUserDisplayNameMap) {
+      onUserDisplayNameMapChange(userDisplayNameMap);
+    }
+  }, [userDisplayNameMap, hasUserDisplayNameMap, onUserDisplayNameMapChange]);
   const mapUserIdToDisplay = React.useCallback((value: string): string => {
     const raw = String(value ?? '').trim();
     if (!raw) return raw;
